@@ -37,7 +37,7 @@ const bridge = createBridge({
     play: (d) => play(d.reaction, { text: d.text }),
     say: (d) => say(String(d.text ?? ''), Number(d.duration) || 3000),
     reset: () => controls?.reset(),
-    setLook: (d) => { setLook(d.look || {}); customizer?.render(); },
+    setLook: (d) => setLook(d.look || {}),
     openTab: (d) => openTab(d.tab),
     startGame: (d) => { if (openTab('play')) games?.startGame(d.game); },
   },
@@ -139,12 +139,13 @@ function initialLook() {
 
 let lookEventTimer;
 /** Change the avatar's look. `partial` may contain any key of DEFAULT_LOOK. */
-function setLook(partial, { reaction, heightOnly } = {}) {
+function setLook(partial, { reaction, heightOnly, fromPanel } = {}) {
   look = enforceUnlocks(sanitizeLook({ ...look, ...partial }), getCoins());
   if (avatar) {
     applyHeight();
     if (!heightOnly && avatar.supportsStyle) avatar.setStyle(look);
   }
+  if (!fromPanel) customizer?.render(); // keep the Style panel in sync with API/host changes
   if (cfg.persist) saveLook(look);
   clearTimeout(lookEventTimer);
   lookEventTimer = setTimeout(() => bridge.emit('look', { look }), 250);
@@ -270,7 +271,7 @@ function buildDock() {
     customizer = createCustomizer($('panel-style'), {
       lang: cfg.lang,
       getLook: () => look,
-      setLook,
+      setLook: (partial, opts = {}) => setLook(partial, { ...opts, fromPanel: true }),
       getCoins,
       supportsStyle: () => !!avatar?.supportsStyle,
     });

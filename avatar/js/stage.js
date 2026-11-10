@@ -67,7 +67,7 @@ export function createStage(container, cfg) {
 
   // Framing: keep a box of FRAME_W × FRAME_H metres visible at any aspect ratio.
   const FRAME_H = 2.65; // room for tall avatars + jumps
-  const FRAME_W = 1.7;
+  const FRAME_W = 2.0; // wide enough for arms spread during the celebration
   const TARGET = new THREE.Vector3(0, 1.14, 0);
   function resize() {
     const w = container.clientWidth || 1;
