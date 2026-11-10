@@ -41,7 +41,7 @@
     <!-- Option B: helper script, platform UI drives the avatar -->
     <section class="card">
       <h2>Option B – helper + your own UI</h2>
-      <p>Avatar buttons hidden (<code>ui: false</code>); the platform triggers reactions from its own events.</p>
+      <p>Only the Style + Play tabs (<code>tabs: 'style,play'</code>); the platform also drives the avatar from its own events.</p>
       <div id="helper-avatar" style="border-radius:16px; overflow:hidden;"></div>
       <div style="margin-top:12px">
         <strong>Savings goal: new phone</strong>
@@ -52,6 +52,8 @@
         <button id="hello">Say hi 👋</button>
         <button id="hmm">Unclear payment 🤷</button>
         <button id="reset">Reset rotation</button>
+        <button id="quiz">Start money quiz 🧠</button>
+        <button id="outfit">Summer outfit ☀️</button>
       </div>
       <h2 style="margin-top:16px">Events from the avatar</h2>
       <pre id="log"></pre>
@@ -62,8 +64,8 @@
   <script>
     const avatar = SparkasseAvatar.mount('#helper-avatar', {
       src: '../avatar/index.html',
-      height: 420,
-      params: { ui: false, autoGreet: false, bg: 'transparent', lang: 'en' },
+      height: 560,
+      params: { tabs: 'style,play', tab: 'play', autoGreet: false, bg: 'transparent', lang: 'en' },
     });
     const log = document.getElementById('log');
     avatar.on('*', (e) => { log.textContent = JSON.stringify(e) + '\n' + log.textContent; });
@@ -76,6 +78,10 @@
     document.getElementById('hello').onclick = () => avatar.play('greet');
     document.getElementById('hmm').onclick = () => avatar.play('shrug', { text: 'Let’s check that payment together.' });
     document.getElementById('reset').onclick = () => avatar.reset();
+    document.getElementById('quiz').onclick = () => avatar.startGame('quiz');
+    document.getElementById('outfit').onclick = () => avatar.setLook({ top: 'tee', topColor: '#ffd23f', bottom: 'shorts', bottomColor: '#c8b89a', glasses: true });
+    // React to game results, e.g. award points in the platform:
+    avatar.on('game', (e) => { if (e.phase === 'end') console.log(`Quiz finished: ${e.score}/${e.total}`); });
   </script>
 </body>
 </html>

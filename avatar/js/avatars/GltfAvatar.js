@@ -29,6 +29,7 @@ export class GltfAvatar {
   constructor(gltf, opts) {
     this.object3d = new THREE.Group();
     this.object3d.name = 'GltfAvatar';
+    this.supportsStyle = false; // outfit options only exist for the placeholder; height still works
     this.motion = new THREE.Group(); // procedural root motion (fallbacks)
     this.object3d.add(this.motion);
 

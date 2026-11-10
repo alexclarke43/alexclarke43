@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import { DEFAULT_LOOK, GOLD } from '../look.js';
 
 /**
  * Built-in stylised character made from primitives, so the prototype works without
- * any 3D asset. Look: oversized brand-red hoodie, wide cargo pants, chunky sneakers,
- * curly top, headphones around the neck, silver earring.
+ * any 3D asset. Fully customisable via setStyle(): 5 hair styles, 3 tops, 4 bottoms,
+ * colours and extras (glasses, headphones, earring, chain). Default look: brand-red
+ * hoodie, cargo pants, chunky sneakers, curly top, headphones, silver earring.
  *
  * Animation is procedural: every frame we compute an "idle" pose plus an optional
  * reaction pose (offsets from the rest pose) and cross-fade between them.
@@ -23,8 +25,10 @@ const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const LEG = 0.435; // thigh / shin length (approx.) used for crouch maths
 
 export class PlaceholderAvatar {
-  constructor(opts) {
+  constructor(opts, style = {}) {
     this.opts = opts;
+    this.style = { ...DEFAULT_LOOK, ...style };
+    this.supportsStyle = true;
     this.object3d = new THREE.Group();
     this.object3d.name = 'PlaceholderAvatar';
     this.joints = {};
@@ -37,8 +41,8 @@ export class PlaceholderAvatar {
     this.final = {};            // last applied channel values
     this.from = null;           // snapshot for cross-fades
     this.fade = 1;              // 0..1 cross-fade progress
-    this.look = new THREE.Vector2();
-    this.lookTarget = new THREE.Vector2();
+    this.gaze = new THREE.Vector2();
+    this.gazeTarget = new THREE.Vector2();
     this.blinkIn = 1.5;
     this.blinkT = -1;
 
@@ -55,7 +59,7 @@ export class PlaceholderAvatar {
     return motion.duration;
   }
 
-  setLookTarget(x, y) { this.lookTarget.set(x, y); }
+  setLookTarget(x, y) { this.gazeTarget.set(x, y); }
 
   update(dt) {
     this.time += dt;
@@ -100,8 +104,8 @@ export class PlaceholderAvatar {
 
     // 4. Look-at (pointer) – eased, weighted down during big reactions
     const k = 1 - Math.exp(-6 * dt);
-    this.look.x += (this.lookTarget.x - this.look.x) * k;
-    this.look.y += (this.lookTarget.y - this.look.y) * k;
+    this.gaze.x += (this.gazeTarget.x - this.gaze.x) * k;
+    this.gaze.y += (this.gazeTarget.y - this.gaze.y) * k;
     this._lookWeight = (this._lookWeight ?? 1) + (lookWeight - (this._lookWeight ?? 1)) * k;
 
     this._apply(out, dt);
@@ -136,9 +140,9 @@ export class PlaceholderAvatar {
 
     // Pointer look-at on top of everything
     const lw = this._lookWeight;
-    J.head.rotation.y += this.look.x * 0.55 * lw;
-    J.head.rotation.x += -this.look.y * 0.3 * lw;
-    J.neck.rotation.y += this.look.x * 0.2 * lw;
+    J.head.rotation.y += this.gaze.x * 0.55 * lw;
+    J.head.rotation.x += -this.gaze.y * 0.3 * lw;
+    J.neck.rotation.y += this.gaze.x * 0.2 * lw;
 
     // --- Face ---
     const f = (key) => p[key] ?? FACE_DEFAULTS[key] ?? 0;
@@ -162,8 +166,8 @@ export class PlaceholderAvatar {
     P.eyeL.scale.y = Math.max(0.07, open * (1 - wink * 0.93));
     P.eyeR.scale.y = Math.max(0.07, open);
 
-    const ex = f('face.eyeX') + this.look.x * 0.8 * lw;
-    const ey = f('face.eyeY') + this.look.y * 0.6 * lw;
+    const ex = f('face.eyeX') + this.gaze.x * 0.8 * lw;
+    const ey = f('face.eyeY') + this.gaze.y * 0.6 * lw;
     for (const iris of [P.irisL, P.irisR]) iris.position.set(ex * 0.009, ey * 0.008, iris.position.z);
 
     const brow = f('face.brow');
@@ -185,30 +189,58 @@ export class PlaceholderAvatar {
   }
 
   // ---------------------------------------------------------------------------
-  // Modelling
+  // Modelling – everything below reads this.style (see look.js), so a new look
+  // is applied by simply rebuilding the meshes. Joint names stay the same, so
+  // running animations continue seamlessly.
+
+  /** Rebuild the character with a new look (hair, clothes, colours, extras). */
+  setStyle(style) {
+    this.style = { ...this.style, ...style };
+    this.object3d.traverse((o) => {
+      if (o.isMesh) {
+        o.geometry.dispose();
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+      }
+    });
+    this.object3d.clear();
+    this.joints = {};
+    this.rest = {};
+    this.parts = {};
+    this._build();
+    this._apply(this.final, 0);
+  }
 
   _build() {
     const o = this.opts;
-    const std = (color, roughness = 0.7, metalness = 0) =>
-      new THREE.MeshStandardMaterial({ color, roughness, metalness });
-    const primary = new THREE.Color(o.primary);
+    const S = this.style;
+    const std = (color, roughness = 0.7, metalness = 0, extra = {}) =>
+      new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
+    const topColor = new THREE.Color(S.topColor);
+    const bottomColor = new THREE.Color(S.bottomColor);
+    const goldShoes = S.shoeColor.toLowerCase() === GOLD;
     const M = {
-      skin: std(o.skin, 0.55),
-      skinShade: std(new THREE.Color(o.skin).multiplyScalar(0.88), 0.6),
-      hoodie: std(primary, 0.82),
-      hoodieDark: std(primary.clone().multiplyScalar(0.72), 0.88),
-      pants: std('#2a2a33', 0.92),
-      pantsDark: std('#202027', 0.95),
-      shoe: std('#f7f6f2', 0.5),
+      skin: std(S.skin, 0.55),
+      skinShade: std(new THREE.Color(S.skin).multiplyScalar(0.88), 0.6),
+      top: std(topColor, 0.82),
+      topDark: std(topColor.clone().multiplyScalar(0.72), 0.88),
+      rib: std('#1d1c22', 0.9),
+      bottom: std(bottomColor, 0.92),
+      bottomDark: std(bottomColor.clone().multiplyScalar(0.78), 0.95),
+      bottomLight: std(bottomColor.clone().lerp(new THREE.Color('#ffffff'), 0.25), 0.95),
+      skirt: std(bottomColor, 0.85, 0, { flatShading: true, side: THREE.DoubleSide }),
+      shoe: goldShoes ? std(GOLD, 0.28, 0.9) : std(S.shoeColor, 0.5),
       sole: std('#e9e4da', 0.65),
+      sock: std('#f4f2ee', 0.9),
       accent: std(o.accent, 0.35),
-      hair: std(o.hair, 0.82),
+      hair: std(S.hairColor, 0.82),
+      hat: std(S.hatColor, 0.95),
       white: std('#ffffff', 0.25),
       iris: std('#2e1a10', 0.4),
       pupil: std('#0c0c10', 0.2),
       dark: std('#18181d', 0.45, 0.2),
       mouth: std('#5c1f26', 0.7),
       silver: std('#e8e8ee', 0.2, 1),
+      gold: std(GOLD, 0.22, 1),
       shine: new THREE.MeshBasicMaterial({ color: 0xffffff }),
     };
 
@@ -233,28 +265,64 @@ export class PlaceholderAvatar {
     };
     const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 8, 20);
     const sph = (r, w = 28, h = 20) => new THREE.SphereGeometry(r, w, h);
-    const cyl = (rt, rb, h, s = 24) => new THREE.CylinderGeometry(rt, rb, h, s);
+    const cyl = (rt, rb, h, s = 24, open = false) => new THREE.CylinderGeometry(rt, rb, h, s, 1, open);
+    const K = { M, J, add, cap, sph, cyl };
 
     const body = J('body', this.object3d, 0, 0, 0);
     const hips = J('hips', body, 0, 0.98, 0);
+    add(hips, sph(0.2), S.bottom === 'skirt' ? M.skin : M.bottom, [0, 0.0, 0], [1.02, 0.62, 0.78]);
 
-    // --- Pelvis / pants top
-    add(hips, sph(0.2), M.pants, [0, 0.0, 0], [1.02, 0.62, 0.78]);
-
-    // --- Torso (oversized hoodie)
     const spine = J('spine', hips, 0, 0.04, 0);
-    add(spine, cap(0.205, 0.22), M.hoodie, [0, 0.235, 0], [1.1, 1, 0.8]);
-    add(spine, cyl(0.218, 0.214, 0.075, 32), M.hoodieDark, [0, -0.005, 0], [1.13, 1, 0.8]); // ribbed hem
-    add(spine, new THREE.CylinderGeometry(0.214, 0.21, 0.1, 24, 1, true, -0.62, 1.24), M.hoodieDark, [0, 0.1, 0], [1.1, 1, 0.8]); // kangaroo pocket (curved shell)
-    add(spine, new THREE.BoxGeometry(0.07, 0.026, 0.006), M.accent, [0.085, 0.4, 0.165], [1, 1, 1], [-0.25, 0.25, 0]); // small chest tag
-    // rolled hood behind the neck
-    add(spine, new THREE.TorusGeometry(0.115, 0.058, 14, 32), M.hoodieDark, [0, 0.545, -0.035], [1.15, 1, 0.95], [Math.PI / 2 - 0.25, 0, 0]);
-    // drawstrings
-    for (const sx of [-1, 1]) {
-      add(spine, cyl(0.007, 0.007, 0.17, 8), M.white, [sx * 0.045, 0.43, 0.158], [1, 1, 1], [-0.2, 0, sx * 0.05]);
-      add(spine, cyl(0.011, 0.011, 0.025, 10), M.accent, [sx * 0.049, 0.34, 0.176], [1, 1, 1], [-0.2, 0, 0]);
+    this._buildTop(spine, K);
+    if (S.headphones) this._buildHeadphones(spine, K);
+    if (S.chain) {
+      add(spine, new THREE.TorusGeometry(0.13, 0.008, 8, 48), M.gold, [0, 0.5, 0.07], [1, 1, 1], [Math.PI / 2 + 0.6, 0, 0]);
+      add(spine, cyl(0.022, 0.022, 0.006, 20), M.gold, [0, 0.415, 0.176], [1, 1, 1], [Math.PI / 2 - 0.3, 0, 0]);
     }
-    // headphones around the neck
+
+    const neck = J('neck', spine, 0, 0.53, 0);
+    add(neck, cyl(0.056, 0.064, 0.13), M.skinShade, [0, 0.04, 0]);
+    const head = J('head', neck, 0, 0.09, 0);
+    this._buildHead(head, K);
+
+    this._buildArms(spine, K);
+    this._buildLegs(hips, K);
+
+    this.headAnchor = new THREE.Object3D();
+    this.headAnchor.position.set(0, 0.4, 0);
+    head.add(this.headAnchor);
+  }
+
+  _buildTop(spine, { M, add, cap, cyl }) {
+    const S = this.style;
+    if (S.top === 'hoodie') {
+      add(spine, cap(0.205, 0.22), M.top, [0, 0.235, 0], [1.1, 1, 0.8]);
+      add(spine, cyl(0.218, 0.214, 0.075, 32), M.topDark, [0, -0.005, 0], [1.1, 1, 0.8]); // ribbed hem
+      add(spine, new THREE.CylinderGeometry(0.214, 0.21, 0.1, 24, 1, true, -0.62, 1.24), M.topDark, [0, 0.1, 0], [1.1, 1, 0.8]); // kangaroo pocket
+      add(spine, new THREE.BoxGeometry(0.07, 0.026, 0.006), M.accent, [0.085, 0.4, 0.165], [1, 1, 1], [-0.25, 0.25, 0]);
+      add(spine, new THREE.TorusGeometry(0.115, 0.058, 14, 32), M.topDark, [0, 0.545, -0.035], [1.15, 1, 0.95], [Math.PI / 2 - 0.25, 0, 0]); // hood
+      for (const sx of [-1, 1]) {
+        add(spine, cyl(0.007, 0.007, 0.17, 8), M.white, [sx * 0.045, 0.43, 0.158], [1, 1, 1], [-0.2, 0, sx * 0.05]);
+        add(spine, cyl(0.011, 0.011, 0.025, 10), M.accent, [sx * 0.049, 0.34, 0.176], [1, 1, 1], [-0.2, 0, 0]);
+      }
+    } else if (S.top === 'jacket') {
+      add(spine, cap(0.208, 0.22), M.top, [0, 0.235, 0], [1.12, 1, 0.82]);
+      add(spine, cyl(0.222, 0.218, 0.065, 32), M.rib, [0, -0.005, 0], [1.12, 1, 0.82]);
+      add(spine, cyl(0.2235, 0.2235, 0.012, 32), M.accent, [0, 0.0, 0], [1.12, 1, 0.82]); // stripe on the rib
+      add(spine, new THREE.BoxGeometry(0.012, 0.24, 0.012), M.silver, [0, 0.235, 0.168]); // zipper
+      add(spine, new THREE.TorusGeometry(0.09, 0.03, 10, 28), M.rib, [0, 0.535, 0.0], [1.2, 1, 1], [Math.PI / 2 - 0.25, 0, 0]); // collar
+      add(spine, cyl(0.07, 0.075, 0.05), M.white, [0, 0.52, 0.0]); // tee peeking out
+      for (const sx of [-1, 1]) add(spine, new THREE.BoxGeometry(0.075, 0.01, 0.012), M.topDark, [sx * 0.095, 0.16, 0.162], [1, 1, 1], [0, sx * 0.45, 0]); // welt pockets
+    } else { // tee
+      add(spine, cap(0.195, 0.22), M.top, [0, 0.235, 0], [1.06, 1, 0.8]);
+      add(spine, new THREE.TorusGeometry(0.068, 0.012, 8, 28), M.topDark, [0, 0.535, 0.01], [1.15, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
+      // chest graphic: accent ring with a small dot
+      add(spine, new THREE.RingGeometry(0.026, 0.04, 28), M.accent, [0.0, 0.33, 0.158], [1, 1, 1], [-0.05, 0, 0]);
+      add(spine, new THREE.CircleGeometry(0.012, 16), M.accent, [0.0, 0.33, 0.159], [1, 1, 1], [-0.05, 0, 0]);
+    }
+  }
+
+  _buildHeadphones(spine, { M, add, cyl }) {
     const phones = new THREE.Group();
     phones.position.set(0, 0.575, 0.05);
     phones.rotation.x = 0.5;
@@ -265,61 +333,86 @@ export class PlaceholderAvatar {
       cup.rotation.y = sx * 0.5;
       add(phones, cyl(0.045, 0.045, 0.012, 28), M.accent, [sx * 0.163, -0.01, 0.055], [1, 1, 1], [0, sx * 0.5, Math.PI / 2]);
     }
+  }
 
-    // --- Neck & head
-    const neck = J('neck', spine, 0, 0.53, 0);
-    add(neck, cyl(0.056, 0.064, 0.13), M.skinShade, [0, 0.04, 0]);
-    const head = J('head', neck, 0, 0.09, 0);
-    this._buildHead(head, M, add, sph);
-
-    // --- Arms
+  _buildArms(spine, { M, J, add, cap, sph, cyl }) {
+    const S = this.style;
+    const tee = S.top === 'tee';
     for (const [side, sx] of [['L', 1], ['R', -1]]) {
       const sh = J(`shoulder${side}`, spine, sx * 0.235, 0.45, 0, 0, 0, sx * 0.13);
-      add(sh, sph(0.078), M.hoodie, [0, -0.02, 0]);
-      add(sh, cap(0.07, 0.2), M.hoodie, [0, -0.15, 0]);
+      add(sh, sph(tee ? 0.07 : 0.078), M.top, [0, -0.02, 0]);
+      if (tee) {
+        add(sh, cap(0.07, 0.06), M.top, [0, -0.07, 0]); // short sleeve
+        add(sh, cap(0.05, 0.2), M.skin, [0, -0.16, 0]);
+      } else {
+        add(sh, cap(0.07, 0.2), M.top, [0, -0.15, 0]);
+        if (S.top === 'jacket' && side === 'L') {
+          add(sh, new THREE.CircleGeometry(0.028, 20), M.accent, [0.071, -0.1, 0], [1, 1, 1], [0, Math.PI / 2, 0]); // sleeve patch
+        }
+      }
       const el = J(`elbow${side}`, sh, 0, -0.3, 0, -0.14, 0, 0);
-      add(el, cap(0.064, 0.17), M.hoodie, [0, -0.12, 0]);
-      add(el, cyl(0.057, 0.06, 0.05), M.hoodieDark, [0, -0.235, 0]);
+      if (tee) {
+        add(el, cap(0.045, 0.2), M.skin, [0, -0.14, 0]);
+      } else {
+        add(el, cap(0.064, 0.17), M.top, [0, -0.12, 0]);
+        add(el, cyl(0.057, 0.06, 0.05), S.top === 'jacket' ? M.rib : M.topDark, [0, -0.235, 0]);
+      }
       const hand = J(`hand${side}`, el, 0, -0.27, 0);
       add(hand, sph(0.048), M.skin, [0, -0.045, 0.004], [0.66, 1.0, 1.05]);
       add(hand, cap(0.024, 0.04), M.skin, [0, -0.095, 0.004], [1.15, 1, 1.85]);
       const thumb = J(`thumb${side}`, hand, -sx * 0.016, -0.03, 0.035, 0.5, 0, 0);
       add(thumb, cap(0.017, 0.04), M.skin, [0, -0.03, 0]);
     }
+  }
 
-    // --- Legs
+  _buildLegs(hips, { M, J, add, cap, cyl }) {
+    const S = this.style;
+    const b = S.bottom;
+    if (b === 'skirt') {
+      add(hips, cyl(0.2, 0.3, 0.34, 18, true), M.skirt, [0, -0.13, 0], [1, 1, 0.85]); // pleats via flat shading
+      add(hips, cyl(0.205, 0.205, 0.04, 28), M.bottomDark, [0, 0.035, 0], [1, 1, 0.85]); // waistband
+    }
     for (const [side, sx] of [['L', 1], ['R', -1]]) {
       const leg = J(`leg${side}`, hips, sx * 0.105, -0.03, 0, 0, 0, sx * 0.025);
-      add(leg, cap(0.1, 0.33), M.pants, [0, -0.215, 0]);
-      add(leg, new THREE.BoxGeometry(0.04, 0.1, 0.075), M.pantsDark, [sx * 0.098, -0.26, 0.0]); // cargo pocket
       const knee = J(`knee${side}`, leg, 0, -0.45, 0);
-      add(knee, cyl(0.093, 0.1, 0.39), M.pants, [0, -0.185, 0]);
-      add(knee, new THREE.TorusGeometry(0.088, 0.02, 10, 28), M.pantsDark, [0, -0.36, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+      if (b === 'cargo') {
+        add(leg, cap(0.1, 0.33), M.bottom, [0, -0.215, 0]);
+        add(leg, new THREE.BoxGeometry(0.04, 0.1, 0.075), M.bottomDark, [sx * 0.098, -0.26, 0.0]);
+        add(knee, cyl(0.093, 0.1, 0.39), M.bottom, [0, -0.185, 0]);
+        add(knee, new THREE.TorusGeometry(0.088, 0.02, 10, 28), M.bottomDark, [0, -0.36, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+      } else if (b === 'jeans') {
+        add(leg, cap(0.088, 0.34), M.bottom, [0, -0.22, 0]);
+        add(knee, cyl(0.078, 0.085, 0.38), M.bottom, [0, -0.18, 0]);
+        add(knee, cyl(0.084, 0.084, 0.05, 24), M.bottomLight, [0, -0.345, 0]); // rolled hem
+      } else { // shorts or skirt → bare legs + socks
+        if (b === 'shorts') {
+          add(leg, cap(0.1, 0.12), M.bottom, [0, -0.11, 0]);
+          add(leg, cyl(0.1, 0.1, 0.03, 24), M.bottomDark, [0, -0.225, 0]);
+        }
+        add(leg, cap(0.068, 0.32), M.skin, [0, -0.24, 0]);
+        add(knee, cap(0.058, 0.32), M.skin, [0, -0.19, 0]);
+        add(knee, cyl(0.052, 0.054, 0.1), M.sock, [0, -0.35, 0]);
+      }
       const foot = J(`foot${side}`, knee, 0, -0.42, 0, 0, sx * 0.12, 0);
       add(foot, cap(0.062, 0.12), M.shoe, [0, -0.01, 0.045], [1.05, 0.85, 1], [Math.PI / 2, 0, 0]);
       add(foot, cap(0.068, 0.13), M.sole, [0, -0.056, 0.045], [1.08, 0.4, 1.03], [Math.PI / 2, 0, 0]);
       for (const ss of [-1, 1]) {
         add(foot, new THREE.BoxGeometry(0.006, 0.026, 0.11), M.accent, [ss * 0.064, -0.012, 0.04], [1, 1, 1], [0.15, 0, 0]);
       }
-      add(foot, cyl(0.052, 0.058, 0.04), M.dark, [0, 0.04, -0.005]); // sock / collar
+      add(foot, cyl(0.052, 0.058, 0.04), M.dark, [0, 0.04, -0.005]);
     }
-
-    this.object3d.traverse((m) => { if (m.isMesh) { m.receiveShadow = false; } });
-    this.headAnchor = new THREE.Object3D();
-    this.headAnchor.position.set(0, 0.4, 0);
-    head.add(this.headAnchor);
   }
 
-  _buildHead(head, M, add, sph) {
+  _buildHead(head, K) {
+    const { M, add, sph } = K;
+    const S = this.style;
     const P = this.parts;
     add(head, sph(0.17, 48, 36), M.skin, [0, 0.16, 0], [0.94, 1.04, 0.98]);
-    add(head, sph(0.07), M.skin, [0, 0.075, 0.07], [1.25, 0.8, 1.0]); // jaw / chin softening
+    add(head, sph(0.07), M.skin, [0, 0.075, 0.07], [1.25, 0.8, 1.0]);
     for (const sx of [-1, 1]) add(head, sph(0.038), M.skin, [sx * 0.158, 0.15, 0.0], [0.5, 1, 0.75]);
-    // silver hoop on the left ear
-    add(head, new THREE.TorusGeometry(0.016, 0.0035, 8, 24), M.silver, [0.165, 0.103, 0.01], [1, 1, 1], [0, Math.PI / 2, 0]);
-    add(head, sph(0.022), M.skinShade, [0, 0.14, 0.164], [1, 0.85, 0.9]); // nose
+    if (S.earring) add(head, new THREE.TorusGeometry(0.016, 0.0035, 8, 24), M.silver, [0.165, 0.103, 0.01], [1, 1, 1], [0, Math.PI / 2, 0]);
+    add(head, sph(0.022), M.skinShade, [0, 0.14, 0.164], [1, 0.85, 0.9]);
 
-    // eyes
     for (const [side, sx] of [['L', 1], ['R', -1]]) {
       const eye = new THREE.Group();
       eye.position.set(sx * 0.058, 0.18, 0.144);
@@ -332,7 +425,6 @@ export class PlaceholderAvatar {
       add(iris, new THREE.CircleGeometry(0.022, 24), M.iris);
       add(iris, new THREE.CircleGeometry(0.012, 20), M.pupil, [0, 0, 0.0005]);
       add(iris, new THREE.CircleGeometry(0.0055, 12), M.shine, [0.006, 0.008, 0.001]);
-      // upper lash line for definition
       add(eye, new THREE.TorusGeometry(0.031, 0.0045, 6, 20, Math.PI * 0.9), M.dark, [0, 0.003, 0.004], [1, 1.12, 0.6], [0, 0, Math.PI * 0.05]);
       P[`eye${side}`] = eye;
       P[`iris${side}`] = iris;
@@ -344,42 +436,74 @@ export class PlaceholderAvatar {
       head.add(brow);
       add(brow, new THREE.CapsuleGeometry(0.0085, 0.04, 4, 10), M.hair, [0, 0, 0], [1, 1, 0.8], [0, 0, Math.PI / 2 + sx * 0.08]);
       P[`brow${side}`] = brow;
-    }
 
-    // mouth
+      if (S.glasses) {
+        add(head, new THREE.TorusGeometry(0.04, 0.0055, 8, 32), M.dark, [sx * 0.06, 0.18, 0.176], [1.1, 0.9, 1], [0, sx * 0.2, 0]);
+        add(head, new THREE.BoxGeometry(0.005, 0.007, 0.15), M.dark, [sx * 0.152, 0.19, 0.095], [1, 1, 1], [0, sx * 0.08, 0]);
+      }
+    }
+    if (S.glasses) add(head, new THREE.CylinderGeometry(0.004, 0.004, 0.035, 8), M.dark, [0, 0.19, 0.182], [1, 1, 1], [0, 0, Math.PI / 2]);
+
     const mouth = new THREE.Group();
     mouth.position.set(0, 0.088, 0.153);
     mouth.rotation.x = -0.25;
     head.add(mouth);
     P.mouth = mouth;
     P.smile = add(mouth, new THREE.TorusGeometry(0.028, 0.0055, 8, 24, Math.PI), M.mouth, [0, 0.01, 0], [1, 1, 1], [0, 0, Math.PI]);
-    // open mouth: a dark ellipsoid whose height is driven by face.open
     const openGeo = new THREE.SphereGeometry(0.026, 20, 14);
     openGeo.scale(1, 1, 0.35);
-    openGeo.translate(0, -0.012, 0); // grows downward from the lip line
+    openGeo.translate(0, -0.012, 0);
     P.mouthOpen = add(mouth, openGeo, M.mouth, [0, 0.012, 0]);
 
-    // hair: tilted cap + a cloud of curls (deterministic pseudo-random)
-    const hair = new THREE.Group();
-    hair.position.set(0, 0.165, -0.008);
-    hair.rotation.x = -0.42;
-    head.add(hair);
-    add(hair, new THREE.SphereGeometry(0.176, 40, 24, 0, TAU, 0, 1.25), M.hair, [0, 0, 0], [0.98, 1.05, 1.02]);
-    // short back & sides (fade) so the back of the head isn't bald
+    this._buildHair(head, K);
+  }
+
+  _buildHair(head, { M, add, sph, cap }) {
+    const style = this.style.hairStyle;
+    // short back & sides (fade) – shared by most styles so the head is never bald
     add(head, new THREE.SphereGeometry(0.1735, 40, 20, 0, TAU, 0, 1.45), M.hair, [0, 0.162, -0.004], [0.95, 1.05, 0.99], [-1.2, 0, 0]);
-    let seed = 7;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    const dir = new THREE.Vector3();
-    for (let i = 0; i < 46; i++) {
-      const theta = Math.sqrt(rnd()) * 1.2;
-      const phi = rnd() * TAU;
-      dir.set(Math.sin(theta) * Math.cos(phi), Math.cos(theta), Math.sin(theta) * Math.sin(phi));
-      const r = 0.042 + rnd() * 0.028;
-      add(hair, sph(r, 14, 10), M.hair, [dir.x * 0.17, dir.y * 0.17 + 0.012, dir.z * 0.17]);
+
+    const top = new THREE.Group(); // tilted frame matching the skull's top
+    top.position.set(0, 0.165, -0.008);
+    top.rotation.x = -0.42;
+    head.add(top);
+    const capGeo = (r, len = 1.25) => new THREE.SphereGeometry(r, 40, 24, 0, TAU, 0, len);
+
+    if (style === 'curls') {
+      add(top, capGeo(0.176), M.hair, [0, 0, 0], [0.98, 1.05, 1.02]);
+      let seed = 7;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const dir = new THREE.Vector3();
+      for (let i = 0; i < 46; i++) {
+        const theta = Math.sqrt(rnd()) * 1.2;
+        const phi = rnd() * TAU;
+        dir.set(Math.sin(theta) * Math.cos(phi), Math.cos(theta), Math.sin(theta) * Math.sin(phi));
+        add(top, sph(0.042 + rnd() * 0.028, 14, 10), M.hair, [dir.x * 0.17, dir.y * 0.17 + 0.012, dir.z * 0.17]);
+      }
+      add(head, sph(0.03, 14, 10), M.hair, [0.035, 0.288, 0.12]);
+      add(head, sph(0.024, 14, 10), M.hair, [-0.02, 0.292, 0.125]);
+    } else if (style === 'buzz') {
+      add(top, capGeo(0.1745, 1.3), M.hair, [0, 0, 0], [0.96, 1.03, 1.0]);
+    } else if (style === 'bun') {
+      add(top, capGeo(0.178, 1.3), M.hair, [0, 0, 0], [0.97, 1.05, 1.01]);
+      add(head, sph(0.075, 24, 18), M.hair, [0, 0.355, -0.075]);
+      add(head, new THREE.TorusGeometry(0.052, 0.014, 10, 28), M.accent, [0, 0.315, -0.06], [1, 1, 1], [Math.PI / 2 + 0.6, 0, 0]);
+    } else if (style === 'long') {
+      add(top, capGeo(0.181, 1.55), M.hair, [0, 0, 0], [0.98, 1.05, 1.03]);
+      add(head, cap(0.15, 0.2), M.hair, [0, 0.06, -0.06], [1.1, 1, 0.62]);          // hair down the back
+      for (const sx of [-1, 1]) {
+        add(head, cap(0.06, 0.2), M.hair, [sx * 0.15, 0.09, -0.015], [0.55, 1, 1.45], [0, 0, sx * 0.06]); // side panels
+      }
+      add(head, sph(0.1, 24, 16), M.hair, [0.035, 0.282, 0.068], [1.2, 0.42, 0.85], [0.35, 0, -0.28]); // swept fringe
+    } else if (style === 'beanie') {
+      const hat = new THREE.Group();
+      hat.position.set(0, 0.17, -0.01);
+      hat.rotation.x = -0.25;
+      head.add(hat);
+      add(hat, new THREE.SphereGeometry(0.19, 40, 24, 0, TAU, 0, 1.45), M.hat, [0, 0, 0], [0.98, 1.08, 1.02]);
+      add(hat, new THREE.TorusGeometry(0.183, 0.03, 12, 40), M.hat, [0, 0.04, 0], [0.98, 1, 1.02], [Math.PI / 2, 0, 0]); // folded cuff
+      add(hat, new THREE.BoxGeometry(0.05, 0.03, 0.01), M.accent, [0, 0.045, 0.205]); // label
     }
-    // a couple of curls falling onto the forehead
-    add(head, sph(0.03, 14, 10), M.hair, [0.035, 0.288, 0.12]);
-    add(head, sph(0.024, 14, 10), M.hair, [-0.02, 0.292, 0.125]);
   }
 }
 

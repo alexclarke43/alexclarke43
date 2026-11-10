@@ -23,13 +23,22 @@
   <main id="avatar-app" class="avatar-app">
     <div id="avatar-stage" class="avatar-stage">
       <div id="avatar-bubble" class="avatar-bubble" role="status" aria-live="polite"></div>
+      <div id="avatar-coins" class="avatar-coins" hidden aria-live="polite"></div>
       <div id="avatar-loader" class="avatar-loader">
         <span class="avatar-loader__dot" aria-hidden="true"></span>
         <span class="avatar-loader__text">Loading…</span>
       </div>
       <p id="avatar-hint" class="avatar-hint"></p>
     </div>
-    <nav id="avatar-actions" class="avatar-actions" aria-label="Avatar reactions"></nav>
+
+    <section id="avatar-dock" class="avatar-dock">
+      <div id="dock-tabs" class="dock-tabs" role="tablist"></div>
+      <div id="panel-react" class="dock-panel dock-panel--react" role="tabpanel">
+        <nav id="avatar-actions" class="avatar-actions" aria-label="Avatar reactions"></nav>
+      </div>
+      <div id="panel-style" class="dock-panel" role="tabpanel" hidden></div>
+      <div id="panel-play" class="dock-panel" role="tabpanel" hidden></div>
+    </section>
   </main>
   <script type="module" src="js/main.js"></script>
 </body>

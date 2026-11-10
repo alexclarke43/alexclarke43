@@ -202,6 +202,99 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await ctx.close();
     }
 
+    console.log('Customisation (Style tab)');
+    {
+      const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0');
+      check('3 tabs shown', (await page.locator('.dock-tab').count()) === 3);
+      await page.click('#tab-style');
+      check('style panel opens', await page.locator('#panel-style').isVisible());
+      const meshCount = () => page.evaluate(() => { let n = 0; window.SparkasseAvatarApp.avatar.object3d.traverse((o) => { if (o.isMesh) n++; }); return n; });
+      const before = await meshCount();
+      const combos = [['hairStyle', 'bun'], ['hairStyle', 'long'], ['hairStyle', 'buzz'], ['top', 'jacket'], ['top', 'tee'], ['bottom', 'jeans'], ['bottom', 'shorts'], ['bottom', 'skirt']];
+      let allOk = true;
+      for (const [key, value] of combos) {
+        await page.click(`#panel-style [data-key="${key}"][data-value="${value}"]`);
+        const look = await page.evaluate(() => window.SparkasseAvatarApp.look);
+        if (look[key] !== value) allOk = false;
+      }
+      check('hair / top / bottom options apply', allOk);
+      check('avatar geometry rebuilt', (await meshCount()) !== before);
+      await page.click('#panel-style [data-key="topColor"][data-value="#7cf5d0"]');
+      const color = await page.evaluate(() => {
+        let c = null;
+        window.SparkasseAvatarApp.avatar.joints.spine.children.forEach((m) => { if (m.isMesh && !c) c = m.material.color.getHexString(); });
+        return c;
+      });
+      check('colour swatch recolours clothing', color === '7cf5d0', color);
+      await page.click('#panel-style [data-type="toggle"][data-key="glasses"]');
+      check('glasses toggle', (await page.evaluate(() => window.SparkasseAvatarApp.look.glasses)) === true);
+      await page.locator('#panel-style .cz-range').fill('195');
+      const scale = await page.evaluate(() => window.SparkasseAvatarApp.avatar.object3d.scale.y);
+      check('height slider scales avatar', Math.abs(scale - 195 / 175) < 0.001, scale.toFixed(3));
+      check('height label updates', (await page.textContent('.cz-height-out')).includes('1.95'));
+      check('locked items disabled at 0 coins', await page.locator('#panel-style [data-value="beanie"]').isDisabled());
+      await page.click('#panel-style [data-act="random"]');
+      check('"surprise me" randomises + avatar reacts', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.current?.name)) === 'dance');
+
+      // persistence across reloads
+      const saved = await page.evaluate(() => window.SparkasseAvatarApp.look);
+      await page.reload();
+      await page.waitForFunction(() => window.SparkasseAvatarApp, null, { timeout: 30000 });
+      const reloaded = await page.evaluate(() => window.SparkasseAvatarApp.look);
+      check('look persists after reload', JSON.stringify(saved) === JSON.stringify(reloaded));
+      // look passed via URL wins
+      await page.goto(`${base}/avatar/index.html?autoGreet=0&look=${encodeURIComponent('{"hairStyle":"bun","height":160}')}`);
+      await page.waitForFunction(() => window.SparkasseAvatarApp, null, { timeout: 30000 });
+      const urlLook = await page.evaluate(() => window.SparkasseAvatarApp.look);
+      check('look from URL param', urlLook.hairStyle === 'bun' && urlLook.height === 160);
+      check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
+    console.log('Games (Play tab)');
+    {
+      const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&persist=0&tab=play');
+      check('play tab open via config', await page.locator('#panel-play').isVisible());
+      check('two games listed', (await page.locator('#panel-play .gm-card').count()) === 2);
+
+      // Money Quiz: answer everything correctly
+      await page.click('[data-start="quiz"]');
+      const total = await page.evaluate(() => window.SparkasseAvatarApp.games.state.game.items.length);
+      let reactionsSeen = new Set();
+      for (let i = 0; i < total; i++) {
+        const correct = await page.evaluate(() => { const g = window.SparkasseAvatarApp.games.state.game; return g.items[g.i].correct; });
+        await page.click(`[data-answer="${correct}"]`);
+        reactionsSeen.add(await page.evaluate(() => window.SparkasseAvatarApp.avatar.current?.name));
+        check(`quiz Q${i + 1}: feedback + explanation shown`, await page.locator('.gm-feedback').isVisible());
+        await page.click('[data-act="next"]');
+      }
+      check('quiz result screen', (await page.textContent('.gm-score')).replace(/\s/g, '') === `${total}/${total}`);
+      const coins = await page.evaluate(() => window.SparkasseAvatarApp.coins);
+      check('coins awarded incl. streak bonus', coins === total * 10 + Math.floor(total / 3) * 5, `${coins} coins`);
+      check('avatar reacts (nod on correct, celebrate on streak)', reactionsSeen.has('nod') && reactionsSeen.has('celebrate'), [...reactionsSeen].join(','));
+      check('coins badge updates', (await page.textContent('#avatar-coins')).includes(String(coins)));
+
+      // Need or Want: answer everything wrong
+      await page.click('[data-act="menu"]');
+      await page.click('[data-start="sort"]');
+      const n = await page.evaluate(() => window.SparkasseAvatarApp.games.state.game.items.length);
+      for (let i = 0; i < n; i++) {
+        const need = await page.evaluate(() => { const g = window.SparkasseAvatarApp.games.state.game; return g.items[g.i].need; });
+        await page.click(`[data-sort="${need ? 'want' : 'need'}"]`);
+        if (i === 0) check('wrong answer → avatar shrugs', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.current?.name)) === 'shrug');
+        await page.click('[data-act="next"]');
+      }
+      check('need-or-want result screen', (await page.textContent('.gm-score')).replace(/\s/g, '') === `0/${n}`);
+
+      // Unlocks: 80+ coins → beanie, chain, gold sneakers available
+      await page.click('#tab-style');
+      check('beanie unlocked after earning coins', !(await page.locator('#panel-style [data-value="beanie"]').isDisabled()));
+      await page.click('#panel-style [data-value="beanie"]');
+      check('beanie can be worn', (await page.evaluate(() => window.SparkasseAvatarApp.look.hairStyle)) === 'beanie');
+      check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
     console.log('GLB model support');
     {
       const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&model=/test-model.glb');
@@ -216,6 +309,10 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       check('clips mapped by name (Idle→idle, Wave→greet)', info.mapped.includes('idle') && info.mapped.includes('greet'), info.mapped.join(','));
       check('head bone found for look-at', info.head === 'Head');
       check('greet uses clip, dance uses procedural fallback', info.greet === 1 && info.dance > 3);
+      await page.evaluate(() => window.SparkasseAvatarApp.setLook({ height: 190 }));
+      check('height works for GLB models', Math.abs((await page.evaluate(() => window.SparkasseAvatarApp.avatar.object3d.scale.y)) - 190 / 175) < 0.001);
+      await page.click('#tab-style');
+      check('style tab explains GLB limits', await page.locator('#panel-style .cz-note').isVisible());
       check('no console errors', errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
@@ -239,12 +336,20 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       // Software-rendered WebGL in CI can be slow, so allow generous time for the round-trip.
       await page.waitForFunction(() => document.getElementById('log').textContent.includes('"reaction":"celebrate"'), null, { timeout: 20000 }).catch(() => {});
       check('host button → celebrate (postMessage round-trip)', (await page.textContent('#log')).includes('"reaction":"celebrate"'));
-      const frame = page.frames().find((f) => f.url().includes('ui=false'));
-      check('ui=false hides avatar buttons', await frame.locator('#avatar-actions').isHidden());
+      const frame = page.frames().find((f) => f.url().includes('tabs=style'));
+      check('tabs param limits tabs (no React tab)', (await frame.locator('.dock-tab').count()) === 2);
       const bubble = await frame.textContent('#avatar-bubble');
       check('custom bubble text from host', bubble.includes('Savings goal reached'), bubble);
+      await page.click('#outfit');
+      await frame.waitForFunction(() => window.SparkasseAvatarApp.look.top === 'tee', null, { timeout: 20000 }).catch(() => {});
+      check('host setLook changes outfit', (await frame.evaluate(() => window.SparkasseAvatarApp.look.top)) === 'tee');
+      await page.click('#quiz');
+      await frame.waitForSelector('.gm-q', { timeout: 20000 }).catch(() => {});
+      check('host startGame opens the quiz', await frame.locator('.gm-q').isVisible());
+      await page.waitForFunction(() => document.getElementById('log').textContent.includes('"type":"game"'), null, { timeout: 20000 }).catch(() => {});
+      check('game events reach host', (await page.textContent('#log')).includes('"phase":"start"'));
 
-      const plain = page.frames().find((f) => f.url().includes('lang=en') && !f.url().includes('ui=false'));
+      const plain = page.frames().find((f) => f.url().includes('lang=en') && !f.url().includes('tabs='));
       await plain.waitForFunction(() => window.SparkasseAvatarApp, null, { timeout: 30000 });
       await page.click('text=Make it dance');
       await page.waitForTimeout(300);

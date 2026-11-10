@@ -4,7 +4,10 @@
  * Host → avatar:  { target: 'sparkasse-avatar', type: 'play', reaction: 'celebrate', text?: '…' }
  *                 { target: 'sparkasse-avatar', type: 'say',  text: '…', duration?: ms }
  *                 { target: 'sparkasse-avatar', type: 'reset' }
- * Avatar → host:  { source: 'sparkasse-avatar', type: 'ready' | 'reaction' | 'tap' | 'error', … }
+ *                 { target: 'sparkasse-avatar', type: 'setLook', look: { hairStyle: 'bun', height: 168, … } }
+ *                 { target: 'sparkasse-avatar', type: 'openTab', tab: 'react' | 'style' | 'play' }
+ *                 { target: 'sparkasse-avatar', type: 'startGame', game: 'quiz' | 'sort' }
+ * Avatar → host:  { source: 'sparkasse-avatar', type: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'error', … }
  *
  * The same events are also dispatched on window as `sparkasse-avatar:<type>` CustomEvents.
  */

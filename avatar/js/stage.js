@@ -66,9 +66,9 @@ export function createStage(container, cfg) {
   scene.add(turntable);
 
   // Framing: keep a box of FRAME_W × FRAME_H metres visible at any aspect ratio.
-  const FRAME_H = 2.5;
+  const FRAME_H = 2.65; // room for tall avatars + jumps
   const FRAME_W = 1.7;
-  const TARGET = new THREE.Vector3(0, 1.08, 0);
+  const TARGET = new THREE.Vector3(0, 1.14, 0);
   function resize() {
     const w = container.clientWidth || 1;
     const h = container.clientHeight || 1;

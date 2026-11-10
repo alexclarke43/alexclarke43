@@ -12,6 +12,8 @@
  *     });
  *     avatar.on('ready', () => avatar.play('greet'));
  *     avatar.play('celebrate', { text: 'Sparziel erreicht! 🎉' });
+ *     avatar.startGame('quiz');                      // open the financial quiz
+ *     avatar.on('game', (e) => e.phase === 'end' && console.log(e.score, e.total));
  *   </script>
  */
 (function (global) {
@@ -68,7 +70,13 @@
       play: function (reaction, opts) { post(Object.assign({ type: 'play', reaction: reaction }, opts)); },
       say: function (text, durationMs) { post({ type: 'say', text: text, duration: durationMs }); },
       reset: function () { post({ type: 'reset' }); },
-      /** events: 'ready' | 'reaction' | 'tap' | 'error' | '*' – returns an unsubscribe function */
+      /** look: partial object, e.g. { hairStyle: 'bun', top: 'tee', topColor: '#7cf5d0', height: 168 } */
+      setLook: function (look) { post({ type: 'setLook', look: look }); },
+      /** tab: 'react' | 'style' | 'play' */
+      openTab: function (tab) { post({ type: 'openTab', tab: tab }); },
+      /** game: 'quiz' | 'sort' */
+      startGame: function (game) { post({ type: 'startGame', game: game }); },
+      /** events: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'error' | '*' – returns an unsubscribe function */
       on: function (type, fn) {
         (listeners[type] = listeners[type] || []).push(fn);
         return function () { listeners[type] = listeners[type].filter(function (f) { return f !== fn; }); };
