@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Avatar</title>
+  <link rel="stylesheet" href="css/avatar.css">
+  <!-- Three.js is vendored locally (vendor/three) – no CDN needed. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+  <!--
+    Optional: configure without URL params.
+    <script>window.SPARKASSE_AVATAR_CONFIG = { model: 'models/my-avatar.glb', lang: 'de' };</script>
+  -->
+</head>
+<body>
+  <main id="avatar-app" class="avatar-app">
+    <div id="avatar-stage" class="avatar-stage">
+      <div id="avatar-bubble" class="avatar-bubble" role="status" aria-live="polite"></div>
+      <div id="avatar-loader" class="avatar-loader">
+        <span class="avatar-loader__dot" aria-hidden="true"></span>
+        <span class="avatar-loader__text">Loading…</span>
+      </div>
+      <p id="avatar-hint" class="avatar-hint"></p>
+    </div>
+    <nav id="avatar-actions" class="avatar-actions" aria-label="Avatar reactions"></nav>
+  </main>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "sparkasse-3d-avatar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone, embeddable interactive 3D avatar (Three.js, vanilla JS).",
+  "scripts": {
+    "start": "npx --yes http-server -c-1 -p 8080 .",
+    "test": "node tests/smoke.cjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,29 @@
+/**
+ * postMessage bridge between the avatar (inside an iframe) and the host page.
+ *
+ * Host → avatar:  { target: 'sparkasse-avatar', type: 'play', reaction: 'celebrate', text?: '…' }
+ *                 { target: 'sparkasse-avatar', type: 'say',  text: '…', duration?: ms }
+ *                 { target: 'sparkasse-avatar', type: 'reset' }
+ * Avatar → host:  { source: 'sparkasse-avatar', type: 'ready' | 'reaction' | 'tap' | 'error', … }
+ *
+ * The same events are also dispatched on window as `sparkasse-avatar:<type>` CustomEvents.
+ */
+export function createBridge({ parentOrigin = '*', handlers = {} }) {
+  const parent = window.parent !== window ? window.parent : null;
+
+  window.addEventListener('message', (e) => {
+    if (parentOrigin !== '*' && e.origin !== parentOrigin) return;
+    const d = e.data;
+    if (!d || typeof d !== 'object' || d.target !== 'sparkasse-avatar') return;
+    const fn = handlers[d.type];
+    if (typeof fn === 'function') fn(d);
+  });
+
+  return {
+    emit(type, payload = {}) {
+      const msg = { source: 'sparkasse-avatar', type, ...payload };
+      if (parent) parent.postMessage(msg, parentOrigin);
+      window.dispatchEvent(new CustomEvent(`sparkasse-avatar:${type}`, { detail: msg }));
+    },
+  };
+}

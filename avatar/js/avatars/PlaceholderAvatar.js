@@ -1,0 +1,607 @@
+import * as THREE from 'three';
+
+/**
+ * Built-in stylised character made from primitives, so the prototype works without
+ * any 3D asset. Look: oversized brand-red hoodie, wide cargo pants, chunky sneakers,
+ * curly top, headphones around the neck, silver earring.
+ *
+ * Animation is procedural: every frame we compute an "idle" pose plus an optional
+ * reaction pose (offsets from the rest pose) and cross-fade between them.
+ *
+ * Public interface (shared with GltfAvatar):
+ *   object3d, reactions, play(name) → seconds, update(dt), setLookTarget(x, y),
+ *   headAnchor (Object3D for the speech bubble), height
+ */
+
+const TAU = Math.PI * 2;
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const smooth = (v) => { const t = clamp01(v); return t * t * (3 - 2 * t); };
+/** 0→1 between a..b, hold, 1→0 between c..d */
+const env = (t, a, b, c, d) => smooth((t - a) / (b - a)) * (1 - smooth((t - c) / (d - c)));
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
+const LEG = 0.435; // thigh / shin length (approx.) used for crouch maths
+
+export class PlaceholderAvatar {
+  constructor(opts) {
+    this.opts = opts;
+    this.object3d = new THREE.Group();
+    this.object3d.name = 'PlaceholderAvatar';
+    this.joints = {};
+    this.rest = {};
+    this.parts = {};
+    this.height = 2.0;
+
+    this.time = Math.random() * 100;
+    this.current = null;        // active reaction
+    this.final = {};            // last applied channel values
+    this.from = null;           // snapshot for cross-fades
+    this.fade = 1;              // 0..1 cross-fade progress
+    this.look = new THREE.Vector2();
+    this.lookTarget = new THREE.Vector2();
+    this.blinkIn = 1.5;
+    this.blinkT = -1;
+
+    this._build();
+  }
+
+  get reactions() { return Object.keys(MOTIONS); }
+
+  play(name) {
+    const motion = MOTIONS[name];
+    if (!motion) return 0;
+    this.current = { name, t: 0, motion };
+    this._startFade();
+    return motion.duration;
+  }
+
+  setLookTarget(x, y) { this.lookTarget.set(x, y); }
+
+  update(dt) {
+    this.time += dt;
+    const t = this.time;
+
+    // 1. Idle layer (always running)
+    const idle = idlePose(t);
+
+    // 2. Reaction layer
+    let target = idle;
+    let lookWeight = 1;
+    if (this.current) {
+      const c = this.current;
+      c.t += dt;
+      if (c.t >= c.motion.duration) {
+        this.current = null;
+        this._startFade();
+      } else {
+        const r = c.motion.pose(c.t, c.motion.duration);
+        target = {};
+        const keep = c.motion.idleBlend ?? 0.35;
+        for (const k in idle) target[k] = k.startsWith('face.') ? idle[k] : idle[k] * keep;
+        for (const k in r) target[k] = k.startsWith('face.') ? r[k] : (target[k] || 0) + r[k];
+        lookWeight = c.motion.look ?? 0.3;
+      }
+    }
+
+    // 3. Cross-fade from the previous pose when a reaction starts/ends
+    this.fade = Math.min(1, this.fade + dt / 0.3);
+    let out = target;
+    if (this.from && this.fade < 1) {
+      const w = smooth(this.fade);
+      out = {};
+      const keys = new Set([...Object.keys(this.from), ...Object.keys(target)]);
+      for (const k of keys) {
+        const a = this.from[k] ?? (k.startsWith('face.') ? FACE_DEFAULTS[k] ?? 0 : 0);
+        const b = target[k] ?? (k.startsWith('face.') ? FACE_DEFAULTS[k] ?? 0 : 0);
+        out[k] = a + (b - a) * w;
+      }
+    }
+    this.final = out;
+
+    // 4. Look-at (pointer) – eased, weighted down during big reactions
+    const k = 1 - Math.exp(-6 * dt);
+    this.look.x += (this.lookTarget.x - this.look.x) * k;
+    this.look.y += (this.lookTarget.y - this.look.y) * k;
+    this._lookWeight = (this._lookWeight ?? 1) + (lookWeight - (this._lookWeight ?? 1)) * k;
+
+    this._apply(out, dt);
+  }
+
+  // ---------------------------------------------------------------------------
+
+  _startFade() {
+    this.from = {};
+    for (const k in this.final) {
+      this.from[k] = /\.r[xyz]$/.test(k) ? wrapAngle(this.final[k]) : this.final[k];
+    }
+    this.fade = 0;
+  }
+
+  _apply(p, dt) {
+    const J = this.joints;
+    for (const name in J) {
+      const j = J[name];
+      const r = this.rest[name];
+      j.position.set(
+        r.p.x + (p[`${name}.px`] || 0),
+        r.p.y + (p[`${name}.py`] || 0),
+        r.p.z + (p[`${name}.pz`] || 0),
+      );
+      j.rotation.set(
+        r.r.x + (p[`${name}.rx`] || 0),
+        r.r.y + (p[`${name}.ry`] || 0),
+        r.r.z + (p[`${name}.rz`] || 0),
+      );
+    }
+
+    // Pointer look-at on top of everything
+    const lw = this._lookWeight;
+    J.head.rotation.y += this.look.x * 0.55 * lw;
+    J.head.rotation.x += -this.look.y * 0.3 * lw;
+    J.neck.rotation.y += this.look.x * 0.2 * lw;
+
+    // --- Face ---
+    const f = (key) => p[key] ?? FACE_DEFAULTS[key] ?? 0;
+    const P = this.parts;
+
+    // blinking
+    this.blinkIn -= dt;
+    if (this.blinkIn <= 0 && this.blinkT < 0) this.blinkT = 0;
+    let blink = 0;
+    if (this.blinkT >= 0) {
+      this.blinkT += dt;
+      blink = Math.sin(Math.min(1, this.blinkT / 0.16) * Math.PI);
+      if (this.blinkT >= 0.16) {
+        this.blinkT = -1;
+        this.blinkIn = Math.random() < 0.2 ? 0.18 : 2 + Math.random() * 3.5; // sometimes double-blink
+      }
+    }
+    const squint = f('face.squint');
+    const wink = f('face.wink');
+    const open = (1 - blink) * (1 - squint * 0.6);
+    P.eyeL.scale.y = Math.max(0.07, open * (1 - wink * 0.93));
+    P.eyeR.scale.y = Math.max(0.07, open);
+
+    const ex = f('face.eyeX') + this.look.x * 0.8 * lw;
+    const ey = f('face.eyeY') + this.look.y * 0.6 * lw;
+    for (const iris of [P.irisL, P.irisR]) iris.position.set(ex * 0.009, ey * 0.008, iris.position.z);
+
+    const brow = f('face.brow');
+    const tilt = f('face.browTilt');
+    const asym = f('face.browAsym');
+    P.browL.position.y = P.browL.userData.y + (brow + asym) * 0.02 - squint * 0.006;
+    P.browR.position.y = P.browR.userData.y + (brow - asym) * 0.02 - squint * 0.006;
+    P.browL.rotation.z = -tilt * 0.35 + asym * 0.15;
+    P.browR.rotation.z = tilt * 0.35 + asym * 0.15;
+
+    const smile = f('face.smile');
+    const mouthOpen = f('face.open');
+    P.smile.scale.set(0.75 + smile * 0.45, 0.25 + smile * 0.85, 1);
+    P.smile.visible = mouthOpen < 0.55;
+    P.mouthOpen.scale.set(0.8 + smile * 0.35, Math.max(0.02, mouthOpen), 1);
+    P.mouthOpen.visible = mouthOpen > 0.03;
+    P.mouth.position.x = f('face.mouthX') * 0.02;
+    P.mouth.rotation.z = f('face.mouthX') * 0.25;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Modelling
+
+  _build() {
+    const o = this.opts;
+    const std = (color, roughness = 0.7, metalness = 0) =>
+      new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    const primary = new THREE.Color(o.primary);
+    const M = {
+      skin: std(o.skin, 0.55),
+      skinShade: std(new THREE.Color(o.skin).multiplyScalar(0.88), 0.6),
+      hoodie: std(primary, 0.82),
+      hoodieDark: std(primary.clone().multiplyScalar(0.72), 0.88),
+      pants: std('#2a2a33', 0.92),
+      pantsDark: std('#202027', 0.95),
+      shoe: std('#f7f6f2', 0.5),
+      sole: std('#e9e4da', 0.65),
+      accent: std(o.accent, 0.35),
+      hair: std(o.hair, 0.82),
+      white: std('#ffffff', 0.25),
+      iris: std('#2e1a10', 0.4),
+      pupil: std('#0c0c10', 0.2),
+      dark: std('#18181d', 0.45, 0.2),
+      mouth: std('#5c1f26', 0.7),
+      silver: std('#e8e8ee', 0.2, 1),
+      shine: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+    };
+
+    const J = (name, parent, x, y, z, rx = 0, ry = 0, rz = 0) => {
+      const g = new THREE.Group();
+      g.name = name;
+      g.position.set(x, y, z);
+      g.rotation.set(rx, ry, rz);
+      parent.add(g);
+      this.joints[name] = g;
+      this.rest[name] = { p: g.position.clone(), r: g.rotation.clone() };
+      return g;
+    };
+    const add = (parent, geo, mat, p = [0, 0, 0], s = [1, 1, 1], r = [0, 0, 0]) => {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(...p);
+      m.scale.set(...s);
+      m.rotation.set(...r);
+      m.castShadow = true;
+      parent.add(m);
+      return m;
+    };
+    const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 8, 20);
+    const sph = (r, w = 28, h = 20) => new THREE.SphereGeometry(r, w, h);
+    const cyl = (rt, rb, h, s = 24) => new THREE.CylinderGeometry(rt, rb, h, s);
+
+    const body = J('body', this.object3d, 0, 0, 0);
+    const hips = J('hips', body, 0, 0.98, 0);
+
+    // --- Pelvis / pants top
+    add(hips, sph(0.2), M.pants, [0, 0.0, 0], [1.02, 0.62, 0.78]);
+
+    // --- Torso (oversized hoodie)
+    const spine = J('spine', hips, 0, 0.04, 0);
+    add(spine, cap(0.205, 0.22), M.hoodie, [0, 0.235, 0], [1.1, 1, 0.8]);
+    add(spine, cyl(0.218, 0.214, 0.075, 32), M.hoodieDark, [0, -0.005, 0], [1.13, 1, 0.8]); // ribbed hem
+    add(spine, new THREE.CylinderGeometry(0.214, 0.21, 0.1, 24, 1, true, -0.62, 1.24), M.hoodieDark, [0, 0.1, 0], [1.1, 1, 0.8]); // kangaroo pocket (curved shell)
+    add(spine, new THREE.BoxGeometry(0.07, 0.026, 0.006), M.accent, [0.085, 0.4, 0.165], [1, 1, 1], [-0.25, 0.25, 0]); // small chest tag
+    // rolled hood behind the neck
+    add(spine, new THREE.TorusGeometry(0.115, 0.058, 14, 32), M.hoodieDark, [0, 0.545, -0.035], [1.15, 1, 0.95], [Math.PI / 2 - 0.25, 0, 0]);
+    // drawstrings
+    for (const sx of [-1, 1]) {
+      add(spine, cyl(0.007, 0.007, 0.17, 8), M.white, [sx * 0.045, 0.43, 0.158], [1, 1, 1], [-0.2, 0, sx * 0.05]);
+      add(spine, cyl(0.011, 0.011, 0.025, 10), M.accent, [sx * 0.049, 0.34, 0.176], [1, 1, 1], [-0.2, 0, 0]);
+    }
+    // headphones around the neck
+    const phones = new THREE.Group();
+    phones.position.set(0, 0.575, 0.05);
+    phones.rotation.x = 0.5;
+    spine.add(phones);
+    add(phones, new THREE.TorusGeometry(0.135, 0.014, 10, 40, Math.PI), M.dark, [0, 0, 0], [1, 1, 1], [-Math.PI / 2, 0, 0]);
+    for (const sx of [-1, 1]) {
+      const cup = add(phones, cyl(0.058, 0.058, 0.04, 28), M.dark, [sx * 0.14, -0.01, 0.04], [1, 1, 1], [0, 0, Math.PI / 2]);
+      cup.rotation.y = sx * 0.5;
+      add(phones, cyl(0.045, 0.045, 0.012, 28), M.accent, [sx * 0.163, -0.01, 0.055], [1, 1, 1], [0, sx * 0.5, Math.PI / 2]);
+    }
+
+    // --- Neck & head
+    const neck = J('neck', spine, 0, 0.53, 0);
+    add(neck, cyl(0.056, 0.064, 0.13), M.skinShade, [0, 0.04, 0]);
+    const head = J('head', neck, 0, 0.09, 0);
+    this._buildHead(head, M, add, sph);
+
+    // --- Arms
+    for (const [side, sx] of [['L', 1], ['R', -1]]) {
+      const sh = J(`shoulder${side}`, spine, sx * 0.235, 0.45, 0, 0, 0, sx * 0.13);
+      add(sh, sph(0.078), M.hoodie, [0, -0.02, 0]);
+      add(sh, cap(0.07, 0.2), M.hoodie, [0, -0.15, 0]);
+      const el = J(`elbow${side}`, sh, 0, -0.3, 0, -0.14, 0, 0);
+      add(el, cap(0.064, 0.17), M.hoodie, [0, -0.12, 0]);
+      add(el, cyl(0.057, 0.06, 0.05), M.hoodieDark, [0, -0.235, 0]);
+      const hand = J(`hand${side}`, el, 0, -0.27, 0);
+      add(hand, sph(0.048), M.skin, [0, -0.045, 0.004], [0.66, 1.0, 1.05]);
+      add(hand, cap(0.024, 0.04), M.skin, [0, -0.095, 0.004], [1.15, 1, 1.85]);
+      const thumb = J(`thumb${side}`, hand, -sx * 0.016, -0.03, 0.035, 0.5, 0, 0);
+      add(thumb, cap(0.017, 0.04), M.skin, [0, -0.03, 0]);
+    }
+
+    // --- Legs
+    for (const [side, sx] of [['L', 1], ['R', -1]]) {
+      const leg = J(`leg${side}`, hips, sx * 0.105, -0.03, 0, 0, 0, sx * 0.025);
+      add(leg, cap(0.1, 0.33), M.pants, [0, -0.215, 0]);
+      add(leg, new THREE.BoxGeometry(0.04, 0.1, 0.075), M.pantsDark, [sx * 0.098, -0.26, 0.0]); // cargo pocket
+      const knee = J(`knee${side}`, leg, 0, -0.45, 0);
+      add(knee, cyl(0.093, 0.1, 0.39), M.pants, [0, -0.185, 0]);
+      add(knee, new THREE.TorusGeometry(0.088, 0.02, 10, 28), M.pantsDark, [0, -0.36, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+      const foot = J(`foot${side}`, knee, 0, -0.42, 0, 0, sx * 0.12, 0);
+      add(foot, cap(0.062, 0.12), M.shoe, [0, -0.01, 0.045], [1.05, 0.85, 1], [Math.PI / 2, 0, 0]);
+      add(foot, cap(0.068, 0.13), M.sole, [0, -0.056, 0.045], [1.08, 0.4, 1.03], [Math.PI / 2, 0, 0]);
+      for (const ss of [-1, 1]) {
+        add(foot, new THREE.BoxGeometry(0.006, 0.026, 0.11), M.accent, [ss * 0.064, -0.012, 0.04], [1, 1, 1], [0.15, 0, 0]);
+      }
+      add(foot, cyl(0.052, 0.058, 0.04), M.dark, [0, 0.04, -0.005]); // sock / collar
+    }
+
+    this.object3d.traverse((m) => { if (m.isMesh) { m.receiveShadow = false; } });
+    this.headAnchor = new THREE.Object3D();
+    this.headAnchor.position.set(0, 0.4, 0);
+    head.add(this.headAnchor);
+  }
+
+  _buildHead(head, M, add, sph) {
+    const P = this.parts;
+    add(head, sph(0.17, 48, 36), M.skin, [0, 0.16, 0], [0.94, 1.04, 0.98]);
+    add(head, sph(0.07), M.skin, [0, 0.075, 0.07], [1.25, 0.8, 1.0]); // jaw / chin softening
+    for (const sx of [-1, 1]) add(head, sph(0.038), M.skin, [sx * 0.158, 0.15, 0.0], [0.5, 1, 0.75]);
+    // silver hoop on the left ear
+    add(head, new THREE.TorusGeometry(0.016, 0.0035, 8, 24), M.silver, [0.165, 0.103, 0.01], [1, 1, 1], [0, Math.PI / 2, 0]);
+    add(head, sph(0.022), M.skinShade, [0, 0.14, 0.164], [1, 0.85, 0.9]); // nose
+
+    // eyes
+    for (const [side, sx] of [['L', 1], ['R', -1]]) {
+      const eye = new THREE.Group();
+      eye.position.set(sx * 0.058, 0.18, 0.144);
+      eye.rotation.y = sx * 0.22;
+      head.add(eye);
+      add(eye, sph(0.033), M.white, [0, 0, 0], [1, 1.12, 0.55]);
+      const iris = new THREE.Group();
+      iris.position.z = 0.0185;
+      eye.add(iris);
+      add(iris, new THREE.CircleGeometry(0.022, 24), M.iris);
+      add(iris, new THREE.CircleGeometry(0.012, 20), M.pupil, [0, 0, 0.0005]);
+      add(iris, new THREE.CircleGeometry(0.0055, 12), M.shine, [0.006, 0.008, 0.001]);
+      // upper lash line for definition
+      add(eye, new THREE.TorusGeometry(0.031, 0.0045, 6, 20, Math.PI * 0.9), M.dark, [0, 0.003, 0.004], [1, 1.12, 0.6], [0, 0, Math.PI * 0.05]);
+      P[`eye${side}`] = eye;
+      P[`iris${side}`] = iris;
+
+      const brow = new THREE.Group();
+      brow.position.set(sx * 0.062, 0.235, 0.148);
+      brow.rotation.y = sx * 0.3;
+      brow.userData.y = brow.position.y;
+      head.add(brow);
+      add(brow, new THREE.CapsuleGeometry(0.0085, 0.04, 4, 10), M.hair, [0, 0, 0], [1, 1, 0.8], [0, 0, Math.PI / 2 + sx * 0.08]);
+      P[`brow${side}`] = brow;
+    }
+
+    // mouth
+    const mouth = new THREE.Group();
+    mouth.position.set(0, 0.088, 0.153);
+    mouth.rotation.x = -0.25;
+    head.add(mouth);
+    P.mouth = mouth;
+    P.smile = add(mouth, new THREE.TorusGeometry(0.028, 0.0055, 8, 24, Math.PI), M.mouth, [0, 0.01, 0], [1, 1, 1], [0, 0, Math.PI]);
+    // open mouth: a dark ellipsoid whose height is driven by face.open
+    const openGeo = new THREE.SphereGeometry(0.026, 20, 14);
+    openGeo.scale(1, 1, 0.35);
+    openGeo.translate(0, -0.012, 0); // grows downward from the lip line
+    P.mouthOpen = add(mouth, openGeo, M.mouth, [0, 0.012, 0]);
+
+    // hair: tilted cap + a cloud of curls (deterministic pseudo-random)
+    const hair = new THREE.Group();
+    hair.position.set(0, 0.165, -0.008);
+    hair.rotation.x = -0.42;
+    head.add(hair);
+    add(hair, new THREE.SphereGeometry(0.176, 40, 24, 0, TAU, 0, 1.25), M.hair, [0, 0, 0], [0.98, 1.05, 1.02]);
+    // short back & sides (fade) so the back of the head isn't bald
+    add(head, new THREE.SphereGeometry(0.1735, 40, 20, 0, TAU, 0, 1.45), M.hair, [0, 0.162, -0.004], [0.95, 1.05, 0.99], [-1.2, 0, 0]);
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const dir = new THREE.Vector3();
+    for (let i = 0; i < 46; i++) {
+      const theta = Math.sqrt(rnd()) * 1.2;
+      const phi = rnd() * TAU;
+      dir.set(Math.sin(theta) * Math.cos(phi), Math.cos(theta), Math.sin(theta) * Math.sin(phi));
+      const r = 0.042 + rnd() * 0.028;
+      add(hair, sph(r, 14, 10), M.hair, [dir.x * 0.17, dir.y * 0.17 + 0.012, dir.z * 0.17]);
+    }
+    // a couple of curls falling onto the forehead
+    add(head, sph(0.03, 14, 10), M.hair, [0.035, 0.288, 0.12]);
+    add(head, sph(0.024, 14, 10), M.hair, [-0.02, 0.292, 0.125]);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Poses. Keys are "<joint>.<px|py|pz|rx|ry|rz>" (offsets from rest) or "face.<x>".
+
+const FACE_DEFAULTS = {
+  'face.smile': 0.35, 'face.open': 0, 'face.squint': 0, 'face.wink': 0,
+  'face.brow': 0, 'face.browTilt': 0, 'face.browAsym': 0,
+  'face.eyeX': 0, 'face.eyeY': 0, 'face.mouthX': 0,
+};
+
+/** Knee bend that keeps the feet on the floor. */
+function crouch(p, a, sides = ['L', 'R']) {
+  for (const s of sides) {
+    p[`leg${s}.rx`] = (p[`leg${s}.rx`] || 0) - a;
+    p[`knee${s}.rx`] = (p[`knee${s}.rx`] || 0) + 2 * a;
+    p[`foot${s}.rx`] = (p[`foot${s}.rx`] || 0) - a;
+  }
+  p['hips.py'] = (p['hips.py'] || 0) - 2 * LEG * (1 - Math.cos(a));
+}
+
+/** Counter-rotate legs so that hip sway doesn't make the feet slide. */
+function plantFeet(p) {
+  const comp = -(p['hips.rz'] || 0) - (p['hips.px'] || 0) / (2 * LEG);
+  p['legL.rz'] = (p['legL.rz'] || 0) + comp;
+  p['legR.rz'] = (p['legR.rz'] || 0) + comp;
+  p['footL.rz'] = (p['footL.rz'] || 0) - comp;
+  p['footR.rz'] = (p['footR.rz'] || 0) - comp;
+}
+
+function idlePose(t) {
+  const breathe = Math.sin(t * 1.7);
+  const shift = Math.sin(t * 0.42) + 0.3 * Math.sin(t * 0.17);
+  const p = {
+    'spine.rx': 0.018 * breathe,
+    'spine.rz': -0.025 * shift,
+    'spine.ry': 0.03 * Math.sin(t * 0.31),
+    'hips.px': 0.022 * shift,
+    'hips.rz': 0.022 * shift,
+    'hips.py': 0.003 * breathe,
+    'shoulderL.rz': 0.02 * breathe + 0.015 * shift,
+    'shoulderR.rz': -0.02 * breathe + 0.015 * shift,
+    'shoulderL.rx': 0.035 * Math.sin(t * 0.9 + 1.0),
+    'shoulderR.rx': 0.035 * Math.sin(t * 0.9 + 2.3),
+    'elbowL.rx': -0.05 * (1 + Math.sin(t * 0.8 + 1.4)),
+    'elbowR.rx': -0.05 * (1 + Math.sin(t * 0.8 + 2.9)),
+    'head.ry': 0.13 * Math.sin(t * 0.37) + 0.05 * Math.sin(t * 0.91),
+    'head.rx': 0.035 * Math.sin(t * 0.53) - 0.012 * breathe,
+    'head.rz': 0.045 * Math.sin(t * 0.29) - 0.02 * shift,
+    'face.smile': 0.38 + 0.12 * Math.sin(t * 0.23),
+    'face.brow': 0.08 * Math.max(0, Math.sin(t * 0.61)),
+    'face.eyeX': 0.35 * Math.sin(t * 0.37 + 0.4),
+  };
+  plantFeet(p);
+  return p;
+}
+
+const MOTIONS = {
+  // Big friendly wave with the right hand.
+  greet: {
+    duration: 2.5,
+    look: 0.6,
+    pose(t, d) {
+      const up = env(t, 0, 0.35, d - 0.45, d);
+      const wave = Math.sin((t - 0.3) * 13);
+      const p = {
+        'shoulderR.rz': -1.8 * up,
+        'shoulderR.rx': 0.2 * up,
+        'elbowR.rz': (-1.15 + 0.4 * wave) * up,
+        'elbowR.rx': 0.14 * up,
+        'handR.rz': 0.25 * wave * up,
+        'handR.ry': 0.6 * up,
+        'spine.rz': 0.06 * up,
+        'spine.rx': -0.04 * up,
+        'head.rz': 0.13 * up,
+        'head.rx': -0.06 * up,
+        'shoulderL.rz': 0.05 * up,
+        'hips.py': 0.025 * Math.sin(Math.min(1, t / 0.45) * Math.PI),
+        'face.smile': 1,
+        'face.open': 0.45 * env(t, 0.1, 0.3, 0.9, 1.3),
+        'face.squint': 0.35 * up,
+        'face.brow': 0.7 * up,
+      };
+      return p;
+    },
+  },
+
+  // Anticipation crouch → jump with 360° spin → arms up fist pumps.
+  celebrate: {
+    duration: 3.3,
+    look: 0.15,
+    idleBlend: 0.1,
+    pose(t, d) {
+      const p = {};
+      const jt = (t - 0.38) / 0.72; // airborne 0..1
+      const air = jt > 0 && jt < 1;
+      const pre = env(t, 0, 0.3, 0.32, 0.4);
+      const land = env(t, 1.08, 1.16, 1.2, 1.45);
+      const after = smooth((t - 1.2) / 0.3) * (1 - smooth((t - (d - 0.5)) / 0.5));
+      const pump = 0.5 + 0.5 * Math.sin((t - 1.2) * 11);
+      const armsUp = smooth((t - 0.25) / 0.25) * (1 - smooth((t - (d - 0.45)) / 0.45));
+
+      crouch(p, 0.38 * pre + 0.3 * land + 0.12 * pump * after);
+      if (air) {
+        const h = 4 * 0.34 * jt * (1 - jt);
+        p['body.py'] = h;
+        p['body.ry'] = smooth(jt) * TAU;
+        const tuck = Math.sin(jt * Math.PI);
+        p['legL.rx'] = -0.55 * tuck; p['kneeL.rx'] = 1.0 * tuck;
+        p['legR.rx'] = -0.25 * tuck; p['kneeR.rx'] = 0.7 * tuck;
+      }
+      p['shoulderL.rz'] = 2.55 * armsUp;
+      p['shoulderR.rz'] = -2.55 * armsUp;
+      p['elbowL.rz'] = 0.55 * pump * after;
+      p['elbowR.rz'] = -0.55 * pump * after;
+      p['elbowL.rx'] = 0.14 * armsUp;
+      p['elbowR.rx'] = 0.14 * armsUp;
+      p['spine.rx'] = -0.12 * armsUp + 0.12 * pre;
+      p['head.rx'] = -0.2 * armsUp;
+      p['head.rz'] = 0.08 * Math.sin(t * 6) * after;
+      p['face.smile'] = 1;
+      p['face.open'] = 0.85 * smooth(t / 0.4) * (1 - smooth((t - (d - 0.3)) / 0.3));
+      p['face.squint'] = 0.85 * smooth((t - 0.2) / 0.3);
+      p['face.brow'] = 0.8;
+      return p;
+    },
+  },
+
+  // Thumbs up + nod + wink.
+  nod: {
+    duration: 2.1,
+    look: 0.5,
+    pose(t, d) {
+      const up = env(t, 0, 0.35, d - 0.45, d);
+      const nod = Math.max(0, Math.sin((t - 0.35) * 8.5)) * env(t, 0.35, 0.45, 1.3, 1.6);
+      return {
+        'shoulderR.rx': -0.7 * up,
+        'shoulderR.rz': 0.18 * up,
+        'elbowR.rx': -1.35 * up,
+        'elbowR.ry': -0.25 * up,
+        'handR.ry': -1.4 * up,
+        'handR.rx': -0.15 * up,
+        'thumbR.rx': -1.05 * up,
+        'thumbR.rz': 0.4 * up,
+        'spine.ry': -0.12 * up,
+        'spine.rx': 0.03 * up,
+        'head.rx': 0.17 * nod - 0.03 * up,
+        'head.rz': -0.08 * up,
+        'face.smile': 0.95,
+        'face.squint': 0.25 * up,
+        'face.wink': env(t, 0.5, 0.65, 1.3, 1.45),
+        'face.brow': 0.35 * up,
+        'face.browAsym': 0.4 * env(t, 0.5, 0.65, 1.3, 1.45),
+      };
+    },
+  },
+
+  // Palms-up shrug with a "not sure" face.
+  shrug: {
+    duration: 2.3,
+    look: 0.3,
+    pose(t, d) {
+      const up = env(t, 0, 0.4, d - 0.5, d);
+      const pop = env(t, 0.25, 0.45, 0.9, 1.5);
+      const p = {
+        'face.smile': 0.12,
+        'face.mouthX': 0.6 * up,
+        'face.browTilt': 0.55 * up,
+        'face.browAsym': 0.5 * up,
+        'face.eyeY': 0.6 * up,
+        'face.eyeX': -0.4 * up,
+        'head.rz': 0.17 * up,
+        'head.ry': -0.12 * up,
+        'head.rx': -0.04 * up,
+        'spine.rx': -0.03 * up,
+      };
+      for (const [s, sx] of [['L', 1], ['R', -1]]) {
+        p[`shoulder${s}.py`] = 0.035 * pop + 0.01 * up;
+        p[`shoulder${s}.rz`] = sx * 0.32 * up;
+        p[`shoulder${s}.rx`] = -0.12 * up;
+        p[`elbow${s}.rx`] = -1.25 * up;
+        p[`elbow${s}.ry`] = sx * 0.45 * up;
+        p[`hand${s}.ry`] = -sx * 1.4 * up;
+        p[`hand${s}.rz`] = sx * 0.25 * up;
+      }
+      return p;
+    },
+  },
+
+  // Groovy two-step at 120 bpm.
+  dance: {
+    duration: 4.2,
+    look: 0.2,
+    idleBlend: 0,
+    pose(t, d) {
+      const on = env(t, 0, 0.3, d - 0.4, d);
+      const beat = t * TAU * 2.0;
+      const half = beat / 2;
+      const p = {};
+      crouch(p, (0.1 + 0.09 * (0.5 + 0.5 * Math.cos(beat))) * on);
+      p['hips.px'] = 0.045 * Math.sin(half) * on;
+      p['hips.rz'] = 0.07 * Math.sin(half) * on;
+      p['hips.ry'] = 0.12 * Math.sin(half) * on;
+      p['spine.rz'] = -0.12 * Math.sin(half) * on;
+      p['spine.ry'] = -0.18 * Math.sin(half) * on;
+      p['body.ry'] = 0.3 * Math.sin(beat / 4) * on;
+      plantFeet(p);
+      const a = Math.sin(half);
+      p['shoulderL.rz'] = (0.45 + 0.35 * a) * on;
+      p['shoulderR.rz'] = -(0.45 - 0.35 * a) * on;
+      p['shoulderL.rx'] = -0.35 * on;
+      p['shoulderR.rx'] = -0.35 * on;
+      p['elbowL.rx'] = (-1.3 + 0.35 * Math.cos(beat)) * on;
+      p['elbowR.rx'] = (-1.3 - 0.35 * Math.cos(beat)) * on;
+      p['head.rz'] = 0.12 * Math.sin(half + 0.5) * on;
+      p['head.rx'] = 0.07 * Math.cos(beat) * on;
+      p['face.smile'] = 0.95;
+      p['face.squint'] = 0.65 * on;
+      p['face.open'] = (0.1 + 0.12 * Math.max(0, Math.sin(beat))) * on;
+      p['face.brow'] = 0.3 * on;
+      return p;
+    },
+  },
+};
