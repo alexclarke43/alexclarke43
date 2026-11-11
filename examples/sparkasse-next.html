@@ -109,7 +109,21 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 
 /* avatar builder – 3D avatar: the customiser of the 3D avatar runs in an embedded frame */
 .avedit{margin-top:14px;height:500px;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,var(--red-tint),#fff 60%);border:1.5px solid var(--line)}
-.avnote{font-size:12.5px!important;color:var(--grey);margin-top:8px!important;line-height:1.35}
+.avnote{font-size:12.5px!important;color:var(--grey);margin-top:10px!important;line-height:1.35}
+.avprev{margin-top:14px;height:250px;border-radius:24px;overflow:hidden;position:sticky;top:-26px;z-index:5;box-shadow:0 10px 24px -18px rgba(0,0,0,.35);background:radial-gradient(120% 90% at 50% 20%,#fff 0%,var(--red-tint) 75%);border:1.5px solid var(--line)}
+.avprev iframe{position:absolute;inset:0}
+.avprev-c{position:absolute;left:12px;top:12px;z-index:2;background:#fff;border-radius:999px;padding:5px 10px;font:800 12.5px var(--body);box-shadow:0 2px 8px rgba(0,0,0,.08);pointer-events:none}
+.avprev-h{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:2;font:700 12px var(--body);color:var(--grey);pointer-events:none}
+.opt-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.sw-c{width:36px;height:36px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--line)}
+.sw-c.on{box-shadow:0 0 0 3px var(--red)}
+.opt-t{padding:8px 12px;border-radius:999px;border:2px solid var(--line);font-weight:700;font-size:13px}
+.opt-t.on{border-color:var(--red);color:var(--red);background:var(--red-tint)}
+.dice{margin-left:auto;padding:8px 12px;border-radius:999px;background:var(--ink);color:#fff;font-weight:800;font-size:13px}
+.sw-c{display:grid;place-items:center;font-size:13px}
+.sw-c.locked{opacity:.55}
+.opt-t:disabled{opacity:.5;cursor:not-allowed}
+.avrange{width:100%;margin-top:10px;accent-color:var(--red)}
 
 /* 3D avatar: portrait images (snapshots of the 3D avatar) used wherever the old SVG avatar appeared */
 .av3d{display:block;width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--red-tint)}
@@ -468,7 +482,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
  </div>
 </div>
 
-<script src="../embed/sparkasse-avatar-embed.js?v=c9ce436-mwbyzsx1"></script>
+<script src="../embed/sparkasse-avatar-embed.js?v=4919287-mwbzsp0f"></script>
 <script>
 (function(){
 /* ================= language ================= */
@@ -540,7 +554,7 @@ const bal=()=>1248.6-(S.saved-45);
 /* ================= 3D avatar ================= */
 // The customisable 3D avatar runs in ../avatar/ (embedded frames). Everything here talks to it
 // through SparkasseAvatar.mount() – see README "Integrate it into another website".
-const AVATAR_SRC='../avatar/index.html?v=c9ce436-mwbyzsx1';
+const AVATAR_SRC='../avatar/index.html?v=4919287-mwbzsp0f';
 const AV_THEME={bg:'transparent',theme:'next',primary:'ff0000',accent:'ffb400',character:'human'};
 let home3d=null, editor3d=null, feed3d=null, avSnap='', avLook=null, avCoins=0, snapTimer=0;
 function mountAvatar(el,params){return SparkasseAvatar.mount(el,{src:AVATAR_SRC,height:'100%',params:{...AV_THEME,lang:L,...params}});}
@@ -573,12 +587,71 @@ function ensureHome3d(){
 function react(move,text){ if(home3d&&homeReady&&current==='home'){ text?home3d.play(move,{text}):home3d.perform(move); } }
 function giveCoins(n){ n=Math.max(0,Math.round(n)); if(!n||!home3d)return; home3d.addCoins(Math.min(n,100)); }
 // the customiser (onboarding step 2 + profile sheet)
+// Options of the 3D avatar (mirror of avatar/js/look.js – keep in sync)
+const AV={
+  body:[['female',{en:'Female',de:'Weiblich'}],['male',{en:'Male',de:'Männlich'}]],
+  skin:['#f3d2b8','#e8b896','#c98d6b','#a8714f','#7d4f33','#613d26','#4a2c1c'],
+  hair:[['knots',{en:'Bantu knots',de:'Bantu Knots'}],['curls',{en:'Curls',de:'Locken'}],['buzz',{en:'Buzz',de:'Buzz Cut'}],['bun',{en:'Bun',de:'Dutt'}],['long',{en:'Long',de:'Lang'}],['beanie',{en:'Beanie',de:'Beanie'},50]],
+  hairColor:['#25221e','#24170f','#5b3a1e','#a0522d','#d9b26f','#e8e2d6','#b48cf2','#ff6f91','#2fb8a6'],
+  hatColor:['#f2c14e','#e3000f','#15131a','#7cf5d0','#b8a4ff','#f4f1ea'],
+  top:[['tank',{en:'Tank',de:'Tanktop'}],['hoodie',{en:'Hoodie',de:'Hoodie'}],['jacket',{en:'Bomber',de:'Bomber'}],['tee',{en:'Tee',de:'T-Shirt'}]],
+  topColor:['#746764','#ff0000','#1d1d1f','#f4f1ea','#7cf5d0','#b8a4ff','#ffd23f','#3d5a80','#56704a'],
+  bottom:[['joggers',{en:'Joggers',de:'Jogger'}],['cargo',{en:'Cargo',de:'Cargo'}],['jeans',{en:'Jeans',de:'Jeans'}],['shorts',{en:'Shorts',de:'Shorts'}],['skirt',{en:'Skirt',de:'Rock'}]],
+  bottomColor:['#fbda53','#2a2a33','#3d5a80','#c8b89a','#56704a','#f4f1ea','#15131a'],
+  shoeColor:['#f7f6f2','#15131a','#ff0000','#7cf5d0',['#d4af37',80]],
+  extras:[['shades',{en:'Shades',de:'Sonnenbrille'},0,'m'],['glasses',{en:'Glasses',de:'Brille'},0,'m'],['headphones',{en:'Headphones',de:'Kopfhörer'},0,'m'],['earring',{en:'Earring',de:'Ohrring'},0,'m'],['watch',{en:'Smartwatch',de:'Smartwatch'},20],['chain',{en:'Gold chain',de:'Goldkette'},30],['bag',{en:'Crossbody bag',de:'Crossbody-Bag'},60]],
+};
+const AVT={
+  en:{name:'Name',body:'Body',skin:'Skin',hair:'Hair',hairc:'Hair colour',hat:'Beanie colour',top:'Top',bottom:'Bottoms',shoes:'Sneakers',extras:'Accessories',height:'Height',shuffle:'Shuffle',lock:'Unlock with {x} 🪙',coins:'🪙 {x} coins · earn more by saving',spin:'Drag to spin'},
+  de:{name:'Name',body:'Körper',skin:'Haut',hair:'Haare',hairc:'Haarfarbe',hat:'Mützenfarbe',top:'Oberteil',bottom:'Unterteil',shoes:'Sneaker',extras:'Accessoires',height:'Größe',shuffle:'Zufall',lock:'Mit {x} 🪙 freischalten',coins:'🪙 {x} Coins · mehr gibt es fürs Sparen',spin:'Zum Drehen ziehen'}};
+const at=(k,v={})=>AVT[L][k].replace(/\{(\w)\}/g,(_,m)=>v[m]??'');
+// native Next-style customiser: live 3D preview on top, controls below
 function builder(box){
   editor3d?.destroy(); editorReady=false;
-  box.innerHTML=`<div class="avedit" id="avEdit"></div><p class="avnote">${t('av_note')}</p>`;
-  editor3d=mountAvatar(box.querySelector('#avEdit'),{tabs:'style',tab:'style',hint:false,badge:true,autoGreet:true});
-  editor3d.on('ready',()=>{editorReady=true;editor3d.setLook({name:S.nick});requestSnap();});
-  editor3d.on('look',e=>onLook(e.look));
+  box.innerHTML=`<div class="avprev" id="avPrev"><span class="avprev-c" id="avPrevCoins"></span><span class="avprev-h">${at('spin')}</span></div><div id="avCtl"></div><p class="avnote">${t('av_note')}</p>`;
+  editor3d=mountAvatar(box.querySelector('#avPrev'),{ui:false,hint:false,badge:false,bubble:false,autoGreet:true});
+  let look=avLook||null, coins=avCoins;
+  const set=(partial,move)=>{ if(!editorReady)return; look={...look,...partial}; draw(); editor3d.setLook(partial); if(move)editor3d.perform(move); };
+  const sw=(key,list)=>`<div class="opt-row">${list.map(c=>{const [col,cost]=Array.isArray(c)?c:[c,0];const locked=cost>coins;
+      return `<button class="sw-c ${String(look[key]).toLowerCase()===col?'on':''} ${locked?'locked':''}" style="background:${col}" data-k="${key}" data-v="${col}" ${locked?`disabled title="${at('lock',{x:cost})}"`:''} aria-label="${key} ${col}">${locked?'🔒':''}</button>`;}).join('')}</div>`;
+  const chips=(key,list)=>`<div class="opt-row">${list.map(([id,lab,cost=0])=>{const locked=cost>coins;
+      return `<button class="opt-t ${look[key]===id?'on':''}" data-k="${key}" data-v="${id}" ${locked?`disabled title="${at('lock',{x:cost})}"`:''}>${lab[L]}${locked?` 🔒${cost}`:''}</button>`;}).join('')}</div>`;
+  const draw=()=>{
+    const el=box.querySelector('#avCtl'); if(!el)return;
+    box.querySelector('#avPrevCoins').textContent=at('coins',{x:coins});
+    if(!look){el.innerHTML='';return;}
+    const male=look.body==='male';
+    const extras=AV.extras.filter(e=>male||e[3]!=='m');
+    el.innerHTML=`
+      <div class="lbl2">${at('name')}</div><input class="tinput" id="avNameIn" maxlength="16" value="${(look.name||'').replace(/"/g,'&quot;')}">
+      <div class="lbl2" style="display:flex;align-items:center">${at('body')}<button class="dice" id="avDice">🎲 ${at('shuffle')}</button></div>${chips('body',AV.body)}
+      <div class="lbl2">${at('skin')}</div>${sw('skin',AV.skin)}
+      <div class="lbl2">${at('hair')}</div>${chips('hairStyle',AV.hair)}
+      <div class="lbl2">${at('hairc')}</div>${sw('hairColor',AV.hairColor)}
+      ${look.hairStyle==='beanie'?`<div class="lbl2">${at('hat')}</div>${sw('hatColor',AV.hatColor)}`:''}
+      <div class="lbl2">${at('top')}</div>${male?chips('top',AV.top):''}${sw('topColor',AV.topColor)}
+      <div class="lbl2">${at('bottom')}</div>${male?chips('bottom',AV.bottom):''}${sw('bottomColor',AV.bottomColor)}
+      <div class="lbl2">${at('shoes')}</div>${sw('shoeColor',AV.shoeColor)}
+      <div class="lbl2">${at('extras')}</div><div class="opt-row">${extras.map(([id,lab,cost=0])=>{const locked=cost>coins;
+         return `<button class="opt-t ${look[id]?'on':''}" data-x="${id}" ${locked?`disabled title="${at('lock',{x:cost})}"`:''}>${lab[L]}${locked?` 🔒${cost}`:''}</button>`;}).join('')}</div>
+      <div class="lbl2" style="display:flex;justify-content:space-between">${at('height')}<span id="avHOut">${(look.height/100).toFixed(2)} m</span></div>
+      <input class="avrange" id="avH" type="range" min="150" max="200" step="1" value="${look.height}">`;
+    el.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const k=b.dataset.k,v=b.dataset.v;set({[k]:v},k==='body'?null:k==='hairStyle'?'giggle':'nod');});
+    el.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>set({[b.dataset.x]:!look[b.dataset.x]},'heart'));
+    el.querySelector('#avDice').onclick=()=>{const pick=a=>a[rand(a.length)], free=(a)=>a.filter(x=>!Array.isArray(x)||!(x[2]>coins||x[1]>coins&&typeof x[1]==='number'));
+      const col=a=>{const c=pick(a.filter(x=>!Array.isArray(x)||x[1]<=coins));return Array.isArray(c)?c[0]:c;};
+      const r={skin:col(AV.skin),hairStyle:pick(AV.hair.filter(h=>(h[2]||0)<=coins))[0],hairColor:col(AV.hairColor),topColor:col(AV.topColor),bottomColor:col(AV.bottomColor),shoeColor:col(AV.shoeColor)};
+      if(look.body==='male'){r.top=pick(AV.top)[0];r.bottom=pick(AV.bottom)[0];}
+      set(r,'dance');};
+    const nm=el.querySelector('#avNameIn');
+    nm.oninput=()=>{const v=nm.value.trim();if(v){look.name=v;S.nick=v;editor3d.setLook({name:v});}};
+    const h=el.querySelector('#avH');
+    h.oninput=()=>{el.querySelector('#avHOut').textContent=(h.value/100).toFixed(2)+' m';look.height=+h.value;editor3d.setLook({height:+h.value});};
+  };
+  editor3d.on('ready',e=>{editorReady=true;coins=e.coins;look={...e.look,name:S.nick};editor3d.setLook({name:S.nick});draw();requestSnap();});
+  editor3d.on('look',e=>{look=e.look;onLook(e.look);const active=document.activeElement;if(!active||!['avNameIn','avH'].includes(active.id))draw();});
+  editor3d.on('coins',e=>{coins=e.coins;avCoins=e.coins;draw();});
+  draw();
 }
 function closeEditor(){ editor3d?.destroy(); editor3d=null; editorReady=false; }
 // full-screen For You clips
@@ -640,7 +713,7 @@ document.addEventListener('click',e=>{
 });
 $$('.lang button').forEach(b=>b.onclick=()=>{L=b.dataset.lang;document.documentElement.lang=L;$$('.lang button').forEach(x=>x.classList.toggle('on',x===b));
   [home3d,editor3d,feed3d].forEach(a=>a?.setLang(L)); // 3D avatar follows the language live
-  if(current==='onboard'&&obAt===2){$$('[data-t]').forEach(el=>{const s=t(el.dataset.t);if(typeof s==='string')el.innerHTML=s;});$('#ob .step').textContent=t('ob2_k');$('#ob h2').textContent=t('ob2_h');$('#ob p').textContent=t('ob2_p');$('#ob .avnote').textContent=t('av_note');$('#ob3').textContent=t('cont');}
+  if(current==='onboard'&&obAt===2&&$('#bld')){$$('[data-t]').forEach(el=>{const s=t(el.dataset.t);if(typeof s==='string')el.innerHTML=s;});$('#ob .step').textContent=t('ob2_k');$('#ob h2').textContent=t('ob2_h');$('#ob p').textContent=t('ob2_p');$('#ob .avnote').textContent=t('av_note');$('#ob3').textContent=t('cont');}
   else render(current);
   if($('#story').classList.contains('show'))showSlide();});
 $('#tryNext').onclick=startOnboard;
@@ -781,11 +854,10 @@ function renderHome(){
 }
 $('#meBtn').onclick=()=>{
   sheet(`<h3>${t('me_h')}</h3><p>${t('me_p')}</p><div id="bld2"></div>
-    <div class="field"><label for="nk">${t('nick')}</label><input id="nk" value="${S.nick}" maxlength="16"></div>
     <div class="field"><label for="cn">${t('coachn')}</label><input id="cn" value="${S.coach}" maxlength="14"></div>
     <button class="cta" id="meSave" style="margin-top:18px">${t('save')}</button>`,()=>{
       builder($('#bld2'));
-      $('#meSave').onclick=()=>{S.nick=$('#nk').value.trim()||S.nick;S.coach=$('#cn').value.trim()||S.coach;home3d?.setLook({name:S.nick});closeSheet();toast(t('t_saved'));render(current);react('greet',L==='de'?'Neuer Look 😎':'New look 😎');};
+      $('#meSave').onclick=()=>{S.coach=$('#cn').value.trim()||S.coach;home3d?.setLook({name:S.nick});closeSheet();toast(t('t_saved'));render(current);react('greet');};
     });
 };
 

@@ -596,8 +596,10 @@ export class PlaceholderAvatar {
     if (S.headphones) this._buildHeadphones(head, K);
   }
 
-  _buildHair(head, { M, add, sph, cap }) {
+  _buildHair(head, { M, add: addRaw, sph, cap }) {
     const style = this.style.hairStyle;
+    // tag hair meshes so 3D models (RiggedAvatar) can borrow the hairstyle
+    const add = (...args) => { const m = addRaw(...args); m.userData.hair = true; return m; };
     // short back & sides (fade) – shared by most styles so the head is never bald
     add(head, new THREE.SphereGeometry(0.1735, 40, 20, 0, TAU, 0, 1.45), M.hair, [0, 0.162, -0.004], [0.95, 1.05, 0.99], [-1.2, 0, 0]);
 
@@ -620,6 +622,15 @@ export class PlaceholderAvatar {
       }
       add(head, sph(0.03, 14, 10), M.hair, [0.035, 0.288, 0.12]);
       add(head, sph(0.024, 14, 10), M.hair, [-0.02, 0.292, 0.125]);
+    } else if (style === 'knots') {
+      // bantu knots: short base + twisted knots on top and at the sides
+      add(top, capGeo(0.177, 1.35), M.hair, [0, 0, 0], [0.97, 1.04, 1.01]);
+      const knots = [[0, 0.17, 0.02], [0.105, 0.14, -0.02], [-0.105, 0.14, -0.02], [0.155, 0.04, -0.05], [-0.155, 0.04, -0.05], [0.07, 0.11, -0.13], [-0.07, 0.11, -0.13]];
+      for (const [x, y, z] of knots) {
+        add(top, sph(0.05, 16, 12), M.hair, [x, y, z], [1, 0.85, 1]);
+        add(top, sph(0.034, 14, 10), M.hair, [x * 1.08, y + 0.035, z * 1.04]);
+        add(top, sph(0.02, 12, 8), M.hair, [x * 1.12, y + 0.06, z * 1.06]);
+      }
     } else if (style === 'buzz') {
       add(top, capGeo(0.1745, 1.3), M.hair, [0, 0, 0], [0.96, 1.03, 1.0]);
     } else if (style === 'bun') {

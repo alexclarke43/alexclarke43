@@ -19,7 +19,7 @@ export const DEFAULT_LOOK = {
   body: 'female',       // 'female' = the 3D model (models/buddy.glb) | 'male' = matching built-in character
   // Defaults follow the uploaded model's outfit: grey crop/tank top, yellow joggers, chunky sneakers, red headphones, shades
   skin: '#613d26',
-  hairStyle: 'curls',
+  hairStyle: 'knots',   // the 3D model's own bantu knots
   hairColor: '#25221e',
   hatColor: '#f2c14e',
   top: 'tank',
@@ -49,6 +49,7 @@ export const OPTIONS = {
     { id: 'female', label: L('Female', 'Weiblich') },
   ],
   hairStyle: [
+    { id: 'knots', label: L('Bantu knots', 'Bantu Knots') },
     { id: 'curls', label: L('Curls', 'Locken') },
     { id: 'buzz', label: L('Buzz', 'Buzz Cut') },
     { id: 'bun', label: L('Bun', 'Dutt') },
@@ -156,7 +157,7 @@ export function randomLook(coins = 0) {
 const KEY = 'sparkasse-avatar-look';
 // Bump when the default avatar changes: older saved looks keep only the name and height,
 // so returning users see the new avatar instead of their old outfit.
-export const LOOK_VERSION = 2;
+export const LOOK_VERSION = 3;
 export function loadSavedLook() {
   try {
     const s = localStorage.getItem(KEY);

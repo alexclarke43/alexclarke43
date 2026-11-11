@@ -226,8 +226,8 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.click('#panel-style [data-key="body"][data-value="female"]');
       await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'RiggedAvatar', null, { timeout: 30000 }).catch(() => {});
       check('body option: female switches to the 3D model', (await page.evaluate(() => window.SparkasseAvatarApp.look.body)) === 'female' && (await kind()) === 'RiggedAvatar');
-      check('3D model: Style panel offers only what the model supports',
-        (await page.locator('#panel-style [data-key="hairStyle"]').count()) === 0 && (await page.locator('#panel-style [data-key="topColor"]').count()) > 0 &&
+      check('3D model: Style panel offers hair + colours, no garment styles',
+        (await page.locator('#panel-style [data-key="hairStyle"]').count()) > 0 && (await page.locator('#panel-style [data-key="top"]').count()) === 0 && (await page.locator('#panel-style [data-key="topColor"]').count()) > 0 &&
         (await page.locator('#panel-style .cz-note').count()) === 1);
       await page.click('#panel-style [data-key="body"][data-value="male"]');
       await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'PlaceholderAvatar', null, { timeout: 30000 }).catch(() => {});
@@ -300,6 +300,12 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await A(() => window.SparkasseAvatarApp.setLook({ topColor: '#e3000f', bottomColor: '#3d5a80', skin: '#e8b896' }));
       const u = await A(() => { const x = window.SparkasseAvatarApp.avatar.uniforms; return [x.uTopOn.value, x.uBottomOn.value, x.uSkinOn.value]; });
       check('Style colours recolour the model (top, joggers, skin)', u.join() === '1,1,1');
+      await A(() => window.SparkasseAvatarApp.setLook({ hairColor: '#ff6f91' }));
+      check('hair colour recolours the model\'s own knots', (await A(() => [window.SparkasseAvatarApp.avatar.uniforms.uHairOn.value, window.SparkasseAvatarApp.avatar.uniforms.uHairHide.value].join())) === '1,0');
+      await A(() => window.SparkasseAvatarApp.setLook({ hairStyle: 'long' }));
+      check('other hairstyles replace the model\'s hair', await A(() => window.SparkasseAvatarApp.avatar.uniforms.uHairHide.value === 1 && window.SparkasseAvatarApp.avatar.hairRoot?.children.length > 3));
+      await A(() => window.SparkasseAvatarApp.setLook({ hairStyle: 'knots' }));
+      check('back to the original hair', await A(() => window.SparkasseAvatarApp.avatar.uniforms.uHairHide.value === 0 && !window.SparkasseAvatarApp.avatar.hairRoot));
       await A(() => { localStorage.setItem('sparkasse-avatar-coins', '0'); });
       await A(() => window.SparkasseAvatarApp.setLook({ shoeColor: '#15131a', watch: true, chain: true, bag: true }));
       const acc0 = await A(() => window.SparkasseAvatarApp.look);
@@ -430,15 +436,33 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
         }
         return null;
       };
-      const ef = await frameWith('tabs=style', () => !!window.SparkasseAvatarApp?.avatar);
-      check('Next onboarding: 3D avatar builder replaces the SVG builder', !!ef && (await ef.evaluate(() => window.SparkasseAvatarApp.config.theme)) === 'next');
-      check('builder hides the Sparkie picker', (await ef.locator('#panel-style [data-key="character"]').count()) === 0);
-      await ef.click('#panel-style [data-key="topColor"][data-value="#e3000f"]');
+      const ef = await frameWith('bubble=false', () => !!window.SparkasseAvatarApp?.avatar);
+      await page.waitForSelector('#avCtl [data-k="hairStyle"]', { timeout: 30000 }).catch(() => {});
+      check('Next onboarding: native customiser with a live 3D preview', !!ef && (await ef.evaluate(() => window.SparkasseAvatarApp.config.theme)) === 'next');
+      const ctl = async (sel) => (await page.locator(`#avCtl ${sel}`).count()) > 0;
+      check('customiser has name, hair, hair colour, top, bottoms, sneakers, accessories, height',
+        (await ctl('#avNameIn')) && (await ctl('[data-k="hairStyle"]')) && (await ctl('[data-k="hairColor"]')) && (await ctl('[data-k="topColor"]')) &&
+        (await ctl('[data-k="bottomColor"]')) && (await ctl('[data-k="shoeColor"]')) && (await ctl('[data-x="watch"]')) && (await ctl('#avH')));
+      check('accessories locked until enough coins', await page.locator('#avCtl [data-x="bag"]').isDisabled());
+      await page.click('#avCtl [data-k="hairStyle"][data-v="curls"]');
+      await ef.waitForFunction(() => !!window.SparkasseAvatarApp.avatar.hairRoot, null, { timeout: 15000 }).catch(() => {});
+      check('hairstyle changes on the 3D model', await ef.evaluate(() => !!window.SparkasseAvatarApp.avatar.hairRoot && window.SparkasseAvatarApp.look.hairStyle === 'curls'));
+      await page.click('#avCtl [data-k="hairColor"][data-v="#ff6f91"]');
+      await page.fill('#avCtl #avNameIn', 'Lexy');
+      await ef.waitForFunction(() => window.SparkasseAvatarApp.look.name === 'Lexy', null, { timeout: 10000 }).catch(() => {});
+      check('name and hair colour update the avatar', await ef.evaluate(() => window.SparkasseAvatarApp.look.name === 'Lexy' && window.SparkasseAvatarApp.look.hairColor === '#ff6f91'));
+      await page.click('#avCtl [data-k="body"][data-v="male"]');
+      await page.waitForSelector('#avCtl [data-k="top"]', { timeout: 30000 }).catch(() => {});
+      check('male body shows garment styles too', (await page.locator('#avCtl [data-k="top"]').count()) > 0 && (await page.locator('#avCtl [data-x="shades"]').count()) === 1);
+      await page.click('#avCtl [data-k="body"][data-v="female"]');
+      await page.waitForSelector('#avCtl [data-k="top"]', { state: 'detached', timeout: 30000 }).catch(() => {});
+      await page.click('#avCtl [data-k="topColor"][data-v="#ff0000"]');
       await page.waitForFunction(() => (window.next.snap || '').startsWith('data:image/png'), null, { timeout: 20000 }).catch(() => {});
       check('portrait snapshot of the 3D avatar is created', (await page.evaluate(() => window.next.snap.length)) > 5000);
       await page.click('#ob3'); await page.click('#ob4');
-      const hf = await frameWith('bubble=false', () => !!window.SparkasseAvatarApp?.avatar);
-      check('Home shows the live 3D avatar with the chosen look', !!hf && (await hf.evaluate(() => window.SparkasseAvatarApp.look.topColor)) === '#e3000f');
+      await page.waitForTimeout(500);
+      const hf = await frameWith('bubble=false', () => !!window.SparkasseAvatarApp?.avatar && window.frameElement?.closest('#homeAv') !== null);
+      check('Home shows the live 3D avatar with the chosen look', !!hf && (await hf.evaluate(() => window.SparkasseAvatarApp.look.topColor)) === '#ff0000' && (await hf.evaluate(() => window.SparkasseAvatarApp.look.hairStyle)) === 'curls');
       check('profile picture uses the 3D snapshot', (await page.locator('#meBtn .av3d img').count()) === 1);
       const c0 = await hf.evaluate(() => window.SparkasseAvatarApp.coins);
       await page.evaluate(() => window.next.topUp(1, 20));

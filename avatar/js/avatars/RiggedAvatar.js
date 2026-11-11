@@ -64,7 +64,7 @@ export class RiggedAvatar {
     this.motion = new THREE.Group(); // body root motion (jumps, spins)
     this.object3d.add(this.motion);
     this.supportsStyle = true;
-    this.styleKeys = ['skin', 'topColor', 'bottomColor', 'shoeColor', 'extras']; // what the Style panel can change on this model
+    this.styleKeys = ['skin', 'hairStyle', 'hairColor', 'hatColor', 'topColor', 'bottomColor', 'shoeColor', 'extras']; // what the Style panel can change on this model
     this.extras = ['watch', 'chain', 'bag']; // shades + headphones are part of the model itself
     this.accessories = [];
     this.style = { ...style };
@@ -105,6 +105,7 @@ export class RiggedAvatar {
     model.position.x -= c.x; model.position.z -= c.z; model.position.y -= box.min.y;
     this.motion.add(model);
     this.height = TARGET_HEIGHT + 0.05;
+    model.traverse((o) => { if (o.isSkinnedMesh) markHair(o); });
     this.object3d.updateMatrixWorld(true);
 
     this._alignRestPose();
@@ -169,7 +170,7 @@ export class RiggedAvatar {
     this.style = { ...this.style, ...style };
     const u = this.uniforms;
     if (!u) return;
-    for (const [key, uni] of [['skin', 'uSkin'], ['topColor', 'uTop'], ['bottomColor', 'uBottom'], ['shoeColor', 'uShoe']]) {
+    for (const [key, uni] of [['skin', 'uSkin'], ['topColor', 'uTop'], ['bottomColor', 'uBottom'], ['shoeColor', 'uShoe'], ['hairColor', 'uHair']]) {
       const col = this.style[key];
       const ref = RECOLOR.ref[key];
       const on = !!col && col.toLowerCase() !== ref;
@@ -178,6 +179,53 @@ export class RiggedAvatar {
     }
     u.uShoeGold.value = (this.style.shoeColor || '').toLowerCase() === GOLD ? 1 : 0;
     this._buildAccessories();
+    this._buildHair();
+  }
+
+  /**
+   * Hairstyles: 'knots' = the model's own hair (recoloured in the shader). Any other style
+   * hides the model's hair and borrows the built-in character's hair meshes, scaled onto the head bone.
+   */
+  _buildHair() {
+    if (!this.restM) return;
+    const S = this.style;
+    const own = !S.hairStyle || S.hairStyle === 'knots';
+    this.uniforms.uHairHide.value = own ? 0 : 1;
+    const key = own ? 'own' : `${S.hairStyle}|${S.hairColor}|${S.hatColor}`;
+    if (key === this._hairKey) return;
+    this._hairKey = key;
+    if (this.hairRoot) {
+      this.hairRoot.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+      this.hairRoot.removeFromParent();
+      this.hairRoot = null;
+    }
+    if (own) return;
+    // rebuild the hidden driver with this hairstyle and copy its hair meshes
+    this.driver.setStyle({ hairStyle: S.hairStyle, hairColor: S.hairColor, hatColor: S.hatColor, headphones: false, glasses: false, shades: false });
+    const dHead = this.driver.joints.head;
+    this.driver.object3d.updateMatrixWorld(true);
+    const inv = dHead.matrixWorld.clone().invert();
+    const root = new THREE.Group();
+    dHead.traverse((o) => {
+      if (!o.isMesh || !o.userData.hair) return;
+      const m = new THREE.Mesh(o.geometry.clone(), o.material.clone());
+      m.castShadow = true;
+      inv.clone().multiply(o.matrixWorld).decompose(m.position, m.quaternion, m.scale);
+      root.add(m);
+    });
+    // place: driver head joint ↔ model Head bone, scaled to the model's head
+    const head = this.bones.Head;
+    const rest = this.restM.get(head);
+    const headPos = new THREE.Vector3().setFromMatrixPosition(rest);
+    const topBone = this.bones.HeadTop_End;
+    const modelH = topBone ? new THREE.Vector3().setFromMatrixPosition(this.restM.get(topBone)).y - headPos.y : 0.25;
+    const k = (modelH / 0.293) * 0.86 * HAIR_FIT.scale;          // driver skull ≈ 0.293 m above its head joint (head scale 0.86)
+    const place = new THREE.Matrix4().compose(
+      headPos.clone().add(new THREE.Vector3(0, modelH * HAIR_FIT.dy, modelH * HAIR_FIT.dz)),
+      new THREE.Quaternion(), new THREE.Vector3(k * HAIR_FIT.sx, k, k * HAIR_FIT.sz));
+    rest.clone().invert().multiply(place).decompose(root.position, root.quaternion, root.scale);
+    head.add(root);
+    this.hairRoot = root;
   }
 
   _buildAccessories() {
@@ -397,19 +445,22 @@ export class RiggedAvatar {
       uTop: { value: new THREE.Color() }, uTopOn: { value: 0 }, uTopRef: { value: new THREE.Color(RECOLOR.ref.topColor) },
       uBottom: { value: new THREE.Color() }, uBottomOn: { value: 0 }, uBottomRef: { value: new THREE.Color(RECOLOR.ref.bottomColor) },
       uShoe: { value: new THREE.Color() }, uShoeOn: { value: 0 }, uShoeGold: { value: 0 },
+      uHair: { value: new THREE.Color() }, uHairOn: { value: 0 }, uHairRef: { value: new THREE.Color(RECOLOR.ref.hairColor) }, uHairHide: { value: 0 },
     };
     this.uniforms = uniforms;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute float aFoot;\nvarying float vFoot;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFoot = aFoot;');
+        .replace('#include <common>', '#include <common>\nattribute float aFoot;\nvarying float vFoot;\nattribute float aHair;\nvarying float vHair;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFoot = aFoot;\nvHair = aHair;');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform vec3 uSkin, uSkinRef, uTop, uTopRef, uBottom, uBottomRef;
           uniform float uSkinOn, uTopOn, uBottomOn;
           uniform vec3 uShoe; uniform float uShoeOn, uShoeGold;
           varying float vFoot;
+          varying float vHair;
+          uniform vec3 uHair, uHairRef; uniform float uHairOn, uHairHide;
           vec3 rgb2hsv(vec3 c) {
             vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
             vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
@@ -433,6 +484,10 @@ export class RiggedAvatar {
             if (uBottomOn > 0.5 && isBottom > 0.5) diffuseColor.rgb = uBottom * clamp(lumi(lin) / lumi(uBottomRef), 0.0, 1.6);
             if (uTopOn > 0.5 && isTop > 0.5) diffuseColor.rgb = uTop * clamp(lumi(lin) / lumi(uTopRef), 0.0, 2.2);
             if (uSkinOn > 0.5 && isSkin > 0.5) diffuseColor.rgb = lin * (uSkin / max(uSkinRef, vec3(0.002)));
+            // hair: dark, low-saturation texels on the upper head (not skin)
+            float isHair = step(0.5, vHair) * step(hsv.z, 0.42) * step(hsv.y, 0.55) * (1.0 - isSkin);
+            if (uHairHide > 0.5 && (vHair > 1.5 || step(0.5, vHair) * (1.0 - isSkin) > 0.5)) discard;
+            if (uHairOn > 0.5 && isHair > 0.5) diffuseColor.rgb = uHair * clamp(lumi(lin) / max(lumi(uHairRef), 0.004), 0.15, 3.0);
             // sneakers: the light parts of anything skinned to the feet
             float isShoe = step(0.5, vFoot) * step(hsv.y, 0.3) * step(0.5, hsv.z) * (1.0 - isBottom);
             if (uShoeOn > 0.5 && isShoe > 0.5) diffuseColor.rgb = uShoe * clamp(lumi(lin) / 0.62, 0.0, 1.4);
@@ -457,9 +512,12 @@ export class RiggedAvatar {
   }
 }
 
+/** Fit of borrowed hairstyles on the model's head (tuned for buddy.glb). */
+const HAIR_FIT = { scale: 1.07, sx: 1.0, sz: 1.0, dy: -0.05, dz: 0.0 };
+
 /** Reference colours of the uploaded model's texture (= the default look, so no recolour by default). */
 export const RECOLOR = {
-  ref: { skin: '#613d26', topColor: '#746764', bottomColor: '#fbda53', shoeColor: '#f7f6f2' },
+  ref: { skin: '#613d26', topColor: '#746764', bottomColor: '#fbda53', shoeColor: '#f7f6f2', hairColor: '#25221e' },
 };
 
 /** Per-vertex weight of the foot/toe bones → shader attribute `aFoot` (finds the sneakers). */
@@ -475,4 +533,42 @@ function markFeet(mesh) {
     out[v] = w;
   }
   g.setAttribute('aFoot', new THREE.BufferAttribute(out, 1));
+}
+
+/**
+ * Per-vertex hair mask → attribute `aHair`: vertices driven by the head bones that sit
+ * above the eyes in the bind pose (the hair knots). The shader adds a colour test.
+ */
+function markHair(mesh) {
+  const g = mesh.geometry;
+  if (g.getAttribute('aHair')) return;
+  const idx = g.getAttribute('skinIndex'); const wt = g.getAttribute('skinWeight');
+  const head = new Set(mesh.skeleton.bones.map((b, i) => (/Head/i.test(b.name) ? i : -1)).filter((i) => i >= 0));
+  mesh.updateMatrixWorld(true);
+  mesh.skeleton.update();
+  const v = new THREE.Vector3();
+  const headBone = mesh.skeleton.bones.find((b) => /Head$/i.test(b.name));
+  const top = mesh.skeleton.bones.find((b) => /HeadTop/i.test(b.name));
+  const yHead = headBone.getWorldPosition(new THREE.Vector3()).y;
+  const yTop = top ? top.getWorldPosition(new THREE.Vector3()).y : yHead + 0.2;
+  const yEyes = yHead + (yTop - yHead) * 0.42; // just above the eyes / shades
+  const hp = headBone.getWorldPosition(new THREE.Vector3());
+  const hx = hp.x; const hz = hp.z;
+  const sideR = (yTop - yHead) * 0.62;
+  const yMid = yHead + (yTop - yHead) * 0.42;
+  const skullR = (yTop - yHead) * 0.6;
+  const out = new Float32Array(idx.count);
+  for (let i = 0; i < idx.count; i++) {
+    let w = 0;
+    for (let k = 0; k < 4; k++) if (head.has(idx.getComponent(i, k))) w += wt.getComponent(i, k);
+    if (w < 0.5) continue;
+    mesh.getVertexPosition(i, v);
+    v.applyMatrix4(mesh.matrixWorld);
+    // above the eyes, or far out to the side of the head (the side knots)
+    const side = Math.hypot(v.x - hx, v.z - hz);
+    // clearly outside the skull (but not the chin/face below the eyes) → hair geometry
+    const outer = (v.y > yEyes - (yTop - yHead) * 0.08 || side > sideR) && Math.hypot(v.x - hx, v.y - yMid, v.z - hz) > skullR;
+    out[i] = outer ? 2 : v.y > yEyes || side > sideR ? 1 : 0;
+  }
+  g.setAttribute('aHair', new THREE.BufferAttribute(out, 1));
 }
