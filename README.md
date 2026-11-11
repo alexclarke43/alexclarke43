@@ -181,6 +181,7 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 | `hint` | `true` | Show the "Drag to spin" hint |
 | `autoGreet` | `true` | Wave once after loading |
 | `lookAtPointer` | `true` | Head and eyes follow the pointer |
+| `theme` | *(empty)* | `next` = Sparkasse Next look (Figtree font, graphite + red chips). |
 | `bg` | `gradient` | `gradient`, `transparent` or any CSS colour |
 | `primary` | `#e3000f` | Brand colour for the UI and the default top colour (`e3000f` without `#` also works in URLs) |
 | `accent` | `#7cf5d0` | Highlights: headphones, sneakers, focus rings |
@@ -198,6 +199,19 @@ Booleans accept `0/1`, `true/false`, `on/off`.
 * the full avatar (Chat / For You / React / Style / Play) in a Buddy tab that opens on the chat. The **For You** item in the bottom bar jumps straight into the clips feed, and leaving the screen pauses it. The name and outfit stay in sync with the Start screen, whose card shows the buddy's name.
 * a **Rewards** section: saving earns 2 points per €1 and card payments earn 1 point per €1 (try *Pay by card (demo)*). Points unlock perks for concerts, events and shopping, filterable by category. Unlocking shows a voucher code and the avatar celebrates. All partners and codes are made up; the data lives in `REWARDS` in the page script.
 * an **EN / DE switch** in the header. On first visit it uses `?lang=`, then the saved choice, then the browser language. Switching updates texts and number formats (`1.248,50 €` ↔ `€1,248.50`) and both avatars live through `setLang()`.
+
+## 4c. Sparkasse Next concept with the 3D avatar
+
+`examples/sparkasse-next.html` is the team's *Sparkasse Next* concept prototype (Apolo Creative, MBS student project) with the 3D avatar integrated in its own design (Figtree / Bricolage Grotesque, red #ff0000, graphite). Its screens and logic are kept: Classic → Next onboarding, Home, Goals, Buddy chat, Snaps and Perks. Changes are marked with `3D avatar` comments:
+
+* **Onboarding step 2 "Make your avatar"** and **profile sheet**: the 3D avatar's Style tab (`tabs=style`, `theme=next`, `character=human`) replaces the SVG builder. All customisation is there: name, body, height, skin, colours, sneakers and unlockable accessories.
+* **Home**: a live avatar card (tap / spin; reacts to rewards, celebrates level-ups, dances on the daily drop) with **🎨 Style** and **▶ For You** buttons and the coin balance.
+* **Profile pictures**: wherever the SVG avatar was (header, "Your week" story, chat bubbles, level-up gift, share card), the page shows a **portrait snapshot** of the 3D avatar (`avatar.snapshot()`, transparent PNG), refreshed after every look change. The SVG stays as a fallback until the first snapshot.
+* **Snaps**: a "For You · starring you" card opens the avatar's TikTok-style clips full-screen inside the phone (`tabs=feed`).
+* **Economy**: every ✦ Spark the user earns also gives the avatar the same number of coins, plus 1 coin per €5 topped up on a goal, so saving unlocks accessories and gold sneakers. A level-up puts a new top colour on the avatar.
+* The EN/DE switch also switches all avatar frames live. The nickname becomes the avatar's handle (`@lena`).
+
+New avatar API used here: `theme=next` (config), `snapshot(size)` → `Promise<dataURL>`, `perform(move)`, and `bubble=false` for a card without speech bubbles.
 
 ## 4b. Replacing Sparkie in the platform (drop-in)
 

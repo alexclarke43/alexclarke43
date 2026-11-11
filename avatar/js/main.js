@@ -49,6 +49,8 @@ const bridge = createBridge({
     startGame: (d) => { if (openTab('play')) games?.startGame(d.game); },
     chat: (d) => { if (openTab('chat')) chat?.send(String(d.text ?? '')); },
     // the platform rewards real-world behaviour (e.g. saving money) with coins; capped per message
+    perform: (d) => perform(String(d.move || '')),
+    snapshot: (d) => bridge.emit('snapshot', { id: d.id, image: snapshot(Number(d.size) || 256) }),
     addCoins: (d) => { const n = Math.round(Number(d.amount)); if (n > 0) addCoins(Math.min(n, 100)); },
     feed: (d) => {
       if (d.action === 'pause') return feed?.pause();
@@ -128,7 +130,7 @@ async function boot() {
     reset: () => controls.reset(),
     get look() { return { ...look }; },
     get coins() { return getCoins(); },
-    config: cfg, games, customizer, chat, feed, perform,
+    config: cfg, games, customizer, chat, feed, perform, snapshot,
     get avatar() { return avatar; },
   };
   bridge.emit('ready', { reactions: avatar.reactions, model: cfg.model || 'placeholder', look, coins: getCoins() });
@@ -266,6 +268,43 @@ const MOVE_FALLBACK = {
   samba: 'shuffle', heart: 'giggle', flex: 'jump', mindBlown: 'celebrate', shuffle: 'dance', bounce: 'dance', point: 'nod',
   handsUp: 'jump', think: 'shrug', sad: 'shrug', shake: 'shrug', giggle: 'nod', coin: 'nod', jump: 'celebrate', intro: 'greet',
 };
+/**
+ * Portrait of the current avatar (head + shoulders) as a PNG data URL, e.g. for
+ * profile pictures, chat bubbles or share cards. Transparent background.
+ */
+function snapshot(size = 256) {
+  if (!avatar || !stage) return '';
+  const cam = stage.camera;
+  const saved = { pos: cam.position.clone(), quat: cam.quaternion.clone(), fov: cam.fov };
+  const yaw = stage.turntable.rotation.y;
+  stage.turntable.rotation.y = 0;
+  avatar.object3d.updateMatrixWorld(true);
+  const headObj = avatar.headBone || avatar.joints?.head;
+  const head = new THREE.Vector3();
+  if (headObj) headObj.getWorldPosition(head); else head.set(0, (avatar.height || 1.9) * avatar.object3d.scale.y * 0.88, 0);
+  const s = avatar.object3d.scale.y;
+  const target = head.clone().add(new THREE.Vector3(0, 0.04 * s, 0));
+  cam.fov = 24;
+  cam.position.set(target.x, target.y + 0.05 * s, target.z + 1.55 * s);
+  cam.lookAt(target);
+  cam.updateProjectionMatrix();
+  const r = stage.renderer;
+  r.render(stage.scene, cam);
+  const src = r.domElement;
+  const out = document.createElement('canvas');
+  out.width = out.height = size;
+  const side = Math.min(src.width, src.height);
+  out.getContext('2d').drawImage(src, (src.width - side) / 2, (src.height - side) / 2, side, side, 0, 0, size, size);
+  const url = out.toDataURL('image/png');
+  // restore the normal view
+  stage.turntable.rotation.y = yaw;
+  cam.fov = saved.fov;
+  cam.position.copy(saved.pos);
+  cam.quaternion.copy(saved.quat);
+  cam.updateProjectionMatrix();
+  return url;
+}
+
 /** Play any avatar move (no speech bubble). Returns its length in seconds. */
 function perform(move) {
   let m = move;
@@ -490,6 +529,16 @@ function applyTheme() {
   root.style.setProperty('--sp-accent', cfg.accent);
   root.lang = cfg.lang;
   hintEl.textContent = t(UI_TEXT.hint);
+  if (cfg.theme === 'next') {
+    root.classList.add('theme-next');
+    if (!document.querySelector('link[data-theme-font]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.dataset.themeFont = '1';
+      link.href = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Figtree:wght@500;600;700;800&display=swap';
+      document.head.append(link);
+    }
+  }
   if (cfg.bg === 'transparent') root.classList.add('bg-transparent');
   else if (cfg.bg !== 'gradient' && CSS.supports('color', cfg.bg)) {
     root.classList.add('bg-solid');

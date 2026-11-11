@@ -264,7 +264,7 @@ export function createFeed(layer, { bgEl, listEl, lang, getName, perform, addCoi
     if (!active || !tracking) return;
     tracking = false;
     const dx = e.clientX - sx; const dy = e.clientY - sy;
-    if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.3 && performance.now() - st < 1500) go(dy < 0 ? 1 : -1);
+    if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.3 && performance.now() - st < 2500) go(dy < 0 ? 1 : -1);
   }, true);
   let wheelLock = 0;
   target.addEventListener('wheel', (e) => {

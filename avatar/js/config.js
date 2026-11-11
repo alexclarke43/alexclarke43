@@ -19,6 +19,7 @@ export const DEFAULTS = {
   lookAtPointer: true,       // head follows the mouse / finger
   lang: 'en',                // 'en' | 'de'
   bg: 'gradient',            // 'gradient' | 'transparent' | any CSS colour
+  theme: '',                 // '' | 'next' (Sparkasse Next look: Figtree font, graphite + red)
   primary: '#e3000f',        // brand colour (UI, confetti)
   accent: '#7cf5d0',         // highlight colour (headphones, sneakers, UI)
   skin: '',                  // optional starting skin tone, e.g. 7d4f33 (empty → model default)

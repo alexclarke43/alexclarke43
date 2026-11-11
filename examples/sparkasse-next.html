@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sparkasse Next Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Sparkasse palette: red + white + graphite, near-black surfaces for the Next "premium" feel.
+     Layout: phone frame centred, presenter guide to its left on wide screens. */
+  --red:#ff0000;
+  --red-tint:#fff0f0;
+  --ink:#1d1d1f;
+  --grey:#6e6e73;
+  --line:#e6e6ea;
+  --bg:#f4f4f6;
+  --white:#ffffff;
+  --gold:#ffb400;
+  --ok:#14a05a;
+  --display:"Bricolage Grotesque","Arial Black",system-ui,sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);font-family:var(--body);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:56px;padding:24px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+/* presenter guide */
+.guide{width:340px;display:flex;flex-direction:column;gap:20px}
+.guide .brand{font:800 14px var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.guide h1{font:800 46px/1 var(--display);letter-spacing:-.02em}
+.guide p{font-size:15.5px;line-height:1.45;color:var(--grey)}
+.pillars{display:flex;flex-direction:column;gap:9px}
+.pillar{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;padding:11px 14px;border-radius:14px;background:var(--white);border:1px solid var(--line);text-align:left;transition:border-color .2s,box-shadow .2s}
+.pillar b{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--red-tint);color:var(--red);font:800 14px var(--body)}
+.pillar strong{display:block;font-size:15px}
+.pillar span{font-size:13px;color:var(--grey);line-height:1.35}
+.pillar.on{border-color:var(--red);box-shadow:0 0 0 3px var(--red-tint)}
+.guide .row{display:flex;gap:10px;flex-wrap:wrap}
+.gbtn{padding:10px 16px;border-radius:999px;border:1.5px solid var(--ink);font-weight:700;font-size:14px}
+.gbtn.solid{background:var(--ink);color:#fff}
+.disclaim{font-size:12.5px!important;line-height:1.4}
+
+/* phone */
+.phone{width:390px;height:min(844px,calc(100vh - 48px));border-radius:48px;background:#111;padding:12px;box-shadow:0 30px 80px rgba(0,0,0,.18);flex-shrink:0}
+.screen{position:relative;width:100%;height:100%;border-radius:38px;overflow:hidden;background:var(--white)}
+.status{position:absolute;top:0;left:0;right:0;height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 18px 0 30px;font:700 14px var(--body);z-index:95;pointer-events:none}
+.notch{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:110px;height:30px;border-radius:20px;background:#111;z-index:96}
+.lang{pointer-events:auto;display:flex;background:rgba(29,29,31,.08);border-radius:999px;padding:3px;gap:2px}
+.lang button{padding:4px 9px;border-radius:999px;font:800 11.5px var(--body);color:var(--grey)}
+.lang button.on{background:var(--ink);color:#fff}
+.dark .lang{background:rgba(255,255,255,.18)}
+.dark .status{color:#fff}
+.dark .lang button{color:#ddd}
+.dark .lang button.on{background:#fff;color:var(--ink)}
+.view{position:absolute;inset:0;padding-top:44px;display:none;flex-direction:column}
+.view.show{display:flex;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.scroll{flex:1;overflow-y:auto;padding:8px 18px 100px;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+
+/* classic */
+#classic{background:#ececef}
+.c-head{background:var(--red);color:#fff;padding:14px 18px 18px}
+.c-head .t{font:700 20px var(--body)}
+.c-head .s{font-size:13px;opacity:.9;margin-top:2px}
+.c-card{background:#fff;margin:12px;padding:16px;border-radius:6px;border:1px solid #d7d7dc}
+.c-card .lbl{font-size:13px;color:var(--grey)}
+.c-card .amt{font:700 26px var(--body);margin-top:4px}
+.c-list{background:#fff;margin:0 12px;border:1px solid #d7d7dc;border-radius:6px}
+.c-list div{display:flex;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;font-size:14px}
+.c-list div:last-child{border:0}
+.c-list i{font-style:normal;color:var(--grey);font-size:12px;display:block}
+.c-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px}
+.c-menu span{background:#fff;border:1px solid #d7d7dc;border-radius:6px;padding:12px 6px;text-align:center;font-size:12.5px;color:#444}
+.try{margin:14px 12px;padding:16px;border-radius:16px;background:var(--ink);color:#fff;display:flex;align-items:center;gap:14px;text-align:left;width:calc(100% - 24px);box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.try .ic{width:44px;height:44px;border-radius:12px;background:var(--red);display:grid;place-items:center;font:800 22px var(--display);flex-shrink:0}
+.try b{display:block;font-size:16px}
+.proto{margin:6px 16px 0;font-size:11.5px;line-height:1.4;color:var(--grey);text-align:center}
+.try span{font-size:13px;opacity:.75}
+
+/* onboarding */
+.ob{flex:1;display:flex;flex-direction:column;padding:26px 24px 28px;overflow-y:auto;scrollbar-width:none}
+.ob .step{font:700 13px var(--body);color:var(--red);letter-spacing:.12em;text-transform:uppercase}
+.ob h2{font:800 36px/1.02 var(--display);letter-spacing:-.02em;margin-top:10px}
+.ob p{color:var(--grey);font-size:15.5px;line-height:1.4;margin-top:10px}
+.ob .lbl2{font:800 12px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--grey);margin-top:20px}
+.chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+.chip{padding:11px 16px;border-radius:999px;border:2px solid var(--line);font-weight:700;font-size:14.5px;transition:all .15s}
+.chip.on{background:var(--red);border-color:var(--red);color:#fff}
+.cta{margin-top:auto;width:100%;padding:17px;border-radius:16px;background:var(--red);color:#fff;font:800 17px var(--body);flex-shrink:0}
+.cta:disabled{background:#f3b3b3}
+.ghost{margin-top:8px;width:100%;padding:12px;font-weight:700;color:var(--grey)}
+.dots{display:flex;gap:6px;margin-bottom:20px}
+.dots i{width:28px;height:5px;border-radius:3px;background:var(--line)}
+.dots i.on{background:var(--red)}
+.hero-two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:24px 0}
+.hero-two div{border-radius:18px;padding:16px;min-height:140px;display:flex;flex-direction:column;justify-content:flex-end}
+.hero-two .a{background:#ececef;color:var(--grey)}
+.hero-two .b{background:var(--ink);color:#fff}
+.hero-two strong{font:800 20px var(--display)}
+.hero-two span{font-size:12.5px;margin-top:4px;opacity:.8}
+.tinput{width:100%;margin-top:10px;padding:14px 16px;border-radius:14px;border:2px solid var(--line);font:700 18px var(--body)}
+
+/* avatar builder – 3D avatar: the customiser of the 3D avatar runs in an embedded frame */
+.avedit{margin-top:14px;height:500px;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,var(--red-tint),#fff 60%);border:1.5px solid var(--line)}
+.avnote{font-size:12.5px!important;color:var(--grey);margin-top:8px!important;line-height:1.35}
+
+/* 3D avatar: portrait images (snapshots of the 3D avatar) used wherever the old SVG avatar appeared */
+.av3d{display:block;width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--red-tint)}
+.av3d img{display:block;width:100%;height:100%;object-fit:cover}
+.lugift .av3d{width:54px;height:54px;flex-shrink:0;background:#fff}
+.sharecard .row .av3d{width:70px;height:70px;flex-shrink:0;background:#fff}
+
+/* 3D avatar: live avatar card on Home */
+.avcard{margin-top:12px;height:270px;border-radius:24px;position:relative;overflow:hidden;background:radial-gradient(120% 90% at 50% 20%,#fff 0%,var(--red-tint) 70%);border:1.5px solid var(--line)}
+.avcard #homeAv{position:absolute;inset:0}
+.avcard .avtop{position:absolute;left:14px;top:12px;right:14px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:2}
+.avcard .avtop b{display:block;font:800 18px var(--display)}
+.avcard .avtop small{font:600 12px var(--body);color:var(--grey)}
+.avcard .coins{pointer-events:none;background:#fff;border-radius:999px;padding:5px 10px;font:800 13px var(--body);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.avcard .avbtns{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:8px;z-index:2}
+.avcard .avbtns button{flex:1;padding:10px 12px;border-radius:999px;font-weight:800;font-size:13.5px;background:var(--ink);color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.15)}
+.avcard .avbtns button.r{background:var(--red)}
+
+/* 3D avatar: full-screen "For You" clips (inside the phone) */
+.feedov{position:absolute;inset:0;z-index:92;background:#111;display:none;flex-direction:column}
+.feedov.show{display:flex}
+.feedov #feedMount{flex:1;min-height:0}
+.feedov .fx{position:absolute;right:14px;top:50px;z-index:3;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:24px;line-height:1}
+.yt{margin-top:14px;width:100%;border-radius:22px;padding:16px;display:flex;align-items:center;gap:14px;text-align:left;color:#fff;background:linear-gradient(135deg,#1d1d1f,#ff0000);position:relative;overflow:hidden}
+.yt .play{width:54px;height:54px;border-radius:16px;background:#fff;color:var(--red);display:grid;place-items:center;font-size:24px;flex-shrink:0;overflow:hidden}
+.yt .play .av3d{border-radius:16px;background:#fff}
+.yt b{display:block;font:800 18px var(--display)}
+.yt span{font-size:13px;opacity:.85}
+
+/* next shell */
+.top{display:flex;justify-content:space-between;align-items:center;padding:6px 18px 4px}
+.hello{display:flex;align-items:center;gap:10px}
+.hello button{width:46px;height:46px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 2.5px var(--red)}
+.hello button svg{width:46px;height:46px;display:block}
+.hello b{font:800 22px var(--display);letter-spacing:-.01em;display:block}
+.hello small{font:600 12.5px var(--body);color:var(--grey)}
+.streak{text-align:center;font:800 18px var(--display)}
+.streak small{display:block;font:600 11px var(--body);color:var(--grey)}
+.nav{position:absolute;left:12px;right:12px;bottom:14px;height:68px;background:var(--ink);border-radius:24px;display:flex;justify-content:space-around;align-items:center;z-index:20}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:4px;color:#8e8e95;font-size:11.5px;font-weight:700;padding:6px 8px;border-radius:12px}
+.nav button svg{width:22px;height:22px}
+.nav button.on{color:#fff}
+.nav button.on svg{color:var(--red)}
+
+.stories{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:6px -18px 0;padding:4px 18px 2px}
+.stories::-webkit-scrollbar{display:none}
+.st{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:5px;width:66px;font-size:11.5px;font-weight:700}
+.st .rg{width:64px;height:64px;border-radius:50%;padding:3px;background:conic-gradient(var(--red),#ff8a00,var(--red))}
+.st.seen .rg{background:#d4d4d9}
+.st .in{width:100%;height:100%;border-radius:50%;border:3px solid #fff;display:grid;place-items:center;font-size:26px;overflow:hidden}
+.st .in svg{width:100%;height:100%}
+
+.levelbar{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:var(--red-tint);margin-top:12px}
+.lvl{width:46px;height:46px;border-radius:14px;background:var(--red);color:#fff;display:grid;place-items:center;font:800 20px var(--display);flex-shrink:0}
+.levelbar .meta{flex:1}
+.levelbar .meta b{font-size:14.5px}
+.levelbar .meta span{font-size:12.5px;color:var(--grey)}
+.bar{height:8px;border-radius:4px;background:#ffd6d6;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--red);border-radius:4px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+
+.card{margin-top:12px;border-radius:24px;background:var(--ink);color:#fff;padding:20px;position:relative;overflow:hidden}
+.card:after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,0,0,.55),rgba(255,0,0,0) 70%)}
+.card .lbl{font-size:13px;opacity:.7}
+.card .amt{font:800 36px var(--display);margin-top:4px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .foot{display:flex;justify-content:space-between;margin-top:16px;font-size:13px;opacity:.85}
+.card .sparks{position:absolute;right:20px;top:20px;z-index:1;background:rgba(255,255,255,.12);padding:6px 12px;border-radius:999px;font-weight:800;font-size:13px}
+.drop{margin-top:12px;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:20px;background:linear-gradient(110deg,#ff0000,#b30000);color:#fff;width:100%;text-align:left;position:relative;overflow:hidden}
+.drop .box{font-size:34px;animation:wig 1.6s ease-in-out infinite}
+@keyframes wig{0%,100%{transform:rotate(0)}20%{transform:rotate(-12deg)}40%{transform:rotate(10deg)}60%{transform:rotate(-6deg)}}
+.drop b{display:block;font-size:16px}
+.drop span{font-size:13px;opacity:.85}
+.drop.open{background:var(--ink)}
+.drop.open .box{animation:none}
+
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 10px}
+.sec{gap:12px}.sec h3{font:800 20px var(--display);letter-spacing:-.01em;white-space:nowrap}
+.sec span{font-size:13px;color:var(--grey);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sugg{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -18px;padding:0 18px 4px;scroll-snap-type:x mandatory}
+.sugg::-webkit-scrollbar{display:none}
+.sg{flex:0 0 250px;scroll-snap-align:start;border-radius:20px;padding:16px;border:1.5px solid var(--line);display:flex;flex-direction:column;gap:8px;background:var(--white)}
+.sg .tagl{font:800 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--red)}
+.sg b{font-size:15.5px;line-height:1.3}
+.sg p{font-size:13.5px;color:var(--grey);line-height:1.35}
+.sg .act{margin-top:auto;align-self:flex-start;padding:9px 14px;border-radius:999px;background:var(--red);color:#fff;font-weight:800;font-size:13px}
+.sg.done .act{background:var(--ok)}
+.spend{display:flex;gap:16px;align-items:center;padding:16px;border-radius:20px;border:1.5px solid var(--line)}
+.legend{flex:1;display:flex;flex-direction:column;gap:7px;font-size:13.5px}
+.legend div{display:flex;align-items:center;gap:8px}
+.legend i{width:10px;height:10px;border-radius:3px}
+.legend span{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.tools{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tool{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:14px;border-radius:18px;border:1.5px solid var(--line);background:var(--white);min-height:96px;position:relative}.tool .ic{font-size:22px;line-height:1}.tool b{font-size:14.5px;line-height:1.2}.tool small{font-size:12px;color:var(--grey);line-height:1.3}.tool .st{position:absolute;top:12px;right:12px;font:800 10px var(--body);letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:99px;background:#f0f0f2;color:var(--grey)}.tool .st.on{background:var(--red);color:#fff}.tool .st.ok{background:#14a05a;color:#fff}
+.acct{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:14px;border:1.5px solid var(--line);margin-top:8px;font-size:14px}.acct span{color:var(--grey);font-size:12px;display:block}.acct b{font-size:15px}.tgl{display:flex;justify-content:space-between;align-items:center;padding:14px;border-radius:14px;border:1.5px solid var(--line);margin-top:10px;font-weight:700}.sw{width:48px;height:28px;border-radius:99px;background:#d8d8dc;position:relative;transition:.2s}.sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}.sw.on{background:var(--red)}.sw.on i{left:23px}.frs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.frs button{padding:8px 12px;border-radius:99px;border:1.5px solid var(--line);font-weight:700;font-size:13px}.frs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chal{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;border-radius:20px;border:1.5px solid var(--line)}
+.chal h4{font-size:16px}
+.chal .sub{font-size:13px;color:var(--grey);margin-top:2px}
+.pillbtn{flex-shrink:0;padding:10px 14px;border-radius:999px;background:var(--red);color:#fff;font-weight:800;font-size:13px}
+
+/* goals */
+.ghead{padding:6px 18px 0}
+.ghead h2{font:800 30px var(--display);letter-spacing:-.02em}
+.ghead p{font-size:14px;color:var(--grey);margin-top:4px}
+.goal{border-radius:22px;border:1.5px solid var(--line);padding:16px;display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:center;margin-top:12px}
+.ring{width:72px;height:72px;position:relative}
+.ring svg{transform:rotate(-90deg)}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font:800 15px var(--body)}
+.goal h4{font-size:16.5px}
+.goal .sub{font-size:13px;color:var(--grey);margin-top:2px;font-variant-numeric:tabular-nums}
+.goal .btns{display:flex;gap:8px;margin-top:10px}
+.goal .btns button{padding:8px 13px;border-radius:999px;background:var(--red-tint);color:var(--red);font-weight:800;font-size:13px}
+.goal .btns button.p{background:var(--red);color:#fff}
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:12px;border-radius:22px;background:var(--ink);color:#fff;padding:16px;margin-top:14px}
+.toggle b{display:block;font-size:15.5px}
+.toggle span{font-size:12.5px;opacity:.7}
+.sw{width:52px;height:30px;border-radius:15px;background:#555;position:relative;flex-shrink:0;transition:background .2s}
+.sw:after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw.on{background:var(--red)}
+.sw.on:after{transform:translateX(22px)}
+.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.badge{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;font-weight:700;text-align:center;color:var(--grey)}
+.badge i{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:var(--bg);font:800 20px var(--display);color:#b9b9c0;border:2px dashed #d0d0d6;font-style:normal}
+.badge.got{color:var(--ink)}
+.badge.got i{background:var(--red);color:#fff;border:0}
+.newgoal{margin-top:12px;width:100%;padding:14px;border-radius:18px;border:2px dashed var(--line);font-weight:800;color:var(--grey)}
+
+/* coach */
+.msgs{flex:1;overflow-y:auto;padding:12px 14px 160px;display:flex;flex-direction:column;gap:10px;scrollbar-width:none}
+.mrow{display:flex;gap:8px;align-items:flex-end}
+.mrow.me{flex-direction:row-reverse}
+.mrow .mav{width:30px;height:30px;border-radius:50%;overflow:hidden;flex-shrink:0}
+.mrow .mav svg{width:30px;height:30px;display:block}
+.cmav{width:30px;height:30px;border-radius:10px;background:var(--ink);color:var(--red);display:grid;place-items:center;font:800 15px var(--display);flex-shrink:0}
+.msg{max-width:78%;padding:11px 14px;border-radius:20px;font-size:14.5px;line-height:1.42;white-space:pre-wrap;position:relative}
+.msg.bot{background:var(--bg);border-bottom-left-radius:6px}
+.msg.me{background:var(--red);color:#fff;border-bottom-right-radius:6px}
+.msg .rx{position:absolute;right:-6px;bottom:-12px;background:#fff;border-radius:999px;padding:1px 6px;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.coachhead{display:flex;gap:12px;align-items:center;padding:6px 18px 10px;border-bottom:1px solid var(--line)}
+.coachhead .av{width:42px;height:42px;border-radius:14px;background:var(--ink);color:var(--red);display:grid;place-items:center;font:800 20px var(--display)}
+.coachhead b{display:block}
+.coachhead span{font-size:12.5px;color:var(--grey)}
+.coachhead .edit{margin-left:auto;padding:7px 11px;border-radius:999px;border:1.5px solid var(--line);font-size:12.5px;font-weight:800}
+.composer{position:absolute;left:0;right:0;bottom:92px;padding:8px 14px;background:linear-gradient(transparent,#fff 22%)}
+.prompts{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:8px}
+.prompts::-webkit-scrollbar{display:none}
+.prompts button{flex-shrink:0;padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);font-size:12.5px;font-weight:700;background:#fff}
+.inrow{display:flex;gap:8px}
+.inrow input{flex:1;padding:13px 16px;border-radius:999px;border:1.5px solid var(--line);font:500 15px var(--body);background:#fff}
+.inrow button{width:48px;height:48px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;flex-shrink:0}
+.typing{display:inline-flex;gap:4px}
+.typing i{width:7px;height:7px;border-radius:50%;background:#aaa;animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
+.rxbar{display:flex;gap:6px;margin-left:38px;margin-top:-2px}
+.rxbar button{font-size:16px;padding:2px 6px;border-radius:999px;background:var(--bg)}
+
+/* learn */
+.snaps{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.snap{height:210px;border-radius:20px;padding:14px;color:#fff;display:flex;flex-direction:column;justify-content:space-between;text-align:left;position:relative;overflow:hidden}
+.snap .e{font-size:44px}
+.snap b{font:800 18px/1.1 var(--display)}
+.snap small{font-size:12px;opacity:.85;font-weight:700}
+.snap .done{position:absolute;top:12px;right:12px;background:#fff;color:var(--ok);border-radius:999px;padding:3px 8px;font-size:11px;font-weight:800}
+.quiz{margin-top:14px;border-radius:22px;background:var(--red-tint);padding:18px}
+.quiz .q{font:800 18px/1.25 var(--display);margin-top:6px}
+.quiz .opts{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.quiz .opts button{padding:13px 14px;border-radius:14px;background:#fff;text-align:left;font-weight:700;font-size:14px;border:2px solid transparent}
+.quiz .opts button.right{border-color:var(--ok);background:#eafaf1}
+.quiz .opts button.wrong{border-color:var(--red)}
+.quiz .why{font-size:13.5px;margin-top:12px;color:#444;line-height:1.4}
+.quiz .prog{font:800 12px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--red)}
+
+/* perks */
+.filters{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px -18px 0;padding:0 18px}
+.filters::-webkit-scrollbar{display:none}
+.filters button{flex-shrink:0;padding:9px 15px;border-radius:999px;border:1.5px solid var(--line);font-weight:700;font-size:13.5px}
+.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.perk{margin-top:12px;border-radius:22px;overflow:hidden;border:1.5px solid var(--line)}
+.perk .art{height:110px;position:relative;display:flex;align-items:flex-end;padding:14px;color:#fff;font:800 22px/1.05 var(--display)}
+.perk .art small{position:absolute;top:12px;left:14px;font:800 11px var(--body);letter-spacing:.1em;text-transform:uppercase;background:rgba(255,255,255,.2);padding:4px 9px;border-radius:999px}
+.perk .pb{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px}
+.perk .pb p{font-size:13.5px;color:var(--grey);line-height:1.3}
+.perk .pb button{flex-shrink:0;padding:9px 14px;border-radius:999px;background:var(--red);color:#fff;font-weight:800;font-size:13px}
+.perk .pb button.owned{background:var(--ok)}
+.perk .pb button:disabled{background:#c9c9cf}
+
+/* story viewer */
+.story{position:absolute;inset:0;z-index:90;display:none;flex-direction:column;color:#fff;user-select:none}
+.story.show{display:flex}
+.story .bars{display:flex;gap:4px;padding:50px 12px 8px}
+.story .bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.35);overflow:hidden}
+.story .bars i b{display:block;height:100%;width:0;background:#fff}
+.story .sh{display:flex;align-items:center;gap:10px;padding:4px 14px}
+.story .sh .sav{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:18px;overflow:hidden}
+.story .sh .sav svg{width:34px;height:34px}
+.story .sh b{font-size:14.5px}
+.story .sh span{font-size:12.5px;opacity:.7}
+.story .x{margin-left:auto;font-size:26px;line-height:1;padding:4px 8px;color:#fff}
+.story .body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:20px 28px;gap:18px}
+.story .emoji{font-size:84px;line-height:1}
+.story .big{font:800 40px/1.02 var(--display);letter-spacing:-.02em;text-wrap:balance}
+.story .small{font:600 18px/1.35 var(--body);opacity:.9}
+.story .scta{align-self:flex-start;padding:14px 22px;border-radius:999px;background:#fff;color:var(--red);font-weight:800;font-size:15px;position:relative;z-index:3}
+.story .tapL,.story .tapR{position:absolute;top:110px;bottom:110px;width:40%;z-index:2}
+.story .tapL{left:0}.story .tapR{right:0}
+.story .reacts{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 14px 26px;position:relative;z-index:3}
+.story .reacts .reply{flex:1;padding:12px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,.55);font-size:14px;opacity:.85;text-align:left;color:#fff}
+.story .reacts button.r{font-size:26px}
+.floaty{position:absolute;font-size:44px;z-index:99;pointer-events:none;animation:floatUp 1.2s ease-out forwards}
+@keyframes floatUp{from{transform:translateY(0) scale(.6);opacity:1}to{transform:translateY(-260px) scale(1.4);opacity:0}}
+
+/* overlays */
+.toast{position:absolute;left:50%;top:56px;transform:translate(-50%,-30px);opacity:0;background:var(--ink);color:#fff;padding:12px 18px;border-radius:999px;font-weight:800;font-size:14px;z-index:100;transition:all .35s cubic-bezier(.2,.8,.2,1);white-space:nowrap;display:flex;gap:8px;align-items:center;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast i{font-style:normal;color:var(--gold)}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:80;display:none;align-items:flex-end}
+.sheet-bg.show{display:flex}
+.sheet{width:100%;max-height:88%;overflow-y:auto;background:#fff;border-radius:28px 28px 0 0;padding:22px 20px 30px;animation:up .3s cubic-bezier(.2,.8,.2,1);scrollbar-width:none}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.sheet{position:relative}.sheet h3{font:800 24px var(--display);padding-right:40px}.sheet .sx{position:absolute;right:16px;top:16px;width:36px;height:36px;border-radius:50%;background:var(--bg);font-size:22px;line-height:1}
+.sheet p{color:var(--grey);font-size:14.5px;margin-top:6px;line-height:1.4}
+.sheet .field{margin-top:14px}
+.sheet label{font-size:12.5px;font-weight:800;color:var(--grey);text-transform:uppercase;letter-spacing:.08em}
+.sheet input{width:100%;margin-top:6px;padding:13px 14px;border-radius:14px;border:1.5px solid var(--line);font:600 16px var(--body)}
+.ticket{margin-top:16px;border-radius:20px;background:var(--ink);color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px}
+.ticket code{font:800 24px var(--display);letter-spacing:.12em;color:var(--red)}
+.levelup{position:absolute;inset:0;z-index:97;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,0,0,.96);color:#fff;text-align:center;padding:30px}
+.levelup.show{display:flex;animation:fade .3s}
+.levelup .lnum{font:800 120px/1 var(--display)}
+.levelup h3{font:800 30px var(--display);margin-top:8px}
+.levelup p{opacity:.9;margin-top:8px}
+.levelup button{margin-top:26px;padding:14px 26px;border-radius:999px;background:#fff;color:var(--red);font-weight:800}
+.lugift{margin-top:16px;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.16);padding:12px 16px;border-radius:18px;font-weight:800;font-size:15px}
+.lugift svg{width:54px;height:54px;border-radius:50%;background:#fff}
+.lubtns{display:flex;gap:10px;margin-top:20px}
+.levelup .lubtns button{margin-top:0}
+.levelup .lushare{background:transparent;color:#fff;border:2px solid #fff}
+.sharecard{margin-top:16px;border-radius:26px;padding:22px;color:#fff;background:linear-gradient(150deg,#ff0000,#9e0000);position:relative;overflow:hidden}
+.sharecard:after{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.12)}
+.sharecard .row{display:flex;align-items:center;gap:14px;position:relative;z-index:1}
+.sharecard .row svg{width:70px;height:70px;border-radius:50%;background:#fff}
+.sharecard .who{font:800 22px var(--display)}
+.sharecard .line{font-size:15px;font-weight:700;opacity:.95}
+.sharecard .big{font:800 64px/1 var(--display);margin-top:16px;position:relative;z-index:1}
+.sharecard .stats{display:flex;gap:10px;margin-top:12px;position:relative;z-index:1}
+.sharecard .stats span{background:rgba(255,255,255,.18);padding:8px 12px;border-radius:999px;font-weight:800;font-size:13px}
+.sharecard .brand{margin-top:16px;font:800 14px var(--body);letter-spacing:.12em;text-transform:uppercase;opacity:.85;position:relative;z-index:1}
+.sharebtns{display:flex;gap:10px;margin-top:16px}
+.sharebtns button{flex:1;padding:14px;border-radius:14px;font-weight:800}
+.sharebtns .a{background:var(--ink);color:#fff}
+.sharebtns .b{background:var(--red);color:#fff}
+#confetti{position:absolute;inset:0;pointer-events:none;z-index:98}
+
+@media (max-width:860px){ .guide{display:none} body{padding:0} .phone{width:100%;height:100%;border-radius:0;padding:0;box-shadow:none} .screen{border-radius:0} .notch{display:none} }
+@media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+
+<aside class="guide" aria-label="Presenter guide">
+  <div class="brand">Apolo Creative · concept prototype</div>
+  <h1>Sparkasse Next</h1>
+  <p>One Sparkasse, two experiences. Existing customers keep Classic. Gen Z switches to Next with one tap and makes it their own.</p>
+  <div class="pillars">
+    <button class="pillar" data-go="home"><b>1</b><div><strong>App: one place for everything</strong><span>Stories, 3D avatar, levels, goals, cards and spending</span></div></button>
+    <button class="pillar" data-go="learn"><b>2</b><div><strong>Social: learn the Gen Z way</strong><span>Snap-style lessons, quizzes and "For You" clips starring your avatar</span></div></button>
+    <button class="pillar" data-go="perks"><b>3</b><div><strong>Lifestyle: perks and events</strong><span>Concerts, festivals, esports and partner offers paid with Sparks</span></div></button>
+    <button class="pillar" data-go="coach"><b>AI</b><div><strong>Your own money buddy</strong><span>Name it yourself. Teaches and motivates. No investment advice.</span></div></button>
+  </div>
+  <div class="row">
+    <button class="gbtn solid" id="restart">Restart demo</button>
+    <button class="gbtn" id="toClassic">Back to Classic</button>
+  </div>
+  <p class="disclaim">EN | DE switch at the top of the phone. Example data for a fictional user. Not a real Sparkasse service, no real accounts or payments. The money buddy gives no investment advice and promises no returns.</p>
+</aside>
+
+<div class="phone">
+ <div class="screen" id="screen">
+  <div class="notch"></div>
+  <div class="status"><span id="clock">9:41</span><div class="lang" role="group" aria-label="Language"><button data-lang="en" class="on">EN</button><button data-lang="de">DE</button></div></div>
+
+  <section class="view show" id="classic" aria-label="Classic app">
+    <div class="c-head" style="padding-top:8px"><div class="t">Sparkasse</div><div class="s" data-t="c_acct"></div></div>
+    <div class="scroll" style="padding:0 0 30px">
+      <div class="c-card"><div class="lbl" data-t="c_bal"></div><div class="amt" id="cBal"></div></div>
+      <div class="c-menu" id="cMenu"></div>
+      <div class="c-list" id="cList"></div>
+      <button class="try" id="tryNext"><span class="ic">N</span><div><b data-t="c_try"></b><span data-t="c_try2"></span></div></button>
+      <p class="proto" data-t="proto"></p>
+    </div>
+  </section>
+
+  <section class="view" id="onboard" aria-label="Onboarding"><div class="ob" id="ob"></div></section>
+
+  <section class="view" id="home" aria-label="Home">
+    <div class="top"><div class="hello"><button id="meBtn" aria-label="Edit profile"></button><div><b id="helloName"></b><small id="helloSub"></small></div></div><div class="streak">🔥 <span id="streak"></span><small data-t="streak"></small></div></div>
+    <div class="scroll">
+      <div class="stories" id="stories"></div>
+      <div class="levelbar"><div class="lvl" id="lvlNum"></div><div class="meta"><b id="lvlName"></b> <span id="lvlXp"></span><div class="bar"><i id="lvlBar"></i></div><span id="lvlNext"></span></div></div>
+      <!-- 3D avatar: live avatar card -->
+      <div class="avcard">
+        <div id="homeAv"></div>
+        <div class="avtop"><div><b id="avName"></b><small data-t="av_sub"></small></div><span class="coins">🪙 <span id="avCoins">0</span></span></div>
+        <div class="avbtns"><button id="avStyle" data-t="av_style"></button><button class="r" id="avFeed" data-t="av_feed"></button></div>
+      </div>
+      <div class="card"><span class="sparks">✦ <span id="sparks"></span> Sparks</span><div class="lbl" data-t="main"></div><div class="amt" id="bal"></div><div class="foot"><span data-t="debit"></span><span id="saved"></span></div></div>
+      <div class="sec"><h3 id="toolsH"></h3><span id="toolsS"></span></div>
+      <div class="tools" id="tools"></div>
+      <button class="drop" id="drop"></button>
+      <div class="sec"><h3 data-t="foryou"></h3><span id="forWhy"></span></div>
+      <div class="sugg" id="sugg"></div>
+      <div class="sec"><h3 data-t="spending"></h3><span id="spendTot"></span></div>
+      <div class="spend"><svg id="donut" width="120" height="120" viewBox="0 0 120 120"></svg><div class="legend" id="legend"></div></div>
+      <div class="sec"><h3 data-t="daily"></h3><span>+30 XP</span></div>
+      <div class="chal"><div><h4 data-t="chal_t"></h4><div class="sub" data-t="chal_s"></div></div><button class="pillbtn" id="chalBtn"></button></div>
+    </div>
+  </section>
+
+  <section class="view" id="goals" aria-label="Goals">
+    <div class="ghead"><h2 data-t="goals_h"></h2><p data-t="goals_p"></p></div>
+    <div class="scroll" id="goalsList"></div>
+  </section>
+
+  <section class="view" id="coach" aria-label="Money buddy">
+    <div class="coachhead"><div class="av" id="coachAv"></div><div><b id="coachName"></b><span id="coachMode"></span></div><button class="edit" id="renameCoach" data-t="rename"></button></div>
+    <div class="msgs" id="msgs"></div>
+    <div class="composer">
+      <div class="prompts" id="prompts"></div>
+      <form class="inrow" id="chatForm"><input id="chatIn" autocomplete="off" aria-label="Message"><button aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
+    </div>
+  </section>
+
+  <section class="view" id="learn" aria-label="Learn">
+    <div class="ghead"><h2 data-t="learn_h"></h2><p data-t="learn_p"></p></div>
+    <div class="scroll" id="learnList"></div>
+  </section>
+
+  <section class="view" id="perks" aria-label="Perks">
+    <div class="ghead"><h2 data-t="perks_h"></h2><p id="perksP"></p></div>
+    <div class="scroll"><div class="filters" id="filters"></div><div id="perkList"></div></div>
+  </section>
+
+  <nav class="nav" id="nav" style="display:none">
+    <button data-go="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/></svg><span data-t="n_home"></span></button>
+    <button data-go="goals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg><span data-t="n_goals"></span></button>
+    <button data-go="coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg><span data-t="n_coach"></span></button>
+    <button data-go="learn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4zM7 10v5c3 2 7 2 10 0v-5"/></svg><span data-t="n_learn"></span></button>
+    <button data-go="perks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg><span data-t="n_perks"></span></button>
+  </nav>
+
+  <div class="story" id="story"></div>
+  <!-- 3D avatar: full-screen "For You" clips -->
+  <div class="feedov" id="feedOv"><div id="feedMount"></div><button class="fx" id="feedX" aria-label="Close">×</button></div>
+  <div class="toast" id="toast"></div>
+  <div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
+  <div class="levelup" id="levelup"><div class="lnum" id="luNum"></div><h3 id="luName"></h3><p data-t="lu_p"></p><div class="lugift" id="luGift"></div><div class="lubtns"><button id="luShare" class="lushare" data-t="lu_share"></button><button id="luClose" data-t="lu_btn"></button></div></div>
+  <canvas id="confetti"></canvas>
+ </div>
+</div>
+
+<script src="../embed/sparkasse-avatar-embed.js?v=c9ce436-mwbyzsx1"></script>
+<script>
+(function(){
+/* ================= language ================= */
+let L='en';
+const T={
+en:{c_acct:'Current account · DE•• •••• •••• 4821',c_bal:'Balance',c_menu:['Transfer','Transactions','Standing orders','Cards','Inbox','Service'],c_debit:'Direct debit',c_card:'Card payment',c_credit:'Credit',c_pay:'MINIJOB PAY',c_try:'New: Sparkasse Next',c_try2:'Same account. A new experience, made for you.',proto:'Concept prototype by Apolo Creative (MBS student project). Not a real Sparkasse app. Example data only, no real accounts or payments.',
+ ob0_k:'Sparkasse Next',ob0_h:'Same Sparkasse.<br>Your way.',ob0_p:'Your account, card and money stay exactly where they are. Next is just a new way to use them.',classic:'Classic',classic_s:'Familiar banking. Stays available anytime.',next:'Next',next_s:'Stories, goals, levels, perks and your own money buddy.',ob0_btn:'Switch to Next',ob0_stay:'Stay in Classic',
+ ob1_k:'Step 1 of 3',ob1_h:'What\'s your vibe?',ob1_p:'Pick a few. We use this to tailor tips, stories and perks.',ob1_l1:'You\'re into',ob1_l2:'Right now you are',interests:['Gaming','Music & festivals','Fashion','Travel','Sports','Food','Tech'],status:['Student','Apprentice','Working','School'],cont:'Continue',
+ ob2_k:'Step 2 of 3',ob2_h:'Make your avatar',ob2_p:'This is you in the app – in 3D. Drag to spin it. Change it anytime.',av_note:'Female = the 3D model, Male = matching built-in character. Sneakers in gold and accessories unlock with coins – you earn them by saving, quizzes and clips.',
+ ob3_k:'Step 3 of 3',ob3_h:'Name your money buddy',ob3_p:'Your buddy lives in the chat, teaches you money stuff and cheers you on. Give it a name that feels like yours.',nick:'Your nickname',coachn:'Buddy name',ob3_btn:'Start with Next',
+ streak:'day streak',main:'Main account',debit:'Debit card •• 4821',saved:'Saved this month: {x}',foryou:'For you',basedon:'Based on: {x}',spending:'November spending',sofar:'{x} so far',thismonth:'this month',daily:'Daily challenge',chal_t:'No-delivery day',chal_s:'Cook or grab something on the way. Check in tonight.',idid:'I did it',done:'Done ✓',
+ av_sub:'Tap me · drag to spin',av_style:'🎨 Style',av_feed:'▶ For You',coins_tip:'+{x} 🪙 for your avatar',
+ drop_t:'Daily drop',drop_s:'Tap to open today\'s mystery box',drop_o:'You got ✦ {x} Sparks',drop_o2:'Come back tomorrow for the next drop',
+ lvl_next:'{x} XP to Level {y}',levels:['Rookie','Starter','Saver','Smart Saver','Money Pro','Legend','Icon'],lu:'Level {x}: {y}',lu_p:'New perks unlocked. Keep the streak going.',lu_btn:'Let\'s go',lu_gift:'🎁 New outfit unlocked: {x}',lu_share:'Share it',outfits:['Sparkasse red top','Midnight top','Festival gold top','Ocean blue top','Forest top','Sunshine top'],sh_h:'Share your win',sh_p:'Post it to your story. Your friends see the vibe, not your money.',sh_line:'just hit Level {x} on Sparkasse Next 🔥',sh_copy:'Copy caption',sh_story:'Share to story',sh_copied:'Caption copied ✓',sh_posted:'Shared to your story (demo) ✓',sh_caption:'Just hit Level {x} on #SparkasseNext 🔥 {s}-day streak. Saving pays off for you too.',sh_streak:'day streak',
+ cats:['Food delivery','Shopping','Transport','Gaming','Streaming & other'],
+ goals_h:'Your goals',goals_p:'Small steps, real progress. Every top-up earns XP.',g_names:['Festival fund','New phone','Summer trip to Lisbon'],of:'{x} of {y}',reached:'reached!',newgoal:'+ New goal',roundup:'Round-ups',roundup_s:'Card payments round up to the next euro. The change goes to your Festival fund.',badges:'Badges',badge_n:['First goal','Round-up rookie','7-day streak','Quiz whiz','Goal crusher','Perk hunter','Story fan','Legend'],ng_h:'New goal',ng_p:'What are you saving for?',ng_goal:'Goal',ng_target:'Target (€)',ng_def:'Concert tickets',ng_btn:'Create goal',
+ coach_mode:'Your money buddy · no investment advice',coach_ai:'AI money buddy · no investment advice',rename:'Rename',ask:'Ask about saving, budgets, your spending…',prompts:['Where does my money go?','How do I save for the festival?','Should I buy crypto?','What is an ETF?','I lost my card','Explain an emergency fund','Is trading better than saving?'],
+ hi:'Hey {n}! I\'m {c}, your money buddy. I can look at your spending, help with goals and explain money stuff simply. I don\'t give investment advice, but I\'m happy to explain how things work. What\'s up?',
+ learn_h:'Snaps',learn_p:'Money stuff in 30 seconds. Tap through, no lectures.',quiz_k:'Daily quiz · {x} of {y} · +50 XP each',quiz_done:'Quiz complete',quiz_done_h:'Quiz whiz unlocked 🎉',quiz_done_p:'You earned 150 XP and 30 Sparks. New quiz drops tomorrow.',right:'Correct.',wrong:'Not quite.',secs:'{x} sec',read:'Seen',
+ yt_t:'For You · starring you',yt_s:'Your avatar explains money & dances in 15-sec clips. +3 🪙 per lesson.',
+ perks_h:'Perks',perks_p:'You have <b>✦ {x} Sparks</b>. Earn more with goals, quizzes, stories and streaks.',pcats:['All','Music','Gaming','Campus','Style'],showcode:'Show code',free:'Free · Level {x}+',code_p:'{x}. Show this code at the entrance or use it online.',yourcode:'Your code',valid:'Valid with your Sparkasse card · demo',ok:'Done',
+ me_h:'Your profile',me_p:'Make it yours. Everything updates right away.',save:'Save',
+ n_home:'Home',n_goals:'Goals',n_coach:'Buddy',n_learn:'Snaps',n_perks:'Perks',
+ t_send:'Send money: demo only',t_wel:'Welcome to Next',t_goal:'Goal created',t_cap:'Weekly cap set',t_tip:'Tip saved',t_round:'Round-ups on',t_chal:'Challenge done',t_quiz:'Quiz answer',t_lesson:'Snap done',t_chat:'First chat',t_react:'Reaction sent',t_story:'Story watched',t_badge:'🏅 New badge: {x}',t_to:'{x} to {y}',t_reach:'{x} reached!',t_saved:'Profile updated',
+ reply:'Send a reply…',st_week:'Your week',st_tip:'Tip',st_goal:'Festival',st_meme:'Meme',st_drop:'New drop',
+ status_city:'Munich'},
+de:{c_acct:'Girokonto · DE•• •••• •••• 4821',c_bal:'Kontostand',c_menu:['Überweisung','Umsätze','Daueraufträge','Karten','Postfach','Service'],c_debit:'Lastschrift',c_card:'Kartenzahlung',c_credit:'Gutschrift',c_pay:'MINIJOB LOHN',c_try:'Neu: Sparkasse Next',c_try2:'Gleiches Konto. Ein neues Erlebnis, für dich gemacht.',proto:'Konzept-Prototyp von Apolo Creative (MBS-Studienprojekt). Keine echte Sparkasse-App. Nur Beispieldaten, keine echten Konten oder Zahlungen.',
+ ob0_k:'Sparkasse Next',ob0_h:'Gleiche Sparkasse.<br>Dein Style.',ob0_p:'Dein Konto, deine Karte und dein Geld bleiben genau, wo sie sind. Next ist nur eine neue Art, sie zu nutzen.',classic:'Classic',classic_s:'Vertrautes Banking. Jederzeit verfügbar.',next:'Next',next_s:'Stories, Ziele, Levels, Perks und dein eigener Money-Buddy.',ob0_btn:'Zu Next wechseln',ob0_stay:'Bei Classic bleiben',
+ ob1_k:'Schritt 1 von 3',ob1_h:'Was ist dein Vibe?',ob1_p:'Wähl ein paar aus. Damit passen wir Tipps, Stories und Perks an dich an.',ob1_l1:'Du stehst auf',ob1_l2:'Gerade bist du',interests:['Gaming','Musik & Festivals','Mode','Reisen','Sport','Essen','Tech'],status:['Student:in','Azubi','Berufstätig','Schüler:in'],cont:'Weiter',
+ ob2_k:'Schritt 2 von 3',ob2_h:'Erstell deinen Avatar',ob2_p:'Das bist du in der App – in 3D. Zum Drehen ziehen. Jederzeit änderbar.',av_note:'Weiblich = das 3D-Modell, Männlich = passende eingebaute Figur. Gold-Sneaker und Accessoires schaltest du mit Coins frei – die gibt es fürs Sparen, Quizze und Clips.',
+ ob3_k:'Schritt 3 von 3',ob3_h:'Gib deinem Money-Buddy einen Namen',ob3_p:'Dein Buddy wohnt im Chat, erklärt dir Geld-Themen und feuert dich an. Gib ihm einen Namen, der zu dir passt.',nick:'Dein Spitzname',coachn:'Name deines Buddys',ob3_btn:'Mit Next starten',
+ streak:'Tage Streak',main:'Hauptkonto',debit:'Debitkarte •• 4821',saved:'Diesen Monat gespart: {x}',foryou:'Für dich',basedon:'Basierend auf: {x}',spending:'Ausgaben im November',sofar:'bisher {x}',thismonth:'diesen Monat',daily:'Tages-Challenge',chal_t:'Tag ohne Lieferdienst',chal_s:'Selbst kochen oder unterwegs was holen. Heute Abend einchecken.',idid:'Geschafft',done:'Erledigt ✓',
+ av_sub:'Tipp mich an · zum Drehen ziehen',av_style:'🎨 Style',av_feed:'▶ Für dich',coins_tip:'+{x} 🪙 für deinen Avatar',
+ drop_t:'Daily Drop',drop_s:'Tippen und die Mystery-Box von heute öffnen',drop_o:'Du hast ✦ {x} Sparks bekommen',drop_o2:'Morgen gibt es den nächsten Drop',
+ lvl_next:'Noch {x} XP bis Level {y}',levels:['Rookie','Starter','Sparer:in','Smart Saver','Money Pro','Legende','Icon'],lu:'Level {x}: {y}',lu_p:'Neue Perks freigeschaltet. Bleib an deinem Streak dran.',lu_btn:'Los geht\'s',lu_gift:'🎁 Neues Outfit freigeschaltet: {x}',lu_share:'Teilen',outfits:['Sparkasse-rotes Top','Midnight-Top','Festival-Gold-Top','Ozeanblaues Top','Wald-Top','Sonnen-Top'],sh_h:'Teil deinen Erfolg',sh_p:'Poste es in deiner Story. Freunde sehen den Vibe, nicht dein Geld.',sh_line:'hat gerade Level {x} bei Sparkasse Next erreicht 🔥',sh_copy:'Caption kopieren',sh_story:'In Story teilen',sh_copied:'Caption kopiert ✓',sh_posted:'In deiner Story geteilt (Demo) ✓',sh_caption:'Gerade Level {x} bei #SparkasseNext erreicht 🔥 {s} Tage Streak. Sparen lohnt sich – auch für dich.',sh_streak:'Tage Streak',
+ cats:['Lieferdienste','Shopping','Mobilität','Gaming','Streaming & Sonstiges'],
+ goals_h:'Deine Ziele',goals_p:'Kleine Schritte, echter Fortschritt. Jede Einzahlung bringt XP.',g_names:['Festival-Kasse','Neues Handy','Sommertrip nach Lissabon'],of:'{x} von {y}',reached:'erreicht!',newgoal:'+ Neues Ziel',roundup:'Aufrunden',roundup_s:'Kartenzahlungen werden auf den nächsten Euro aufgerundet. Der Rest geht in deine Festival-Kasse.',badges:'Abzeichen',badge_n:['Erstes Ziel','Aufrund-Rookie','7-Tage-Streak','Quiz-Profi','Ziel-Crusher','Perk-Jäger:in','Story-Fan','Legende'],ng_h:'Neues Ziel',ng_p:'Wofür sparst du?',ng_goal:'Ziel',ng_target:'Betrag (€)',ng_def:'Konzerttickets',ng_btn:'Ziel erstellen',
+ coach_mode:'Dein Money-Buddy · keine Anlageberatung',coach_ai:'KI-Money-Buddy · keine Anlageberatung',rename:'Umbenennen',ask:'Frag nach Sparen, Budget, deinen Ausgaben…',prompts:['Wo geht mein Geld hin?','Wie spare ich fürs Festival?','Soll ich Krypto kaufen?','Was ist ein ETF?','Ich hab meine Karte verloren','Was ist ein Notgroschen?','Ist Traden besser als Sparen?'],
+ hi:'Hey {n}! Ich bin {c}, dein Money-Buddy. Ich schaue mir deine Ausgaben an, helfe bei Zielen und erkläre Geld-Themen einfach. Anlageberatung gebe ich nicht, aber ich erkläre gern, wie Dinge funktionieren. Was geht?',
+ learn_h:'Snaps',learn_p:'Geld-Wissen in 30 Sekunden. Durchtippen, kein Vortrag.',quiz_k:'Tages-Quiz · {x} von {y} · je +50 XP',quiz_done:'Quiz geschafft',quiz_done_h:'Quiz-Profi freigeschaltet 🎉',quiz_done_p:'Du hast 150 XP und 30 Sparks verdient. Morgen kommt ein neues Quiz.',right:'Richtig.',wrong:'Nicht ganz.',secs:'{x} Sek.',read:'Gesehen',
+ yt_t:'Für dich · mit dir in der Hauptrolle',yt_s:'Dein Avatar erklärt Geld & tanzt in 15-Sek.-Clips. +3 🪙 pro Lektion.',
+ perks_h:'Perks',perks_p:'Du hast <b>✦ {x} Sparks</b>. Mehr gibt es für Ziele, Quizze, Stories und Streaks.',pcats:['Alle','Musik','Gaming','Campus','Style'],showcode:'Code zeigen',free:'Gratis · ab Level {x}',code_p:'{x}. Zeig diesen Code am Eingang oder nutze ihn online.',yourcode:'Dein Code',valid:'Gültig mit deiner Sparkasse-Karte · Demo',ok:'Fertig',
+ me_h:'Dein Profil',me_p:'Mach es zu deinem. Alles ändert sich sofort.',save:'Speichern',
+ n_home:'Home',n_goals:'Ziele',n_coach:'Buddy',n_learn:'Snaps',n_perks:'Perks',
+ t_send:'Geld senden: nur Demo',t_wel:'Willkommen bei Next',t_goal:'Ziel erstellt',t_cap:'Wochenlimit gesetzt',t_tip:'Tipp gespeichert',t_round:'Aufrunden an',t_chal:'Challenge geschafft',t_quiz:'Quiz-Antwort',t_lesson:'Snap geschafft',t_chat:'Erster Chat',t_react:'Reaktion gesendet',t_story:'Story angesehen',t_badge:'🏅 Neues Abzeichen: {x}',t_to:'{x} in {y}',t_reach:'{x} erreicht!',t_saved:'Profil aktualisiert',
+ reply:'Antwort senden…',st_week:'Deine Woche',st_tip:'Tipp',st_goal:'Festival',st_meme:'Meme',st_drop:'Neuer Drop',
+ status_city:'München'}
+};
+const t=(k,v={})=>{let s=T[L][k];if(typeof s!=='string')return s;return s.replace(/\{(\w)\}/g,(_,m)=>v[m]??'');};
+const eur=n=>L==='de'?n.toLocaleString('de-DE',{maximumFractionDigits:2})+' €':'€'+n.toLocaleString('en-US',{maximumFractionDigits:2});
+const eur2=n=>L==='de'?n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €':'€'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* ================= state ================= */
+const SKINS=['#f6d5c0','#e8b896','#c98e66','#8d5a3b','#5a3825'];
+const HAIRC=['#1d1d1f','#5b3a29','#c98d3f','#e8d27a','#ff0000'];
+const OUTFIT=['#ff0000','#1d1d1f','#6e6e73','#2f6fed','#14a05a','#ffb400'];
+const fresh=()=>({
+  nick:'Lena', coach:'Sparky', xp:640, sparks:320, streak:6, saved:45, frozen:false, linked:false, split:false, booked:false,
+  interests:new Set([1]), status:0,
+  av:{skin:1,hair:1,hairc:1,outfit:0,extra:3},
+  goals:[{id:1,n:0,emoji:'🎪',have:180,target:250},{id:2,n:1,emoji:'📱',have:320,target:800},{id:3,n:2,emoji:'✈️',have:140,target:600}],
+  roundup:false, badges:new Set([0]), owned:new Set(), doneSugg:new Set(), chal:false, quizIdx:0, quizDone:false, seen:new Set(), reacted:new Set(), dropOpen:false, dropGot:0
+});
+let S=fresh(), onboarded=false, current='classic';
+const spend=[86,74,63,42,46], spendC=['#ff0000','#ff7a7a','#1d1d1f','#6e6e73','#c9c9cf'];
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const bal=()=>1248.6-(S.saved-45);
+
+/* ================= 3D avatar ================= */
+// The customisable 3D avatar runs in ../avatar/ (embedded frames). Everything here talks to it
+// through SparkasseAvatar.mount() – see README "Integrate it into another website".
+const AVATAR_SRC='../avatar/index.html?v=c9ce436-mwbyzsx1';
+const AV_THEME={bg:'transparent',theme:'next',primary:'ff0000',accent:'ffb400',character:'human'};
+let home3d=null, editor3d=null, feed3d=null, avSnap='', avLook=null, avCoins=0, snapTimer=0;
+function mountAvatar(el,params){return SparkasseAvatar.mount(el,{src:AVATAR_SRC,height:'100%',params:{...AV_THEME,lang:L,...params}});}
+function onLook(look){
+  avLook=look;
+  if(home3d&&look)home3d.setLook(look);
+  $('#avName').textContent='@'+(S.nick||'you').toLowerCase().replace(/\s+/g,'');
+  requestSnap();
+}
+function requestSnap(){
+  clearTimeout(snapTimer);
+  snapTimer=setTimeout(()=>{
+    const src=(editor3d&&editorReady)?editor3d:(home3d&&homeReady)?home3d:null;
+    if(!src)return;
+    src.snapshot(256).then(img=>{
+      if(!img)return; const first=!avSnap; avSnap=img;
+      $$('.av3d img').forEach(i=>i.src=img);
+      if(first&&['home','coach'].includes(current))render(current);
+    });
+  },450);
+}
+let homeReady=false, editorReady=false;
+function ensureHome3d(){
+  if(home3d)return;
+  home3d=mountAvatar($('#homeAv'),{ui:false,hint:false,badge:false,autoGreet:false,bubble:false});
+  home3d.on('ready',e=>{homeReady=true;avCoins=e.coins;$('#avCoins').textContent=avCoins;home3d.setLook({name:S.nick});setTimeout(()=>home3d.play('greet',{text:L==='de'?`Hey ${S.nick}! 👋`:`Hey ${S.nick}! 👋`}),400);requestSnap();});
+  home3d.on('coins',e=>{avCoins=e.coins;$('#avCoins').textContent=avCoins;});
+  home3d.on('look',e=>{avLook=e.look;requestSnap();});
+}
+function react(move,text){ if(home3d&&homeReady&&current==='home'){ text?home3d.play(move,{text}):home3d.perform(move); } }
+function giveCoins(n){ n=Math.max(0,Math.round(n)); if(!n||!home3d)return; home3d.addCoins(Math.min(n,100)); }
+// the customiser (onboarding step 2 + profile sheet)
+function builder(box){
+  editor3d?.destroy(); editorReady=false;
+  box.innerHTML=`<div class="avedit" id="avEdit"></div><p class="avnote">${t('av_note')}</p>`;
+  editor3d=mountAvatar(box.querySelector('#avEdit'),{tabs:'style',tab:'style',hint:false,badge:true,autoGreet:true});
+  editor3d.on('ready',()=>{editorReady=true;editor3d.setLook({name:S.nick});requestSnap();});
+  editor3d.on('look',e=>onLook(e.look));
+}
+function closeEditor(){ editor3d?.destroy(); editor3d=null; editorReady=false; }
+// full-screen For You clips
+function openFeed(){
+  $('#feedOv').classList.add('show'); $('#screen').classList.add('dark');
+  feed3d=mountAvatar($('#feedMount'),{tabs:'feed',tab:'feed',bg:'#111',hint:false,badge:true,autoGreet:false});
+  feed3d.on('ready',()=>feed3d.setLook({name:S.nick}));
+  feed3d.on('feed',e=>{ if(e.phase==='end'&&e.kind==='learn'){reward(15,0,t('t_lesson'));} });
+  feed3d.on('coins',e=>{avCoins=e.coins;$('#avCoins').textContent=avCoins;});
+}
+function closeFeed(){ feed3d?.destroy(); feed3d=null; $('#feedOv').classList.remove('show'); $('#screen').classList.remove('dark'); }
+$('#feedX').onclick=closeFeed;
+$('#avStyle').onclick=()=>$('#meBtn').click();
+$('#avFeed').onclick=openFeed;
+
+/* ================= avatar ================= */
+// 3D avatar: portrait snapshot of the 3D avatar when available; the original SVG avatar is the fallback
+function avatar(a,bg){
+  if(avSnap) return `<span class="av3d" style="${bg?`background:${bg}`:''}"><img alt="" src="${avSnap}"></span>`;
+  return avatarSvg(a,bg);
+}
+function avatarSvg(a,bg){
+  const sk=SKINS[a.skin], hc=HAIRC[a.hairc], oc=OUTFIT[a.outfit];
+  let back='',top='';
+  const shortTop=`<path d="M28 44 Q27 19 50 18 Q73 19 72 44 Q67 30 50 30 Q33 30 28 44Z" fill="${hc}"/>`;
+  if(a.hair===0) top=shortTop;
+  if(a.hair===1){back=`<rect x="26" y="30" width="48" height="46" rx="20" fill="${hc}"/>`;top=shortTop;}
+  if(a.hair===2){top=shortTop+`<circle cx="50" cy="15" r="9" fill="${hc}"/>`;}
+  if(a.hair===3){top=[[30,36],[35,26],[43,20],[52,18],[61,21],[68,28],[71,38]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="9" fill="${hc}"/>`).join('');}
+  if(a.hair===4){top=`<path d="M29 40 Q30 21 50 21 Q70 21 71 40 Q62 28 50 28 Q38 28 29 40Z" fill="${hc}" opacity=".85"/>`;}
+  let ex='';
+  if(a.extra===1) ex=`<g fill="none" stroke="#1d1d1f" stroke-width="2.4"><circle cx="42" cy="46" r="6.5"/><circle cx="58" cy="46" r="6.5"/><path d="M48.5 46h3"/></g>`;
+  if(a.extra===2) ex=`<path d="M27 37 Q27 15 50 15 Q73 15 73 37Z" fill="${oc==='#ff0000'?'#1d1d1f':'#ff0000'}"/><path d="M52 35 L84 37 Q83 42 52 40Z" fill="${oc==='#ff0000'?'#1d1d1f':'#ff0000'}"/>`;
+  if(a.extra===3) ex=`<path d="M25 46 Q25 14 50 14 Q75 14 75 46" fill="none" stroke="#1d1d1f" stroke-width="5"/><rect x="20" y="39" width="10" height="16" rx="4" fill="#ff0000"/><rect x="70" y="39" width="10" height="16" rx="4" fill="#ff0000"/>`;
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="${bg||'#fff0f0'}"/>${back}<rect x="18" y="74" width="64" height="40" rx="28" fill="${oc}"/><rect x="43" y="60" width="14" height="16" rx="5" fill="${sk}"/><circle cx="50" cy="45" r="22" fill="${sk}"/>${top}<circle cx="42" cy="47" r="2.6" fill="#1d1d1f"/><circle cx="58" cy="47" r="2.6" fill="#1d1d1f"/><path d="M43 55 Q50 61 57 55" fill="none" stroke="#1d1d1f" stroke-width="2.4" stroke-linecap="round"/><circle cx="37" cy="53" r="3" fill="#ff7a7a" opacity=".45"/><circle cx="63" cy="53" r="3" fill="#ff7a7a" opacity=".45"/>${ex}</svg>`;
+}
+const rand=n=>Math.floor(Math.random()*n);
+
+/* ================= navigation ================= */
+const NEXT_VIEWS=['home','goals','coach','learn','perks'];
+function go(v){
+  if(v!=='onboard')closeEditor();
+  current=v;
+  $$('.view').forEach(x=>x.classList.toggle('show',x.id===v));
+  $('#nav').style.display=NEXT_VIEWS.includes(v)?'flex':'none';
+  $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.go===v));
+  $$('.pillar').forEach(p=>p.classList.toggle('on',p.dataset.go===v));
+  if(v==='home')ensureHome3d();
+  render(v);
+  const sc=document.querySelector('#'+v+' .scroll'); if(sc)sc.scrollTop=0;
+}
+function render(v){
+  $$('[data-t]').forEach(el=>{const s=t(el.dataset.t);if(typeof s==='string')el.innerHTML=s;});
+  if(v==='classic')renderClassic(); if(v==='onboard')obStep(obAt); if(v==='home')renderHome(); if(v==='goals')renderGoals(); if(v==='learn')renderLearn(); if(v==='perks')renderPerks(); if(v==='coach')renderCoach();
+  $('#chatIn').placeholder=t('ask');
+}
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-go]'); if(g){ if(!onboarded&&NEXT_VIEWS.includes(g.dataset.go)){startOnboard();return;} go(g.dataset.go); return; }
+});
+$$('.lang button').forEach(b=>b.onclick=()=>{L=b.dataset.lang;document.documentElement.lang=L;$$('.lang button').forEach(x=>x.classList.toggle('on',x===b));
+  [home3d,editor3d,feed3d].forEach(a=>a?.setLang(L)); // 3D avatar follows the language live
+  if(current==='onboard'&&obAt===2){$$('[data-t]').forEach(el=>{const s=t(el.dataset.t);if(typeof s==='string')el.innerHTML=s;});$('#ob .step').textContent=t('ob2_k');$('#ob h2').textContent=t('ob2_h');$('#ob p').textContent=t('ob2_p');$('#ob .avnote').textContent=t('av_note');$('#ob3').textContent=t('cont');}
+  else render(current);
+  if($('#story').classList.contains('show'))showSlide();});
+$('#tryNext').onclick=startOnboard;
+$('#restart').onclick=()=>{S=fresh();onboarded=false;chat=[];coachInit=false;$('#msgs').innerHTML='';closeStory();closeSheet();closeFeed();go('classic');};
+$('#toClassic').onclick=()=>{closeStory();closeFeed();go('classic');};
+
+function renderClassic(){
+  $('#cBal').textContent=L==='de'?bal().toLocaleString('de-DE',{minimumFractionDigits:2})+' EUR':'EUR '+bal().toLocaleString('en-US',{minimumFractionDigits:2});
+  $('#cMenu').innerHTML=t('c_menu').map(m=>`<span>${m}</span>`).join('');
+  const d=L==='de'?['08.11.','07.11.','05.11.','01.11.']:['08 Nov','07 Nov','05 Nov','01 Nov'];
+  const amt=v=>(v>0?'+':'')+(L==='de'?v.toLocaleString('de-DE',{minimumFractionDigits:2}):v.toLocaleString('en-US',{minimumFractionDigits:2}));
+  $('#cList').innerHTML=[['LIEFERHELD GMBH',t('c_debit'),-23.4],['MVG MUENCHEN',t('c_card'),-63],['GAMESTORE ONLINE',t('c_card'),-19.99],[t('c_pay'),t('c_credit'),538]].map((r,i)=>`<div><span>${r[0]}<i>${r[1]} · ${d[i]}</i></span><b ${r[2]>0?'style="color:var(--ok)"':''}>${amt(r[2])}</b></div>`).join('');
+}
+
+/* ================= onboarding ================= */
+let obAt=0;
+function startOnboard(){obAt=0;go('onboard');}
+function obStep(n){
+  obAt=n; const ob=$('#ob'); const dots=`<div class="dots">${[0,1,2,3].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</div>`;
+  if(n!==2)closeEditor();
+  if(n===0){
+    ob.innerHTML=dots+`<div class="step">${t('ob0_k')}</div><h2>${t('ob0_h')}</h2><p>${t('ob0_p')}</p>
+    <div class="hero-two"><div class="a"><strong>${t('classic')}</strong><span>${t('classic_s')}</span></div><div class="b"><strong>${t('next')}</strong><span>${t('next_s')}</span></div></div>
+    <button class="cta" id="ob1">${t('ob0_btn')}</button><button class="ghost" id="obBack">${t('ob0_stay')}</button>`;
+    $('#ob1').onclick=()=>obStep(1); $('#obBack').onclick=()=>go('classic');
+  } else if(n===1){
+    ob.innerHTML=dots+`<div class="step">${t('ob1_k')}</div><h2>${t('ob1_h')}</h2><p>${t('ob1_p')}</p>
+    <div class="lbl2">${t('ob1_l1')}</div><div class="chips">${t('interests').map((o,i)=>`<button class="chip ${S.interests.has(i)?'on':''}" data-i="${i}">${o}</button>`).join('')}</div>
+    <div class="lbl2">${t('ob1_l2')}</div><div class="chips">${t('status').map((o,i)=>`<button class="chip ${S.status===i?'on':''}" data-s="${i}">${o}</button>`).join('')}</div>
+    <button class="cta" id="ob2" style="margin-top:26px">${t('cont')}</button>`;
+    $$('#ob [data-i]').forEach(c=>c.onclick=()=>{const i=+c.dataset.i;S.interests.has(i)?S.interests.delete(i):S.interests.add(i);c.classList.toggle('on');$('#ob2').disabled=!S.interests.size;});
+    $$('#ob [data-s]').forEach(c=>c.onclick=()=>{$$('#ob [data-s]').forEach(x=>x.classList.remove('on'));c.classList.add('on');S.status=+c.dataset.s;});
+    $('#ob2').onclick=()=>obStep(2);
+  } else if(n===2){
+    ob.innerHTML=dots+`<div class="step">${t('ob2_k')}</div><h2>${t('ob2_h')}</h2><p>${t('ob2_p')}</p><div id="bld"></div><button class="cta" id="ob3" style="margin-top:22px">${t('cont')}</button>`;
+    builder($('#bld')); $('#ob3').onclick=()=>obStep(3);
+  } else {
+    const names=['Sparky','Penny','Kash','Nova','Coin'];
+    ob.innerHTML=dots+`<div class="step">${t('ob3_k')}</div><h2>${t('ob3_h')}</h2><p>${t('ob3_p')}</p>
+    <div class="lbl2">${t('nick')}</div><input class="tinput" id="nickIn" value="${S.nick}" maxlength="16">
+    <div class="lbl2">${t('coachn')}</div><input class="tinput" id="coachIn" value="${S.coach}" maxlength="14">
+    <div class="chips">${names.map(n=>`<button class="chip ${S.coach===n?'on':''}" data-n="${n}">${n}</button>`).join('')}</div>
+    <button class="cta" id="ob4" style="margin-top:26px">${t('ob3_btn')}</button>`;
+    $$('#ob [data-n]').forEach(c=>c.onclick=()=>{$('#coachIn').value=c.dataset.n;$$('#ob [data-n]').forEach(x=>x.classList.toggle('on',x===c));});
+    $('#ob4').onclick=()=>{S.nick=$('#nickIn').value.trim()||'Lena';S.coach=$('#coachIn').value.trim()||'Sparky';onboarded=true;go('home');home3d?.setLook({name:S.nick});setTimeout(()=>{reward(50,20,t('t_wel'));confetti();},350);};
+  }
+}
+
+/* ================= gamification ================= */
+const lvlOf=xp=>Math.floor(xp/200)+1;
+function reward(xp,sp,label){
+  const before=lvlOf(S.xp); S.xp+=xp; S.sparks+=sp||0;
+  toast(`<i>+${xp} XP</i>${sp?` · ✦ +${sp}`:''} · ${label}`);
+  // 3D avatar: every Spark you earn also gives your avatar coins (unlock accessories & gold sneakers) and it reacts
+  if(sp)giveCoins(sp);
+  react(sp>=20?'celebrate':'nod');
+  hud(); if(lvlOf(S.xp)>before)setTimeout(()=>levelUp(lvlOf(S.xp)),900);
+}
+function hud(){
+  const l=lvlOf(S.xp), into=S.xp%200;
+  $('#lvlNum').textContent=l; $('#lvlName').textContent=t('levels')[Math.min(l-1,6)];
+  $('#lvlXp').textContent='· '+S.xp+' XP'; $('#lvlBar').style.width=(into/2)+'%';
+  $('#lvlNext').textContent=t('lvl_next',{x:200-into,y:l+1});
+  $('#sparks').textContent=S.sparks; $('#streak').textContent=S.streak;
+  $('#saved').textContent=t('saved',{x:eur(S.saved)}); $('#bal').textContent=eur2(bal());
+  if(current==='perks')$('#perksP').innerHTML=t('perks_p',{x:S.sparks});
+}
+function levelUp(l){$('#luNum').textContent=l;$('#luName').textContent=t('lu',{x:l,y:t('levels')[Math.min(l-1,6)]});
+  // milestone reward: unlock a new outfit colour and put it on the 3D avatar
+  const o=(S.av.outfit+1+rand(5))%6; S.av.outfit=o; S.lastLvl=l;
+  home3d?.setLook({topColor:OUTFIT[o]}); react('celebrate');
+  $('#luGift').innerHTML=avatar(S.av,'#fff')+'<span>'+t('lu_gift',{x:t('outfits')[o]})+'</span>';
+  setTimeout(()=>{requestSnap();},300);
+  $('#levelup').classList.add('show');confetti();if(current==='home')renderHome();}
+function shareCard(){
+  const l=S.lastLvl||lvlOf(S.xp);
+  sheet(`<h3>${t('sh_h')}</h3><p>${t('sh_p')}</p>
+   <div class="sharecard"><div class="row">${avatar(S.av,'#fff')}<div><div class="who">${S.nick}</div><div class="line">${t('sh_line',{x:l})}</div></div></div>
+   <div class="big">Level ${l}</div><div class="stats"><span>🔥 ${S.streak} ${t('sh_streak')}</span><span>✦ ${S.sparks} Sparks</span><span>🏅 ${S.badges.size}</span></div>
+   <div class="brand">Sparkasse Next · saving pays off</div></div>
+   <div class="sharebtns"><button class="a" id="shCopy">${t('sh_copy')}</button><button class="b" id="shStory">${t('sh_story')}</button></div>`,()=>{
+     $('#shCopy').onclick=()=>{const c=t('sh_caption',{x:l,s:S.streak});(navigator.clipboard?navigator.clipboard.writeText(c):Promise.reject()).then(()=>toast(t('sh_copied'))).catch(()=>toast(c));};
+     $('#shStory').onclick=()=>{closeSheet();toast(t('sh_posted'));reward(10,5,t('t_react'));};
+   });
+}
+$('#luShare').onclick=()=>{$('#levelup').classList.remove('show');shareCard();};
+$('#luClose').onclick=()=>$('#levelup').classList.remove('show');
+let tt; function toast(h){const el=$('#toast');el.innerHTML=h;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2300);}
+function badge(i){ if(!S.badges.has(i)){S.badges.add(i);setTimeout(()=>toast(t('t_badge',{x:t('badge_n')[i]})),2500);} }
+
+/* ================= home ================= */
+function suggestions(){
+  const I=S.interests, f=S.goals[0], left=f.target-f.have, de=L==='de', G=t('g_names');
+  const out=[];
+  if(I.has(1)) out.push({id:'fest',tag:de?'Ziel-Boost':'Goal boost',b:de?`Noch ${eur(left)} bis zu deiner ${G[0]}`:`You're ${eur(left)} away from your ${G[0]}`,p:de?`Leg 10 € pro Woche zur Seite und du bist in ${Math.ceil(left/10)} Wochen da.`:`Add €10 a week and you'll be there in ${Math.ceil(left/10)} weeks.`,a:de?'10 € einzahlen':'Add €10 now',run:()=>topUp(1,10)});
+  out.push({id:'food',tag:de?'Ausgaben-Check':'Spending insight',b:de?'Lieferdienste: 86 € diesen Monat':'Food delivery: €86 this month',p:de?'Deine größte Kategorie. Ein Limit von 20 € pro Woche spart dir etwa 25 € im Monat.':'That is your top category. A €20 weekly cap would free up about €25 a month.',a:de?'20 € Limit setzen':'Set €20 cap',run:()=>reward(25,10,t('t_cap'))});
+  if(I.has(0)) out.push({id:'game',tag:de?'Perk für dich':'Perk for you',b:de?'Munich Esports Night: 2 für 1':'Munich Esports Night: 2-for-1',p:de?'Du magst Gaming. Für 250 Sparks bei den Perks.':'You like gaming. Unlock it with 250 Sparks in Perks.',a:de?'Perk ansehen':'See perk',run:()=>go('perks'),keep:1});
+  if(S.status===0) out.push({id:'stud',tag:de?'Studi-Tipp':'Student tip',b:de?'Dein Semesterticket deckt das ab':'Your semester ticket may cover this',p:de?'Du hast 63 € für Mobilität bezahlt. Check, ob dein Semesterticket das schon abdeckt.':'You paid €63 for transport. Check if your student ticket already covers it.',a:de?'Verstanden':'Got it',run:()=>reward(10,5,t('t_tip'))});
+  if(!S.roundup) out.push({id:'round',tag:de?'Auto-Sparen':'Auto-save',b:de?'Aufrunden einschalten':'Turn on round-ups',p:de?'Jede Kartenzahlung wird aufgerundet und das Kleingeld geht in ein Ziel.':'Every card payment rounds up and the spare change goes to a goal.',a:de?'Einschalten':'Turn on',run:()=>{S.roundup=true;reward(30,15,t('t_round'));badge(1);}});
+  if(I.has(2)) out.push({id:'style',tag:de?'Perk für dich':'Perk for you',b:de?'15 % Rabatt im Streetwear-Partnerstore':'15% off at a partner streetwear store',p:de?'Mit deiner Sparkasse-Karte zahlen. Gratis ab Level 4.':'Pay with your Sparkasse card. Free from Level 4.',a:de?'Perk ansehen':'See perk',run:()=>go('perks'),keep:1});
+  if(I.has(3)) out.push({id:'trip',tag:de?'Ziel-Boost':'Goal boost',b:de?'Im Sommer nach Lissabon?':'Lisbon in summer?',p:de?'Noch 460 €. Mit 15 € pro Woche schaffst du es bis Juli.':'€460 to go. €15 a week gets you there by July.',a:de?'15 € einzahlen':'Add €15 now',run:()=>topUp(3,15)});
+  out.push({id:'quiz',tag:'Snaps',b:de?'30-Sekunden-Quiz: +50 XP':'30-second quiz: +50 XP',p:de?'„Sparen vs. Traden: Was ist der Unterschied?"':'"Saving vs trading: what is the difference?"',a:de?'Spielen':'Play',run:()=>go('learn'),keep:1});
+  return out;
+}
+function renderHome(){
+  $('#meBtn').innerHTML=avatar(S.av);
+  $('#helloName').textContent='Hey '+S.nick;
+  $('#helloSub').textContent=t('status')[S.status]+' · '+t('status_city');
+  $('#avName').textContent='@'+S.nick.toLowerCase().replace(/\s+/g,'');
+  $('#avCoins').textContent=avCoins;
+  $('#forWhy').textContent=t('basedon',{x:[...S.interests].slice(0,2).map(i=>t('interests')[i]).join(', ')+(S.interests.size>2?' +':'')});
+  // stories
+  $('#stories').innerHTML=stories().map((s,i)=>`<button class="st ${S.seen.has(s.id)?'seen':''}" data-st="${i}"><span class="rg"><span class="in" style="background:${s.ring}">${s.icon}</span></span>${s.label}</button>`).join('');
+  $$('#stories [data-st]').forEach(b=>b.onclick=()=>openStory(+b.dataset.st));
+  // drop
+  const d=$('#drop'); d.className='drop'+(S.dropOpen?' open':'');
+  d.innerHTML=S.dropOpen?`<span class="box">🎁</span><div><b>${t('drop_o',{x:S.dropGot})}</b><span>${t('drop_o2')}</span></div>`:`<span class="box">🎁</span><div><b>${t('drop_t')}</b><span>${t('drop_s')}</span></div>`;
+  d.onclick=()=>{if(S.dropOpen)return;S.dropOpen=true;S.dropGot=[15,25,40][rand(3)];S.sparks+=S.dropGot;giveCoins(S.dropGot);react('samba');toast(`<i>✦ +${S.dropGot}</i> Sparks · ${t('coins_tip',{x:S.dropGot})}`);confetti();renderHome();};
+  // suggestions
+  const box=$('#sugg'); box.innerHTML='';
+  suggestions().forEach(s=>{
+    const el=document.createElement('div'); const done=S.doneSugg.has(s.id);
+    el.className='sg'+(done?' done':'');
+    el.innerHTML=`<span class="tagl">${s.tag}</span><b>${s.b}</b><p>${s.p}</p><button class="act">${done?t('done'):s.a}</button>`;
+    el.querySelector('.act').onclick=()=>{ if(done)return; if(!s.keep)S.doneSugg.add(s.id); s.run(); if(current==='home')renderHome(); };
+    box.appendChild(el);
+  });
+  // donut
+  const tot=spend.reduce((a,b)=>a+b,0); let a0=0; const R=46,C=2*Math.PI*R; let svg=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="#f0f0f2" stroke-width="18"/>`;
+  spend.forEach((v,i)=>{const f=v/tot;svg+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${spendC[i]}" stroke-width="18" stroke-dasharray="${f*C-2} ${C}" stroke-dashoffset="${-a0*C}" transform="rotate(-90 60 60)"/>`;a0+=f;});
+  svg+=`<text x="60" y="58" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="20" fill="#1d1d1f">${eur(tot)}</text><text x="60" y="76" text-anchor="middle" font-family="Figtree, sans-serif" font-size="11" fill="#6e6e73">${t('thismonth')}</text>`;
+  $('#donut').innerHTML=svg; $('#spendTot').textContent=t('sofar',{x:eur(tot)});
+  $('#legend').innerHTML=spend.map((v,i)=>`<div><i style="background:${spendC[i]}"></i>${t('cats')[i]}<span>${eur(v)}</span></div>`).join('');
+  renderTools();
+  const cb=$('#chalBtn'); cb.textContent=S.chal?t('done'):t('idid'); cb.style.background=S.chal?'var(--ok)':'var(--red)';
+  cb.onclick=()=>{if(S.chal)return;S.chal=true;S.streak++;reward(30,10,t('t_chal'));if(S.streak>=7)badge(2);renderHome();};
+  hud();
+}
+$('#meBtn').onclick=()=>{
+  sheet(`<h3>${t('me_h')}</h3><p>${t('me_p')}</p><div id="bld2"></div>
+    <div class="field"><label for="nk">${t('nick')}</label><input id="nk" value="${S.nick}" maxlength="16"></div>
+    <div class="field"><label for="cn">${t('coachn')}</label><input id="cn" value="${S.coach}" maxlength="14"></div>
+    <button class="cta" id="meSave" style="margin-top:18px">${t('save')}</button>`,()=>{
+      builder($('#bld2'));
+      $('#meSave').onclick=()=>{S.nick=$('#nk').value.trim()||S.nick;S.coach=$('#cn').value.trim()||S.coach;home3d?.setLook({name:S.nick});closeSheet();toast(t('t_saved'));render(current);react('greet',L==='de'?'Neuer Look 😎':'New look 😎');};
+    });
+};
+
+/* ================= money tools ================= */
+function renderTools(){
+  const de=L==='de';
+  $('#toolsH').textContent=de?'Alles in einer App':'All in one app';
+  $('#toolsS').textContent=de?'kein Filialbesuch nötig':'no branch visit needed';
+  const T=[
+    {id:'split',ic:'🍕',b:de?'Teilen & senden':'Split & send',s:de?'Mit Freunden teilen, sofort per Wero':'Split with friends, instant with Wero',st:S.split?[de?'erledigt':'done','ok']:null},
+    {id:'accts',ic:'🏦',b:de?'Alle Konten':'All accounts',s:de?'Auch deine anderen Konten, hier im Blick':'Your other accounts too, seen here',st:S.linked?[de?'verbunden':'linked','ok']:null},
+    {id:'card',ic:'💳',b:de?'Karten-Kontrolle':'Card control',s:de?'Sperren, Limits, Online-Zahlungen':'Freeze, limits, online payments',st:S.frozen?[de?'gesperrt':'frozen','on']:[de?'aktiv':'active','']},
+    {id:'human',ic:'🙋',b:de?'Echter Mensch':'Real human',s:de?'Dein persönlicher Kontakt, Chat oder Video':'Your personal contact, chat or video',st:S.booked?[de?'gebucht':'booked','ok']:null}];
+  $('#tools').innerHTML=T.map(x=>`<button class="tool" data-tool="${x.id}"><span class="ic">${x.ic}</span><b>${x.b}</b><small>${x.s}</small>${x.st?`<span class="st ${x.st[1]}">${x.st[0]}</span>`:''}</button>`).join('');
+  $$('#tools [data-tool]').forEach(b=>b.onclick=()=>({split:openSplit,accts:openAccts,card:openCard,human:openHuman})[b.dataset.tool]());
+}
+function openSplit(){
+  const de=L==='de', F=['Mia','Jonas','Aylin','Ben'], pick=new Set(['Mia','Jonas']);
+  const total=48;
+  const draw=()=>{const n=pick.size+1, each=Math.round(total/n*100)/100;
+    $('#splitOut').innerHTML=de?`${eur(total)} Pizza-Abend ÷ ${n} = <b>${eur(each)}</b> pro Person`:`${eur(total)} pizza night ÷ ${n} = <b>${eur(each)}</b> each`;
+    $$('#frs button').forEach(b=>b.classList.toggle('on',pick.has(b.dataset.f)));};
+  sheet(`<h3>${de?'Rechnung teilen':'Split the bill'}</h3><p>${de?'Wähl, wer dabei war. Jeder bekommt eine Anfrage und zahlt sofort per Wero, direkt aus der App.':'Pick who was there. Everyone gets a request and pays instantly with Wero, right from the app.'}</p>
+   <div class="frs" id="frs">${F.map(f=>`<button data-f="${f}">${f}</button>`).join('')}</div>
+   <div class="acct" style="margin-top:14px"><div id="splitOut"></div></div>
+   <button class="cta" id="splitGo" style="margin-top:16px">${de?'Anfragen senden':'Send requests'}</button>`,()=>{
+     $$('#frs button').forEach(b=>b.onclick=()=>{pick.has(b.dataset.f)?pick.delete(b.dataset.f):pick.add(b.dataset.f);if(!pick.size)pick.add(b.dataset.f);draw();});
+     draw();
+     $('#splitGo').onclick=()=>{closeSheet();if(!S.split){S.split=true;reward(20,10,de?'Rechnung geteilt':'Bill split');}else toast(de?'Anfragen gesendet ✓':'Requests sent ✓');renderHome();};
+   });
+}
+function openAccts(){
+  const de=L==='de';
+  const rows=()=>`<div class="acct"><div><span>Sparkasse · ${de?'Girokonto':'Current account'}</span><b>${eur(bal())}</b></div>✓</div>
+    <div class="acct"><div><span>Sparkasse Next · ${de?'Ziele':'Goals'}</span><b>${eur(S.goals.reduce((a,g)=>a+g.have,0))}</b></div>✓</div>
+    ${S.linked?`<div class="acct"><div><span>${de?'Anderes Konto (Online-Bank)':'Other account (online bank)'}</span><b>${eur(212.4)}</b></div>🔗</div><div class="acct"><div><span>${de?'Depot (anderer Anbieter)':'Investment account (other provider)'}</span><b>${eur(350)}</b></div>🔗</div>`:''}`;
+  sheet(`<h3>${de?'Alle Konten, eine App':'All your accounts, one app'}</h3><p>${de?'Viele haben mehr als ein Konto. Mit Multibanking siehst du alle hier, ohne App-Hopping.':'Lots of people have more than one account. With multibanking you see them all here, no app-hopping.'}</p><div id="acctList">${rows()}</div>
+   ${S.linked?`<button class="cta" id="acOk" style="margin-top:16px">${t('ok')}</button>`:`<button class="cta" id="acGo" style="margin-top:16px">${de?'+ Weiteres Konto verbinden':'+ Link another account'}</button>`}`,()=>{
+    if($('#acOk'))$('#acOk').onclick=closeSheet;
+    if($('#acGo'))$('#acGo').onclick=()=>{S.linked=true;$('#acctList').innerHTML=rows();$('#acGo').outerHTML=`<button class="cta" id="acOk" style="margin-top:16px">${t('ok')}</button>`;$('#acOk').onclick=closeSheet;reward(20,5,de?'Konten verbunden':'Accounts linked');renderHome();};
+  });
+}
+function openCard(){
+  const de=L==='de';
+  const row=(id,l,on)=>`<div class="tgl"><span>${l}</span><button class="sw ${on?'on':''}" data-sw="${id}" aria-label="${l}"><i></i></button></div>`;
+  S.online=S.online??true; S.abroad=S.abroad??false;
+  const body=()=>row('frozen',de?'Karte sperren':'Freeze card',S.frozen)+row('online',de?'Online-Zahlungen':'Online payments',S.online)+row('abroad',de?'Zahlungen im Ausland':'Payments abroad',S.abroad)+`<div class="acct"><div><span>${de?'Tageslimit':'Daily limit'}</span><b>${eur(300)}</b></div>✏️</div>`;
+  sheet(`<h3>${de?'Karten-Kontrolle':'Card control'}</h3><p>${de?'Karte verloren? In einer Sekunde sperren, ohne Anruf, ohne Filiale.':'Lost your card? Freeze it in one second. No call, no branch.'}</p><div id="cardB">${body()}</div><button class="cta" id="cOk" style="margin-top:16px">${t('ok')}</button>`,()=>{
+    const wire=()=>$$('#cardB [data-sw]').forEach(b=>b.onclick=()=>{const k=b.dataset.sw;S[k]=!S[k];if(k==='frozen')toast(S.frozen?(de?'❄️ Karte gesperrt':'❄️ Card frozen'):(de?'Karte wieder aktiv':'Card active again'));$('#cardB').innerHTML=body();wire();renderHome();});
+    wire(); $('#cOk').onclick=closeSheet;
+  });
+}
+function openHuman(){
+  const de=L==='de', slots=de?['Heute 17:30','Morgen 12:00','Fr 16:00']:['Today 5:30 pm','Tomorrow 12:00','Fri 4:00 pm'];
+  sheet(`<h3>${de?'Dein persönlicher Kontakt':'Your personal contact'}</h3><p>${de?'Für alles, wo du lieber mit einem Menschen sprichst: erster Job, Semesterbeitrag, Wohnung, Geldanlage-Fragen.':'For anything you would rather talk through with a person: first job, semester fees, a flat, questions about investing.'}</p>
+   <div class="acct"><div><span>Sparkasse Campus Team</span><b>Jana · ${de?'Beraterin':'Adviser'}</b></div>👋</div>
+   <div class="frs" id="slots">${slots.map((x,i)=>`<button data-s="${i}" class="${i===0?'on':''}">📹 ${x}</button>`).join('')}</div>
+   <button class="cta" id="bkGo" style="margin-top:16px">${S.booked?(de?'Termin gebucht ✓':'Booked ✓'):(de?'Video-Call buchen':'Book a video call')}</button>`,()=>{
+    $$('#slots button').forEach(b=>b.onclick=()=>$$('#slots button').forEach(x=>x.classList.toggle('on',x===b)));
+    $('#bkGo').onclick=()=>{closeSheet();if(!S.booked){S.booked=true;reward(15,5,de?'Termin gebucht':'Call booked');}renderHome();};
+  });
+}
+
+/* ================= stories ================= */
+function stories(){
+  const de=L==='de', f=S.goals[0], left=f.target-f.have, c=S.coach;
+  return [
+    {id:'week',label:t('st_week'),icon:avatar(S.av),ring:'#fff0f0',bg:'linear-gradient(160deg,#ff0000,#8a0000)',who:t('st_week'),slides:[
+      {e:'📊',big:de?`Diese Woche: ${eur(96)} ausgegeben`:`This week you spent ${eur(96)}`,small:de?'Weniger als letzte Woche. Nice.':'Less than last week. Nice.'},
+      {e:'🍕',big:de?`Top: Lieferdienste ${eur(38)}`:`Top spend: food delivery ${eur(38)}`,small:de?'Drei Bestellungen. Eine weniger = 12 € gespart.':'Three orders. One less = €12 saved.'},
+      {e:'🔥',big:de?`${S.streak} Tage Streak`:`${S.streak}-day streak`,small:de?`Und ${eur(S.saved)} gespart diesen Monat.`:`And ${eur(S.saved)} saved this month.`},
+      {e:'🎯',big:de?'Heute ohne Lieferdienst?':'Skip delivery today?',small:de?'+30 XP für die Tages-Challenge.':'+30 XP for the daily challenge.'}]},
+    {id:'tip',label:t('st_tip'),icon:'💡',ring:'#1d1d1f',bg:'linear-gradient(160deg,#1d1d1f,#4a4a4f)',who:c,slides:[
+      {e:'💡',big:de?'Erst sparen, dann ausgeben.':'Save first, spend after.',small:de?`Tipp von ${c}`:`Tip from ${c}`},
+      {e:'📅',big:de?'Verschieb 10 € am Zahltag.':'Move €10 on payday.',small:de?'Automatisch ist einfacher als „nächsten Monat".':'Automatic beats "next month".'},
+      {e:'🪙',big:de?'Aufrunden einschalten.':'Turn on round-ups.',small:de?'Das Kleingeld geht direkt in deine Ziele.':'Spare change goes straight to your goals.',cta:{l:de?'Einschalten':'Turn on',run:()=>{if(!S.roundup){S.roundup=true;reward(30,15,t('t_round'));badge(1);}closeStory();}}}]},
+    {id:'goal',label:t('st_goal'),icon:'🎪',ring:'#fff0f0',bg:'linear-gradient(160deg,#ff3b3b,#ff0000)',who:t('g_names')[0],slides:[
+      {e:'🎪',big:de?`Noch ${eur(left)}`:`${eur(left)} to go`,small:de?`${t('g_names')[0]}: ${eur(f.have)} von ${eur(f.target)}`:`${t('g_names')[0]}: ${eur(f.have)} of ${eur(f.target)}`},
+      {e:'📈',big:de?`10 € pro Woche = ${Math.ceil(left/10)} Wochen`:`€10 a week = ${Math.ceil(left/10)} weeks`,small:de?'Du schaffst das.':'You got this.',cta:{l:de?'10 € einzahlen':'Add €10',run:()=>{topUp(1,10);closeStory();}}}]},
+    {id:'meme',label:t('st_meme'),icon:'😂',ring:'#ffb400',bg:'linear-gradient(160deg,#1d1d1f,#ff0000)',who:'#MoneyMemes',slides:[
+      {e:'🙋',big:de?'Ich: „Ab nächstem Monat spar ich."':'Me: "I\'ll start saving next month."',small:''},
+      {e:'🛒',big:de?'Ich, nächsten Monat:':'Also me, next month:',small:'🛒🛒🛒🛒'},
+      {e:'🧠',big:de?'Plot Twist: zuerst sparen.':'Plot twist: save first.',small:de?'Schon 5 € machen den Unterschied.':'Even €5 builds the habit.'}]},
+    {id:'drop',label:t('st_drop'),icon:'🎟️',ring:'#1d1d1f',bg:'linear-gradient(160deg,#8a0000,#1d1d1f)',who:'Perks',slides:[
+      {e:'🎟️',big:de?'Neuer Drop: Isar Sound Festival':'New drop: Isar Sound Festival',small:de?'48 h Vorverkauf + 15 € Rabatt':'48h presale + €15 off'},
+      {e:'✦',big:de?'Für 300 Sparks':'For 300 Sparks',small:de?'Nur für Sparkasse Next.':'Only on Sparkasse Next.',cta:{l:de?'Zu den Perks':'Go to Perks',run:()=>{closeStory();go('perks');}}}]}
+  ];
+}
+let stI=0, slI=0, stTimer=0, stStart=0, stRaf=0; const DUR=4200;
+function openStory(i){stI=i;slI=0;$('#story').classList.add('show');$('#screen').classList.add('dark');showSlide();}
+function closeStory(){$('#story').classList.remove('show');$('#screen').classList.remove('dark');cancelAnimationFrame(stRaf);clearTimeout(stTimer);if(current==='home')renderHome();}
+function showSlide(){
+  const st=stories()[stI], sl=st.slides[slI];
+  const el=$('#story'); el.style.background=st.bg;
+  el.innerHTML=`<div class="bars">${st.slides.map((_,i)=>`<i><b style="width:${i<slI?100:0}%"></b></i>`).join('')}</div>
+   <div class="sh"><span class="sav">${st.id==='week'?avatar(S.av):st.icon}</span><div><b>${st.who}</b><br><span>Sparkasse Next</span></div><button class="x" aria-label="Close">×</button></div>
+   <div class="tapL"></div><div class="tapR"></div>
+   <div class="body"><div class="emoji">${sl.e}</div><div class="big">${sl.big}</div>${sl.small?`<div class="small">${sl.small}</div>`:''}${sl.cta?`<button class="scta">${sl.cta.l}</button>`:''}</div>
+   <div class="reacts"><button class="reply">${t('reply')}</button>${['🔥','😂','😍','💸'].map(r=>`<button class="r" data-r="${r}">${r}</button>`).join('')}</div>`;
+  el.querySelector('.x').onclick=()=>closeStory();
+  el.querySelector('.tapL').onclick=()=>step(-1);
+  el.querySelector('.tapR').onclick=()=>step(1);
+  if(sl.cta)el.querySelector('.scta').onclick=sl.cta.run;
+  el.querySelector('.reply').onclick=()=>{closeStory();go('coach');};
+  el.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{floaty(b.dataset.r,b);if(!S.reacted.has(st.id)){S.reacted.add(st.id);reward(5,2,t('t_react'));}});
+  cancelAnimationFrame(stRaf);clearTimeout(stTimer);stStart=performance.now();
+  const bar=el.querySelectorAll('.bars b')[slI];
+  const tick=now=>{const p=Math.min(1,(now-stStart)/DUR);bar.style.width=(p*100)+'%';if(p<1)stRaf=requestAnimationFrame(tick);else step(1);};
+  stRaf=requestAnimationFrame(tick);
+}
+function step(d){
+  const st=stories()[stI]; slI+=d;
+  if(slI<0)slI=0;
+  if(slI>=st.slides.length){
+    if(!lessonMode&&!S.seen.has(st.id)){S.seen.add(st.id);reward(10,3,t('t_story'));if(S.seen.size>=3)badge(6);}
+    if(stI<stories().length-1){stI++;slI=0;}else{closeStory();return;}
+  }
+  showSlide();
+}
+function floaty(e,from){const r=from.getBoundingClientRect(),s=$('#screen').getBoundingClientRect();const f=document.createElement('div');f.className='floaty';f.textContent=e;f.style.left=(r.left-s.left)+'px';f.style.top=(r.top-s.top-20)+'px';$('#screen').appendChild(f);setTimeout(()=>f.remove(),1300);}
+
+/* ================= goals ================= */
+function topUp(id,amt){
+  const g=S.goals.find(x=>x.id===id); const was=g.have; g.have=Math.min(g.target,g.have+amt); S.saved+=g.have-was;
+  const nm=g.n!=null?t('g_names')[g.n]:g.name;
+  if(g.have>=g.target){reward(100,50,t('t_reach',{x:nm}));badge(4);confetti();}
+  else reward(20,5,t('t_to',{x:eur(amt),y:nm}));
+  // 3D avatar: the more you save, the more you unlock – 1 extra coin per €5 saved
+  giveCoins(Math.floor((g.have-was)/5));
+  if(current==='goals')renderGoals();
+}
+function ring(p){const R=30,C=2*Math.PI*R;return `<svg width="72" height="72" viewBox="0 0 72 72"><circle cx="36" cy="36" r="${R}" fill="none" stroke="#ffe0e0" stroke-width="8"/><circle cx="36" cy="36" r="${R}" fill="none" stroke="#ff0000" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C*p} ${C}" style="transition:stroke-dasharray .8s"/></svg>`;}
+function renderGoals(){
+  const box=$('#goalsList');
+  box.innerHTML=S.goals.map(g=>{const p=g.have/g.target, nm=g.n!=null?t('g_names')[g.n]:g.name;return `<div class="goal"><div class="ring">${ring(p)}<b>${Math.round(p*100)}%</b></div><div><h4>${g.emoji} ${nm}</h4><div class="sub">${t('of',{x:eur(g.have),y:eur(g.target)})}${p>=1?' · '+t('reached'):''}</div><div class="btns"><button class="p" data-tg="${g.id}" data-a="5">+ ${eur(5)}</button><button data-tg="${g.id}" data-a="20">+ ${eur(20)}</button></div></div></div>`}).join('')+
+  `<button class="newgoal" id="newGoal">${t('newgoal')}</button>
+   <div class="toggle"><div><b>${t('roundup')}</b><span>${t('roundup_s')}</span></div><button class="sw ${S.roundup?'on':''}" id="rsw" aria-label="${t('roundup')}"></button></div>
+   <div class="sec"><h3>${t('badges')}</h3><span>${S.badges.size} / 8</span></div>
+   <div class="badges">${t('badge_n').map((b,i)=>`<div class="badge ${S.badges.has(i)?'got':''}"><i>${S.badges.has(i)?'★':'?'}</i>${b}</div>`).join('')}</div>`;
+  $$('#goalsList [data-tg]').forEach(b=>b.onclick=()=>topUp(+b.dataset.tg,+b.dataset.a));
+  $('#rsw').onclick=()=>{S.roundup=!S.roundup;if(S.roundup){reward(30,15,t('t_round'));badge(1);}renderGoals();};
+  $('#newGoal').onclick=()=>sheet(`<h3>${t('ng_h')}</h3><p>${t('ng_p')}</p>
+    <div class="field"><label for="gN">${t('ng_goal')}</label><input id="gN" value="${t('ng_def')}"></div>
+    <div class="field"><label for="gT">${t('ng_target')}</label><input id="gT" type="number" value="120" min="1"></div>
+    <button class="cta" id="gSave" style="margin-top:18px">${t('ng_btn')}</button>`,()=>{
+      $('#gSave').onclick=()=>{const n=$('#gN').value.trim()||t('ng_def'),tg=Math.max(1,+$('#gT').value||100);S.goals.push({id:Date.now(),name:n,emoji:'⭐',have:0,target:tg});closeSheet();reward(40,10,t('t_goal'));renderGoals();};
+    });
+}
+
+/* ================= learn ================= */
+function lessons(){
+  const de=L==='de';
+  return [
+    {id:'l1',e:'🛒',b:de?'Warum ist mein Geld weg?':'Where did my money go?',s:30,bg:'linear-gradient(160deg,#ff0000,#8a0000)',slides:[
+      {e:'🛒',big:de?'Kleine Käufe summieren sich.':'Small buys add up.',small:de?'3 × Lieferdienst pro Woche ≈ 150 € im Monat.':'3 deliveries a week ≈ €150 a month.'},
+      {e:'👀',big:de?'Erst schauen, dann ändern.':'Look first, then change.',small:de?'Deine Ausgaben-Übersicht zeigt die Top-Kategorie.':'Your spending chart shows your top category.'},
+      {e:'✅',big:de?'Ein Limit pro Woche hilft.':'A weekly cap helps.',small:de?'Nicht verbieten, nur planen.':'Not banning. Just planning.'}]},
+    {id:'l2',e:'⚖️',b:de?'Sparen vs. Traden':'Saving vs trading',s:30,bg:'linear-gradient(160deg,#1d1d1f,#ff0000)',slides:[
+      {e:'🏦',big:de?'Sparen = Geld zur Seite legen.':'Saving = setting money aside.',small:de?'Einlagen sind geschützt. Der Betrag sinkt nicht.':'Deposits are protected. The amount does not drop.'},
+      {e:'🎢',big:de?'Traden = Aktien oder Krypto kaufen und verkaufen.':'Trading = buying and selling shares or crypto.',small:de?'Der Wert kann steigen oder fallen. Du kannst Geld verlieren.':'Value can go up or down. You can lose money.'},
+      {e:'🧭',big:de?'Andere Tools, andere Risiken.':'Different tools, different risks.',small:de?'Das ist Wissen, keine Anlageberatung.':'This is education, not investment advice.'}]},
+    {id:'l5',e:'🧺',b:de?'Was ist ein ETF?':'What is an ETF?',s:30,bg:'linear-gradient(160deg,#8a0000,#1d1d1f)',slides:[
+      {e:'🧺',big:de?'Ein ETF ist ein Korb mit vielen Aktien.':'An ETF is a basket of many shares.',small:de?'Statt eine Firma kaufst du ein kleines Stück von vielen.':'Instead of one company, you own a tiny piece of many.'},
+      {e:'🎢',big:de?'Der Wert kann steigen und fallen.':'Its value can go up and down.',small:de?'Es gibt keine Garantie. Du kannst Geld verlieren.':'There is no guarantee. You can lose money.'},
+      {e:'🧭',big:de?'Erst Notgroschen, dann mehr lernen.':'Emergency fund first, then learn more.',small:de?'Fragen? Sprich mit deinem persönlichen Kontakt. Das ist Wissen, keine Anlageberatung.':'Questions? Talk to your personal contact. This is education, not investment advice.'}]},
+    {id:'l6',e:'🏦',b:de?'Mehrere Konten, ein Überblick':'Many accounts, one overview',s:20,bg:'linear-gradient(160deg,#ff3b3b,#8a0000)',slides:[
+      {e:'🧩',big:de?'Mehrere Konten sind normal.':'Having several accounts is normal.',small:de?'Das Problem: der Überblick fehlt.':'The problem: you lose the overview.'},
+      {e:'🏦',big:de?'Verbinde sie in deiner Sparkasse-App.':'Link them in your Sparkasse app.',small:de?'Alle Konten an einem Ort, kein App-Hopping.':'All accounts in one place, no app-hopping.'}]},
+    {id:'l3',e:'📱',b:de?'Der Notgroschen':'The emergency fund',s:25,bg:'linear-gradient(160deg,#4a4a4f,#1d1d1f)',slides:[
+      {e:'📱💥',big:de?'POV: Handy kaputt, 0 € gespart.':'POV: phone smashed, €0 saved.',small:''},
+      {e:'🛟',big:de?'Ein Notgroschen fängt das auf.':'An emergency fund has your back.',small:de?'Starte klein, z. B. mit 300 €.':'Start small, like €300.'}]},
+    {id:'l4',e:'💳',b:de?'Dispo erklärt':'Overdraft explained',s:25,bg:'linear-gradient(160deg,#ff3b3b,#1d1d1f)',slides:[
+      {e:'💳',big:de?'Dispo = Konto ins Minus.':'Overdraft = going below €0.',small:de?'Das kostet Zinsen, oft ziemlich hohe.':'It costs interest, often quite a lot.'},
+      {e:'🚦',big:de?'Nur für echte Notfälle.':'Only for real emergencies.',small:de?'Ein Notgroschen ist günstiger.':'An emergency fund is cheaper.'}]}
+  ];
+}
+function QUIZ(){const de=L==='de';return [
+  {q:de?'Du bekommst 538 € vom Minijob. Wann legst du am besten Geld zur Seite?':'You get €538 from your minijob. When is the best moment to move money to savings?',o:de?['Sobald es ankommt','Am Monatsende, falls was übrig ist','Wenn ich dran denke']:['Right when it arrives','At the end of the month, if anything is left','Only when I remember'],r:0,why:de?'Erst sparen heißt: Du gibst aus, was übrig ist, statt zu sparen, was übrig ist.':'Saving first means you spend what is left, not save what is left.'},
+  {q:de?'Was kann an Wert verlieren?':'Which one can lose value?',o:de?['Geld auf dem Sparkonto','Aktien oder Krypto, die du tradest','Keins von beiden']:['Money in a savings account','Shares or crypto you trade','Neither'],r:1,why:de?'Gehandelte Anlagen können fallen und steigen. Das ist das Risiko.':'Traded assets can go down as well as up. That is the risk.'},
+  {q:de?'Wofür ist ein Notgroschen?':'What is an emergency fund for?',o:de?['Festivaltickets','Unerwartete Kosten wie ein kaputtes Handy','Zum Traden']:['Festival tickets','Unexpected costs like a broken phone','Trading'],r:1,why:de?'Er ist dein Puffer für Überraschungen, damit du dir nichts leihen musst.':'It is your buffer for surprises, so you do not need to borrow.'}];}
+function renderLearn(){
+  const Q=QUIZ(), qd=S.quizIdx<Q.length?Q[S.quizIdx]:null;
+  // 3D avatar: "For You" clips starring the user's avatar, above the Snaps
+  $('#learnList').innerHTML=`<button class="yt" id="ytOpen"><span class="play">${avSnap?avatar(S.av,'#fff'):'▶'}</span><div><b>▶ ${t('yt_t')}</b><span>${t('yt_s')}</span></div></button>
+   <div class="snaps">${lessons().map((l,i)=>`<button class="snap" data-l="${i}" style="background:${l.bg}">${S.seen.has(l.id)?`<span class="done">${t('read')} ✓</span>`:''}<span class="e">${l.e}</span><div><b>${l.b}</b><br><small>▶ ${t('secs',{x:l.s})} · +15 XP</small></div></button>`).join('')}</div>
+   <div class="quiz">${S.quizDone?`<div class="prog">${t('quiz_done')}</div><div class="q">${t('quiz_done_h')}</div><p class="why">${t('quiz_done_p')}</p>`:
+   `<div class="prog">${t('quiz_k',{x:S.quizIdx+1,y:Q.length})}</div><div class="q">${qd.q}</div><div class="opts">${qd.o.map((o,i)=>`<button data-o="${i}">${o}</button>`).join('')}</div><p class="why" id="why"></p>`}</div>`;
+  $('#ytOpen').onclick=openFeed;
+  $$('#learnList [data-l]').forEach(b=>b.onclick=()=>openLesson(+b.dataset.l));
+  $$('#learnList [data-o]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.o, ok=i===qd.r;
+    $$('#learnList [data-o]').forEach(x=>{x.disabled=true;if(+x.dataset.o===qd.r)x.classList.add('right');});
+    if(!ok)b.classList.add('wrong');
+    $('#why').innerHTML=`<b>${ok?t('right'):t('wrong')}</b> ${qd.why}`;
+    if(ok)reward(50,10,t('t_quiz'));
+    setTimeout(()=>{S.quizIdx++;if(S.quizIdx>=Q.length){S.quizDone=true;badge(3);confetti();}if(current==='learn')renderLearn();},1700);
+  });
+}
+// lessons reuse the story viewer
+let lessonMode=null;
+function openLesson(i){
+  const l=lessons()[i];
+  const orig=stories;
+  lessonMode={id:l.id,label:l.b,icon:l.e,bg:l.bg,who:l.b,slides:l.slides};
+  stories=()=>[ {...lessonMode, slides:lessons()[i].slides, who:lessons()[i].b} ];
+  const restore=()=>{stories=orig;lessonMode=null;};
+  const oldClose=closeStory;
+  closeStory=function(){ const fin=slI>=l.slides.length-1; restore(); closeStory=oldClose; oldClose(); if(fin&&!S.seen.has(l.id)){S.seen.add(l.id);reward(15,5,t('t_lesson'));} if(current==='learn')renderLearn(); };
+  stI=0;slI=0;$('#story').classList.add('show');$('#screen').classList.add('dark');showSlide();
+}
+
+/* ================= perks ================= */
+function PERKS(){const de=L==='de';return [
+  {id:'p1',cat:1,t:'Isar Sound Festival',d:de?'48 h Vorverkauf + 15 € Rabatt':'48h presale + €15 off',cost:300,bg:'linear-gradient(135deg,#ff0000,#7a0000)'},
+  {id:'p2',cat:2,t:'Munich Esports Night',d:de?'2-für-1-Tickets fürs Finale':'2-for-1 tickets for the finals',cost:250,bg:'linear-gradient(135deg,#1d1d1f,#ff0000)'},
+  {id:'p3',cat:3,t:de?'Campus Fest Afterparty':'Campus Fest after-party',d:de?'Freier Eintritt bis 22 Uhr':'Free entry before 10 pm',cost:120,bg:'linear-gradient(135deg,#6e6e73,#1d1d1f)'},
+  {id:'p4',cat:4,t:de?'Streetwear-Partnerstore':'Streetwear partner store',d:de?'15 % Rabatt mit deiner Sparkasse-Karte':'15% off with your Sparkasse card',cost:0,lvl:4,bg:'linear-gradient(135deg,#ff6b6b,#ff0000)'},
+  {id:'p5',cat:1,t:de?'Open-Air-Kino':'Open-air cinema night',d:de?'Zwei Tickets zum Preis von einem':'Two tickets for one',cost:180,bg:'linear-gradient(135deg,#ff0000,#1d1d1f)'}];}
+let perkCat=0;
+function renderPerks(){
+  $('#perksP').innerHTML=t('perks_p',{x:S.sparks});
+  $('#filters').innerHTML=t('pcats').map((c,i)=>`<button class="${i===perkCat?'on':''}" data-c="${i}">${c}</button>`).join('');
+  $$('#filters [data-c]').forEach(b=>b.onclick=()=>{perkCat=+b.dataset.c;renderPerks();});
+  $('#perkList').innerHTML=PERKS().filter(p=>perkCat===0||p.cat===perkCat).map(p=>{
+    const own=S.owned.has(p.id), can=p.lvl?lvlOf(S.xp)>=p.lvl:S.sparks>=p.cost;
+    return `<div class="perk"><div class="art" style="background:${p.bg}"><small>${t('pcats')[p.cat]}</small>${p.t}</div><div class="pb"><p>${p.d}</p><button data-p="${p.id}" class="${own?'owned':''}" ${!own&&!can?'disabled':''}>${own?t('showcode'):p.lvl?t('free',{x:p.lvl}):'✦ '+p.cost}</button></div></div>`;}).join('');
+  $$('#perkList [data-p]').forEach(b=>b.onclick=()=>{
+    const p=PERKS().find(x=>x.id===b.dataset.p);
+    if(!S.owned.has(p.id)){S.owned.add(p.id);S.sparks-=p.cost;hud();badge(5);confetti();}
+    const code='SPK-'+p.id.toUpperCase()+'-'+(4821+p.cost);
+    sheet(`<h3>${p.t}</h3><p>${t('code_p',{x:p.d})}</p><div class="ticket"><span style="opacity:.7;font-size:13px">${t('yourcode')}</span><code>${code}</code><span style="font-size:13px;opacity:.7">${t('valid')}</span></div><button class="cta" style="margin-top:18px" id="sc">${t('ok')}</button>`,()=>{$('#sc').onclick=closeSheet;});
+    renderPerks();
+  });
+}
+
+/* ================= sheet & confetti ================= */
+function sheet(html,after){closeEditor();$('#sheet').innerHTML='<button class="sx" aria-label="Close">×</button>'+html;$('#sheet .sx').onclick=closeSheet;$('#sheetBg').classList.add('show');after&&after();}
+function closeSheet(){$('#sheetBg').classList.remove('show');if(current!=='onboard')closeEditor();}
+$('#sheetBg').onclick=e=>{if(e.target.id==='sheetBg')closeSheet();};
+const cv=$('#confetti'),cx=cv.getContext('2d');let parts=[],raf=0;
+function confetti(){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const r=$('#screen').getBoundingClientRect();cv.width=r.width;cv.height=r.height;
+  const cols=['#ff0000','#1d1d1f','#ffb400','#ff7a7a','#ffffff'];
+  for(let i=0;i<120;i++)parts.push({x:r.width/2,y:r.height*.35,vx:(Math.random()-.5)*12,vy:Math.random()*-12-4,s:5+Math.random()*6,c:cols[i%5],a:Math.random()*6,life:120});
+  if(!raf)loop();
+}
+function loop(){cx.clearRect(0,0,cv.width,cv.height);parts.forEach(p=>{p.vy+=.35;p.x+=p.vx;p.y+=p.vy;p.a+=.2;p.life--;cx.save();cx.translate(p.x,p.y);cx.rotate(p.a);cx.fillStyle=p.c;cx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);cx.restore();});parts=parts.filter(p=>p.life>0&&p.y<cv.height+20);raf=parts.length?requestAnimationFrame(loop):0;if(!raf)cx.clearRect(0,0,cv.width,cv.height);}
+
+/* ================= coach ================= */
+let chat=[], sample=null, coachInit=false;
+function renderCoach(){
+  $('#coachAv').textContent=S.coach.charAt(0).toUpperCase();
+  $('#coachName').textContent=S.coach;
+  $('#coachMode').textContent=sample?t('coach_ai'):t('coach_mode');
+  $('#prompts').innerHTML=t('prompts').map(p=>`<button>${p}</button>`).join('');
+  $$('#prompts button').forEach(b=>b.onclick=()=>ask(b.textContent));
+  if(!coachInit){coachInit=true;bot(t('hi',{n:S.nick,c:S.coach}));}
+  // refresh avatars in existing rows
+  $$('#msgs .mrow.me .mav').forEach(m=>m.innerHTML=avatar(S.av));
+  $$('#msgs .cmav').forEach(m=>m.textContent=S.coach.charAt(0).toUpperCase());
+}
+$('#renameCoach').onclick=()=>sheet(`<h3>${t('coachn')}</h3><div class="field"><input id="cn2" value="${S.coach}" maxlength="14" aria-label="${t('coachn')}"></div><div class="chips">${['Sparky','Penny','Kash','Nova','Coin'].map(n=>`<button class="chip" data-n="${n}">${n}</button>`).join('')}</div><button class="cta" id="cnSave" style="margin-top:18px">${t('save')}</button>`,()=>{
+  $$('#sheet [data-n]').forEach(c=>c.onclick=()=>$('#cn2').value=c.dataset.n);
+  $('#cnSave').onclick=()=>{S.coach=$('#cn2').value.trim()||S.coach;closeSheet();toast(t('t_saved'));renderCoach();};
+});
+function bot(txt){
+  const row=document.createElement('div');row.className='mrow';
+  row.innerHTML=`<span class="cmav">${S.coach.charAt(0).toUpperCase()}</span><div class="msg bot"></div>`;
+  row.querySelector('.msg').textContent=txt; $('#msgs').appendChild(row);
+  const rx=document.createElement('div');rx.className='rxbar';rx.innerHTML=['❤️','😂','🔥','👍'].map(r=>`<button>${r}</button>`).join('');
+  rx.querySelectorAll('button').forEach(b=>b.onclick=()=>{let s=row.querySelector('.rx');if(!s){s=document.createElement('span');s.className='rx';row.querySelector('.msg').appendChild(s);}s.textContent=b.textContent;floaty(b.textContent,b);rx.remove();});
+  $('#msgs').appendChild(rx);
+  $('#msgs').scrollTop=1e6; return row.querySelector('.msg');
+}
+function me(txt){const row=document.createElement('div');row.className='mrow me';row.innerHTML=`<span class="mav">${avatar(S.av)}</span><div class="msg me"></div>`;row.querySelector('.msg').textContent=txt;$('#msgs').appendChild(row);$('#msgs').scrollTop=1e6;}
+$('#chatForm').onsubmit=e=>{e.preventDefault();const v=$('#chatIn').value.trim();if(!v)return;$('#chatIn').value='';ask(v);};
+function profile(){return `User nickname: ${S.nick}, 19, ${T.en.status[S.status]} in Munich. Interests: ${[...S.interests].map(i=>T.en.interests[i]).join(', ')}. Balance about €${bal().toFixed(0)}. Income €538/month minijob. November spending: food delivery €86, shopping €74, transport €63, gaming €42, streaming & other €46. Goals: ${S.goals.map(g=>`${g.n!=null?T.en.g_names[g.n]:g.name} €${g.have}/€${g.target}`).join('; ')}. Round-ups ${S.roundup?'on':'off'}. Level ${lvlOf(S.xp)}, ${S.sparks} Sparks, ${S.streak}-day streak.`;}
+function rules(){return `You are "${S.coach}", the money buddy inside "Sparkasse Next", a Gen Z banking app concept. Reply in ${L==='de'?'German (casual "du")':'English'}. Sound like a smart, friendly older friend: casual, clear, a little playful, never cringe, at most one emoji. Under 70 words. Use the user's numbers when relevant and point to app features (Goals, Round-ups, Snaps, Perks, and on Home: Split & send with Wero, All accounts multibanking, Card control to freeze a card, Real human to book a video call with a personal contact) when they help. Never mention or compare other banks.
+Hard rules: financial education and budgeting help only. Never give investment advice, never recommend specific stocks, crypto, funds or products to buy or sell, never predict or promise returns. If asked, say kindly you can't advise on investments, explain the concept and its risks neutrally, and suggest a Sparkasse advisor for personal advice.`;}
+async function ask(q){
+  me(q); chat.push({role:'user',content:q});
+  const out=bot(''); out.innerHTML='<span class="typing"><i></i><i></i><i></i></span>';
+  let ans='';
+  if(sample){
+    try{const msgs=chat.slice(-8).map((m,i,a)=>i===a.length-1?{role:'user',content:rules()+'\n\n'+profile()+'\n\nUser message: '+m.content}:m);
+      const r=await sample(msgs,{cache:false,modelTier:'quick',onText:({text})=>{out.textContent=text;$('#msgs').scrollTop=1e6;}});ans=r.text;}
+    catch(e){ans=fallback(q);}
+  } else {await new Promise(r=>setTimeout(r,750));ans=fallback(q);}
+  out.textContent=ans; chat.push({role:'assistant',content:ans}); $('#msgs').scrollTop=1e6;
+  if(chat.length===2)reward(5,0,t('t_chat'));
+}
+function fallback(q){
+  const s=q.toLowerCase(), f=S.goals[0], left=f.target-f.have, de=L==='de', fn=t('g_names')[0];
+  if(/(what('| i)?s|was ist|explain|erklär).*etf/.test(s))
+    return de?`Ein ETF ist wie ein Korb mit vielen Aktien: Du besitzt ein kleines Stück von vielen Firmen statt nur einer. Der Wert kann steigen und fallen, und du kannst Geld verlieren. Ob das zu dir passt, sage ich nicht, das wäre Anlageberatung 🙂 Schau dir den Snap „Was ist ein ETF?" an oder buch einen Call mit deinem persönlichen Kontakt.`
+             :`An ETF is like a basket of many shares: you own a tiny piece of lots of companies instead of just one. Its value can go up and down, and you can lose money. Whether it's right for you is something I won't say, that would be investment advice 🙂 Check the "What is an ETF?" snap, or book a call with your personal contact.`;
+  if(/split|teilen|wero|send money|geld senden|friends|freunde/.test(s))
+    return de?`Easy: Tippe auf Startseite → „Teilen & senden", wähl deine Leute aus, und jeder zahlt seinen Anteil sofort per Wero. Kein Bargeld, kein „ich zahl's dir später".`
+             :`Easy: Home → "Split & send", pick your people, and everyone pays their share instantly with Wero. No cash, no "I'll pay you later".`;
+  if(/card|karte|lost|verloren|stolen|gestohlen|freeze|sperren/.test(s))
+    return de?`Karte weg? Startseite → „Karten-Kontrolle" → „Karte sperren". Dauert eine Sekunde, kein Anruf, keine Filiale. Findest du sie wieder, entsperrst du sie genauso schnell.`
+             :`Lost your card? Home → "Card control" → "Freeze card". Takes one second, no call, no branch. Found it again? Unfreeze just as fast.`;
+  if(/crypto|krypto|bitcoin|stock|share|aktie|etf|invest|anlage|trade|trading|traden/.test(s))
+    return de?`Anlageberatung gebe ich nicht, also kein „kauf das" von mir 🙂 Was ich sagen kann: Sparen hält dein Geld stabil, Aktien oder Krypto können steigen oder fallen, und du kannst Geld verlieren. Andere Tools, andere Risiken. Schau dir den Snap „Sparen vs. Traden" an. Für persönliche Beratung hilft dir eine Sparkasse-Beraterin.`
+             :`I can't give investment advice, so no "buy this" from me 🙂 What I can say: saving keeps your money stable, while shares or crypto can go up or down, and you can lose money. Different tools, different risks. Check the "Saving vs trading" snap. For personal advice, a Sparkasse advisor can help.`;
+  if(/where|spend|spent|budget|wo geht|ausgaben|ausgegeben/.test(s))
+    return de?`Diesen Monat hast du ${eur(311)} ausgegeben. Größter Brocken: Lieferdienste mit ${eur(86)}, dann Shopping (${eur(74)}) und Mobilität (${eur(63)}). Ein Wochenlimit von 20 € spart dir etwa 25 € im Monat. Soll das direkt in deine ${fn}?`
+             :`This month you've spent ${eur(311)}. Biggest bite: food delivery at ${eur(86)}, then shopping (${eur(74)}) and transport (${eur(63)}). A €20 weekly delivery cap would free up about €25 a month. Want that to go straight to your ${fn}?`;
+  if(/festival|concert|konzert|ticket/.test(s))
+    return de?`Deine ${fn} steht bei ${eur(f.have)} von ${eur(f.target)}, also noch ${eur(left)}. Mit 10 € pro Woche bist du in etwa ${Math.ceil(left/10)} Wochen da. Schalte Aufrunden ein, dann geht's schneller. Bei den Perks gibt's übrigens einen Festival-Vorverkauf für 300 Sparks.`
+             :`Your ${fn} is at ${eur(f.have)} of ${eur(f.target)}, so ${eur(left)} to go. €10 a week gets you there in about ${Math.ceil(left/10)} weeks. Turn on round-ups to speed it up. Also check Perks: there's a festival presale for 300 Sparks.`;
+  if(/emergency|buffer|unexpected|notgroschen|notfall/.test(s))
+    return de?`Ein Notgroschen ist Geld für Überraschungen: Handy kaputt, vergessene Rechnung. Starte klein, z. B. mit 300 €, und leg an jedem Zahltag etwas dazu. So musst du dir nichts leihen, wenn was passiert. Soll ich ihn als Ziel anlegen?`
+             :`An emergency fund is money for surprises: broken phone, a bill you forgot. Start small, like €300, and add a bit every payday. Then you don't need to borrow when stuff happens. Want to create it as a goal?`;
+  if(/save|saving|spar/.test(s))
+    return de?`Einfachster Trick: erst sparen, dann ausgeben. Wenn deine 538 € reinkommen, schieb sofort einen festen Betrag (auch nur 30 €) in ein Ziel. Dazu Aufrunden für das Kleingeld. Klein und automatisch schlägt groß und „nächsten Monat".`
+             :`Easiest trick: save first, not last. When your €538 lands, move a fixed amount (even €30) to a goal right away. Add round-ups for the small change. Small and automatic beats big and "next month".`;
+  if(/^(hi|hey|hello|hallo|moin|servus)/.test(s)) return de?`Hey ${S.nick}! Frag mich zu deinen Ausgaben, deinen Zielen oder einem Geld-Wort, das verwirrend klingt.`:`Hey ${S.nick}! Ask me about your spending, your goals or any money word that sounds confusing.`;
+  return de?`Gute Frage. Ich helfe bei Budget, Spar-Gewohnheiten, deinen Zielen und erkläre Geld-Begriffe einfach. Anlageberatung gebe ich nicht. Probier mal „Wo geht mein Geld hin?"`:`Good question. I can help with budgets, saving habits, your goals and explaining money terms simply. I don't do investment advice. Try "Where does my money go?"`;
+}
+if(window.claude&&window.claude.use){window.claude.use('sample').then(sm=>{sample=sm;if(current==='coach')renderCoach();}).catch(()=>{});}
+
+/* clock + start */
+const now=new Date();$('#clock').textContent=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
+window.next={get S(){return S;},go,get home3d(){return home3d;},get editor3d(){return editor3d;},get feed3d(){return feed3d;},get snap(){return avSnap;},openFeed,closeFeed,topUp};
+go('classic');
+})();
+</script>
+</body>
+</html>

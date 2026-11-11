@@ -40,7 +40,7 @@ html = html.replace(/<script type="importmap">[\s\S]*?<\/script>/, `<script type
 html = html.replace(/<script type="module" src="js\/main\.js[^"]*"><\/script>/, `<script type="module" src="js/main.js?v=${v}"></script>`);
 writeFileSync(idx, html);
 
-for (const page of ['examples/sparkasse-app.html', 'examples/host-page.html']) {
+for (const page of ['examples/sparkasse-app.html', 'examples/host-page.html', 'examples/sparkasse-next.html']) {
   const p = join(root, page);
   let s = readFileSync(p, 'utf8');
   s = s.replace(/src="\.\.\/embed\/sparkasse-avatar-embed\.js[^"]*"/, `src="../embed/sparkasse-avatar-embed.js?v=${v}"`);

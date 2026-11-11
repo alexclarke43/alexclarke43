@@ -78,6 +78,21 @@
       setLang: function (lang) { post({ type: 'setLang', lang: lang }); },
       /** Send a chat message as the user (opens the Chat tab); the avatar replies */
       chat: function (text) { post({ type: 'chat', text: text }); },
+      /** Play any move without a speech bubble, e.g. 'samba', 'heart', 'flex', 'shuffle', 'mindBlown' */
+      perform: function (move) { post({ type: 'perform', move: move }); },
+      /** Portrait PNG of the avatar (data URL) for profile pictures etc. → Promise<string> */
+      snapshot: function (size) {
+        var id = 's' + Math.random().toString(36).slice(2);
+        return new Promise(function (resolve) {
+          var fn = function (d) {
+            if (d.id !== id) return;
+            listeners.snapshot = listeners.snapshot.filter(function (f) { return f !== fn; });
+            resolve(d.image);
+          };
+          (listeners.snapshot = listeners.snapshot || []).push(fn);
+          post({ type: 'snapshot', id: id, size: size || 256 });
+        });
+      },
       /** Reward the user with coins (1–100), e.g. for saving money – they unlock outfits & accessories */
       addCoins: function (amount) { post({ type: 'addCoins', amount: amount }); },
       /** For You feed: 'play' (opens it) | 'pause' | 'next' | 'prev' */

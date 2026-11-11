@@ -531,3 +531,17 @@ body {
   .dock-tabs[data-count="5"] .dock-tab[aria-selected="true"],
   .dock-tabs[data-count="6"] .dock-tab[aria-selected="true"] { flex: 2.4; }
 }
+
+/* ===================================================== Theme: Sparkasse Next */
+.theme-next {
+  --sp-font: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --sp-ink: #1d1d1f;
+}
+.theme-next .cz-sec h3, .theme-next .gm-card__text b, .theme-next .gm-q, .theme-next .ch-who b {
+  font-family: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  letter-spacing: -.01em;
+}
+.theme-next .dock-tab[aria-selected="true"] { background: #1d1d1f; }
+.theme-next .cz-chip[aria-pressed="true"] { background: var(--sp-primary); border-color: var(--sp-primary); color: #fff; }
+.theme-next .cz-btn { border-radius: 16px; }
+.theme-next .dock-panel:not(.dock-panel--react) { border-radius: 24px; }

@@ -387,7 +387,7 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       const box = await page.locator('#avatar-stage').boundingBox();
       await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.7);
       await page.mouse.down();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.3, { steps: 6 });
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.3, { steps: 3 });
       await page.mouse.up();
       check('swipe up → next clip', (await F()).id !== first);
       await page.click('.fd-prev');
@@ -410,6 +410,49 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.click('#tab-chat');
       check('leaving the feed stops it', !(await F()).active && !(await page.locator('#feed-layer').isVisible()));
       check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
+    console.log('Sparkasse Next concept with the 3D avatar');
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 } });
+      const page = await ctx.newPage();
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+      await page.goto(`${base}/examples/sparkasse-next.html`);
+      await page.click('#tryNext'); await page.click('#ob1'); await page.click('#ob2');
+      const frameWith = async (part, ready) => {
+        for (let i = 0; i < 250; i++) {
+          const f = page.frames().find((fr) => fr.url().includes(part));
+          if (f && await f.evaluate(ready).catch(() => false)) return f;
+          await page.waitForTimeout(200);
+        }
+        return null;
+      };
+      const ef = await frameWith('tabs=style', () => !!window.SparkasseAvatarApp?.avatar);
+      check('Next onboarding: 3D avatar builder replaces the SVG builder', !!ef && (await ef.evaluate(() => window.SparkasseAvatarApp.config.theme)) === 'next');
+      check('builder hides the Sparkie picker', (await ef.locator('#panel-style [data-key="character"]').count()) === 0);
+      await ef.click('#panel-style [data-key="topColor"][data-value="#e3000f"]');
+      await page.waitForFunction(() => (window.next.snap || '').startsWith('data:image/png'), null, { timeout: 20000 }).catch(() => {});
+      check('portrait snapshot of the 3D avatar is created', (await page.evaluate(() => window.next.snap.length)) > 5000);
+      await page.click('#ob3'); await page.click('#ob4');
+      const hf = await frameWith('bubble=false', () => !!window.SparkasseAvatarApp?.avatar);
+      check('Home shows the live 3D avatar with the chosen look', !!hf && (await hf.evaluate(() => window.SparkasseAvatarApp.look.topColor)) === '#e3000f');
+      check('profile picture uses the 3D snapshot', (await page.locator('#meBtn .av3d img').count()) === 1);
+      const c0 = await hf.evaluate(() => window.SparkasseAvatarApp.coins);
+      await page.evaluate(() => window.next.topUp(1, 20));
+      await hf.waitForFunction((c) => window.SparkasseAvatarApp.coins > c, c0, { timeout: 10000 }).catch(() => {});
+      check('saving / Sparks earn avatar coins', (await hf.evaluate(() => window.SparkasseAvatarApp.coins)) >= c0 + 5 + 4);
+      await page.click('.lang [data-lang="de"]');
+      await hf.waitForFunction(() => window.SparkasseAvatarApp.config.lang === 'de', null, { timeout: 10000 }).catch(() => {});
+      check('EN/DE switch reaches the avatar', (await hf.evaluate(() => window.SparkasseAvatarApp.config.lang)) === 'de');
+      await page.click('#avFeed');
+      const ff = await frameWith('tabs=feed', () => !!window.SparkasseAvatarApp?.feed?.active);
+      check('For You clips open from the Home card', !!ff);
+      await page.click('#feedX');
+      check('closing the clips removes the frame', (await page.locator('#feedMount iframe').count()) === 0);
+      check('no page errors', errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
 
