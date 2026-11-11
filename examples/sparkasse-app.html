@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Banking app prototype with avatar</title>
+  <!--
+    PROTOTYPE / DESIGN MOCK-UP ONLY.
+    Shows how the avatar could sit inside a Sparkasse-style banking app for Gen Z.
+    Demo data only – no logins, no real transactions, no official logos.
+  -->
+  <style>
+    :root {
+      --red: #e60000;
+      --red-dark: #b80000;
+      --ink: #1b1b1f;
+      --muted: #6b6b76;
+      --bg: #f4f2f2;
+      --card: #ffffff;
+      --line: #ececef;
+      --mint: #7cf5d0;
+      --radius: 22px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: grid;
+      place-items: center;
+      background: radial-gradient(60% 50% at 20% 20%, #ffe1e1, transparent 70%), radial-gradient(50% 50% at 85% 80%, #dffaf1, transparent 70%), #f7f5f5;
+    }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    [hidden] { display: none !important; }
+
+    /* ---------- phone frame (desktop) / full screen (mobile) ---------- */
+    .device {
+      position: relative;
+      width: 390px;
+      height: min(844px, 100vh - 32px);
+      background: var(--bg);
+      border-radius: 46px;
+      overflow: hidden;
+      box-shadow: 0 0 0 10px #18181b, 0 0 0 11px #3a3a40, 0 40px 80px -20px rgba(30, 0, 0, .35);
+      display: flex;
+      flex-direction: column;
+    }
+    @media (max-width: 500px) {
+      body { display: block; }
+      .device { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+      .statusbar { display: none !important; }
+    }
+    .statusbar { display: flex; justify-content: space-between; padding: 14px 30px 0; font-weight: 700; font-size: 14px; color: #fff; background: var(--red); }
+    .proto {
+      background: var(--red); color: rgba(255,255,255,.85); font-size: 11px; font-weight: 700;
+      text-align: center; padding: 6px 12px 0; letter-spacing: .02em;
+    }
+    .proto span { background: rgba(0,0,0,.18); padding: 2px 8px; border-radius: 99px; }
+
+    /* ---------- header ---------- */
+    .top {
+      background: var(--red);
+      color: #fff;
+      padding: 12px 20px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 0 0 auto;
+    }
+    .top small { opacity: .85; font-weight: 600; }
+    .top h1 { margin: 2px 0 0; font-size: 22px; letter-spacing: -.02em; }
+    .top-right { display: flex; gap: 8px; align-items: center; }
+    .lang { display: flex; background: rgba(255,255,255,.18); border-radius: 99px; padding: 3px; }
+    .lang button { border: 0; background: none; color: #fff; font-weight: 800; font-size: 12px; padding: 5px 9px; border-radius: 99px; opacity: .75; }
+    .lang button[aria-pressed="true"] { background: #fff; color: var(--red); opacity: 1; }
+    .coins {
+      background: rgba(255,255,255,.18); border: 0; color: #fff; border-radius: 99px;
+      padding: 8px 12px; font-weight: 800; display: flex; gap: 6px; align-items: center;
+    }
+
+    /* ---------- screens ---------- */
+    .screen { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #screen-home { padding: 0 14px 18px; }
+    .hero-bg { background: var(--red); margin: 0 -14px; height: 70px; border-radius: 0 0 28px 28px; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: 0 8px 24px -16px rgba(40, 0, 0, .35); padding: 16px; margin-top: 12px; }
+    .account { margin-top: -62px; }
+    .account .label { color: var(--muted); font-weight: 700; font-size: 13px; }
+    .account .balance { font-size: 32px; font-weight: 800; letter-spacing: -.03em; margin: 4px 0 2px; }
+    .account .iban { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+    .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+    .quick button {
+      border: 0; background: #fff3f3; border-radius: 16px; padding: 10px 4px; font-size: 12px; font-weight: 700;
+      display: grid; justify-items: center; gap: 4px; color: var(--red-dark);
+    }
+    .quick button span { font-size: 20px; }
+    .quick button b { font-weight: 700; }
+
+    .buddy-card { padding: 0; overflow: hidden; background: linear-gradient(180deg, #fff 0%, #fff5f5 100%); }
+    .buddy-card .head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 0; }
+    .buddy-card h2, .card h2 { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+    .buddy-card .sub { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .pill { border: 0; border-radius: 99px; background: var(--ink); color: #fff; padding: 8px 12px; font-weight: 700; font-size: 13px; }
+    .pill.light { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+    #avatar-home { height: 300px; }
+
+    .goal-top { display: flex; align-items: center; gap: 12px; }
+    .goal-emoji { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 24px; background: #fff0f0; }
+    .goal-top .meta { flex: 1; }
+    .goal-top .meta small { color: var(--muted); font-weight: 600; }
+    .bar { height: 10px; background: #f1eded; border-radius: 99px; overflow: hidden; margin: 12px 0; }
+    .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--red), #ff5a5a); border-radius: inherit; transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+    .goal-actions { display: flex; gap: 8px; }
+    .goal-actions .pill { flex: 1; min-height: 42px; }
+
+    .tx-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .tx-head small { color: var(--muted); font-weight: 600; }
+    .tx { list-style: none; margin: 8px 0 0; padding: 0; }
+    .tx li button {
+      width: 100%; border: 0; background: none; padding: 10px 0; display: flex; align-items: center; gap: 12px; text-align: left;
+      border-top: 1px solid var(--line);
+    }
+    .tx li:first-child button { border-top: 0; }
+    .tx .ico { width: 40px; height: 40px; border-radius: 12px; background: #f5f5f7; display: grid; place-items: center; font-size: 20px; flex: 0 0 40px; }
+    .tx .name { flex: 1; font-weight: 700; font-size: 14px; }
+    .tx .name small { display: block; color: var(--muted); font-weight: 600; font-size: 12px; }
+    .tx .amt { font-weight: 800; font-variant-numeric: tabular-nums; }
+    .tx .amt.plus { color: #0b8a55; }
+    .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+
+    .learn { display: flex; gap: 12px; align-items: center; background: linear-gradient(135deg, #1b1b1f, #3a2030); color: #fff; }
+    .learn .big { font-size: 34px; }
+    .learn p { margin: 2px 0 0; font-size: 13px; opacity: .8; }
+    .learn .pill { background: #fff; color: var(--ink); white-space: nowrap; }
+
+    /* ---------- rewards ---------- */
+    .rw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .rw-head .sub { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .points { background: linear-gradient(135deg, #ffd76a, #ffb648); color: #4a2a00; border-radius: 99px; padding: 6px 12px; font-weight: 800; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .points.bump { animation: bump .5s; }
+    @keyframes bump { 40% { transform: scale(1.18); } }
+    .earn { display: flex; gap: 6px; margin: 10px 0 0; flex-wrap: wrap; }
+    .earn span { background: #f5f5f7; border-radius: 10px; padding: 5px 8px; font-size: 12px; font-weight: 700; color: #3a3a40; }
+    .chips { display: flex; gap: 6px; margin: 12px 0 2px; overflow-x: auto; scrollbar-width: none; }
+    .chips button { border: 0; border-radius: 99px; padding: 7px 12px; font-size: 13px; font-weight: 700; background: #f5f5f7; color: var(--ink); white-space: nowrap; }
+    .chips button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+    .rw-list { display: flex; gap: 10px; overflow-x: auto; padding: 10px 2px 6px; margin: 0 -2px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+    .rw { flex: 0 0 168px; scroll-snap-align: start; border-radius: 18px; padding: 12px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--line); display: flex; flex-direction: column; gap: 6px; }
+    .rw .art { height: 64px; border-radius: 12px; display: grid; place-items: center; font-size: 32px; }
+    .rw[data-cat="concerts"] .art { background: linear-gradient(135deg, #ffe0ec, #e9dcff); }
+    .rw[data-cat="events"] .art { background: linear-gradient(135deg, #dffaf1, #dcecff); }
+    .rw[data-cat="shopping"] .art { background: linear-gradient(135deg, #fff1d6, #ffe1e1); }
+    .rw b { font-size: 14px; line-height: 1.25; }
+    .rw small { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+    .rw .mini { height: 6px; background: #f1eded; border-radius: 99px; overflow: hidden; margin-top: auto; }
+    .rw .mini div { height: 100%; background: linear-gradient(90deg, #ffb648, #ffd76a); border-radius: inherit; }
+    .rw .cost { font-size: 12px; font-weight: 700; color: #3a3a40; }
+    .rw button { border: 0; border-radius: 12px; padding: 8px; font-weight: 800; font-size: 13px; background: var(--red); color: #fff; }
+    .rw button:disabled { background: #f1eded; color: var(--muted); cursor: default; }
+    .rw.done { box-shadow: inset 0 0 0 2px #0b8a55; }
+    .rw .code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 800; background: #e8f7ef; color: #0b6b43; border-radius: 10px; padding: 7px; text-align: center; }
+    .card-pay { width: 100%; margin-top: 8px; min-height: 42px; }
+
+    #screen-buddy { display: flex; flex-direction: column; }
+    #avatar-full { flex: 1; min-height: 0; }
+
+    /* ---------- tab bar ---------- */
+    .tabbar {
+      flex: 0 0 auto; display: grid; grid-template-columns: repeat(4, 1fr);
+      background: #fff; border-top: 1px solid var(--line); padding: 6px 6px max(10px, env(safe-area-inset-bottom));
+    }
+    .tabbar button { border: 0; background: none; display: grid; justify-items: center; gap: 2px; padding: 6px 0; font-size: 11px; font-weight: 700; color: var(--muted); }
+    .tabbar button b { font-weight: 700; }
+    .tabbar button span { font-size: 20px; filter: grayscale(1); opacity: .7; }
+    .tabbar button[aria-current="page"] { color: var(--red); }
+    .tabbar button[aria-current="page"] span { filter: none; opacity: 1; }
+
+    .toast {
+      position: absolute; left: 50%; bottom: 86px; translate: -50% 0; background: var(--ink); color: #fff;
+      padding: 10px 16px; border-radius: 14px; font-size: 13px; font-weight: 600; max-width: 86%; text-align: center;
+      opacity: 0; transition: opacity .25s, translate .25s; pointer-events: none; z-index: 5;
+    }
+    .toast.show { opacity: 1; translate: -50% -6px; }
+  </style>
+</head>
+<body>
+  <div class="device">
+    <div class="statusbar" aria-hidden="true"><span>9:41</span><span>5G ▮▮▮ 🔋</span></div>
+    <div class="proto"><span data-i18n="proto"></span></div>
+
+    <header class="top">
+      <div><small data-i18n="greeting"></small><h1>Hey Lea 👋</h1></div>
+      <div class="top-right">
+        <div class="lang" role="group" aria-label="Sprache / Language">
+          <button data-lang="de" aria-pressed="false">DE</button>
+          <button data-lang="en" aria-pressed="false">EN</button>
+        </div>
+        <button class="coins" id="coins-btn">🪙 <b id="coins">0</b></button>
+      </div>
+    </header>
+
+    <!-- ===================== Start ===================== -->
+    <main class="screen" id="screen-home">
+      <div class="hero-bg"></div>
+
+      <section class="card account">
+        <div class="label" data-i18n="account"></div>
+        <div class="balance" id="balance">1.248,50 €</div>
+        <div class="iban">DE•• •••• •••• •••• 4821</div>
+        <div class="quick">
+          <button id="q-transfer"><span>↗️</span><b data-i18n="transfer"></b></button>
+          <button id="q-save"><span>🐷</span><b data-i18n="save"></b></button>
+          <button id="q-learn"><span>🧠</span><b data-i18n="learn"></b></button>
+          <button id="q-style"><span>🎨</span><b data-i18n="style"></b></button>
+        </div>
+      </section>
+
+      <section class="card buddy-card">
+        <div class="head">
+          <div><h2 id="buddy-name">Nova</h2><div class="sub" data-i18n="buddySub"></div></div>
+          <button class="pill light" id="open-buddy" data-i18n="open"></button>
+        </div>
+        <div id="avatar-home"></div>
+      </section>
+
+      <section class="card">
+        <div class="goal-top">
+          <div class="goal-emoji">📱</div>
+          <div class="meta"><h2 data-i18n="goalName"></h2><small id="goal-text"></small></div>
+          <strong id="goal-pct">70 %</strong>
+        </div>
+        <div class="bar"><div id="goal-bar"></div></div>
+        <div class="goal-actions">
+          <button class="pill" data-add="10"></button>
+          <button class="pill" data-add="50"></button>
+        </div>
+      </section>
+
+      <section class="card" id="rewards">
+        <div class="rw-head">
+          <div><h2 data-i18n="rwTitle"></h2><div class="sub" data-i18n="rwSub"></div></div>
+          <div class="points" id="points" aria-live="polite"></div>
+        </div>
+        <div class="earn"><span id="earn-save"></span><span id="earn-card"></span></div>
+        <div class="chips" role="group" id="rw-chips">
+          <button data-cat="all" aria-pressed="true"></button>
+          <button data-cat="concerts" aria-pressed="false"></button>
+          <button data-cat="events" aria-pressed="false"></button>
+          <button data-cat="shopping" aria-pressed="false"></button>
+        </div>
+        <div class="rw-list" id="rw-list"></div>
+        <button class="pill light card-pay" id="card-pay" data-i18n="cardPay"></button>
+        <p class="hint" data-i18n="rwHint"></p>
+      </section>
+
+      <section class="card">
+        <div class="tx-head"><h2 data-i18n="tx"></h2><small data-i18n="thisWeek"></small></div>
+        <ul class="tx" id="tx"></ul>
+        <p class="hint" data-i18n="txHint"></p>
+      </section>
+
+      <section class="card learn">
+        <div class="big">🧠</div>
+        <div style="flex:1"><strong>Money Quiz</strong><p data-i18n="quizSub"></p></div>
+        <button class="pill" id="learn-start" data-i18n="go"></button>
+      </section>
+    </main>
+
+    <!-- ===================== Buddy (full avatar app) ===================== -->
+    <main class="screen" id="screen-buddy" hidden>
+      <div id="avatar-full"></div>
+    </main>
+
+    <nav class="tabbar" aria-label="Navigation">
+      <button data-screen="home" aria-current="page"><span>🏠</span><b data-i18n="navHome"></b></button>
+      <button data-screen="buddy"><span>✨</span><b data-i18n="navBuddy"></b></button>
+      <button data-screen="learn"><span>🧠</span><b data-i18n="learn"></b></button>
+      <button data-screen="feed"><span>▶️</span><b data-i18n="navFeed"></b></button>
+    </nav>
+
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+
+  <script src="../embed/sparkasse-avatar-embed.js?v=b0abd4d-mwc0na6a"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const AVATAR_SRC = '../avatar/index.html?v=b0abd4d-mwc0na6a';
+
+    // ---------- Language (EN / DE) ----------
+    const I18N = {
+      de: {
+        proto: 'PROTOTYP · Demo-Daten · keine echte Banking-App',
+        greeting: 'Guten Abend', coinsTitle: 'Coins fürs Sparen und die Money-Games – schalten Outfits & Accessoires frei',
+        account: 'Girokonto', transfer: 'Überweisen', save: 'Sparen', learn: 'Lernen', style: 'Stylen',
+        buddySub: 'Dein Money-Bestie · tippen, drehen, chatten', open: '💬 Chat',
+        goalName: 'Neues Handy', goalText: (a, b) => `${a} von ${b}`, add: (n) => `+${n} sparen`,
+        tx: 'Umsätze', thisWeek: 'Diese Woche', txHint: 'Tipp: Tippe auf einen Umsatz – dein Buddy sagt dir was dazu.',
+        quizSub: '8 Fragen · Coins sammeln · Outfits freischalten', go: 'Los',
+        navHome: 'Start', navBuddy: 'Buddy', navFeed: 'Für dich',
+        hello: (n) => `Hey Lea! Ich bin’s, ${n} 👋`,
+        saved: (n, left) => `+${n} fürs neue Handy! Noch ${left} 🪙`,
+        goalReached: 'Sparziel erreicht! Das Handy gehört dir 🎉', goalToast: '🎉 Sparziel „Neues Handy“ erreicht!',
+        goalDone: 'Ziel schon erreicht – neues Ziel? ✨',
+        transferOff: 'Überweisungen sind im Prototyp deaktiviert.', transferSay: 'Kommt bald – versprochen 😉',
+        quizDone: (s, t, c) => `Quiz: ${s}/${t} richtig · +${c} Coins`,
+        rwTitle: 'Rewards', rwSub: 'Sparen & mit Karte zahlen = Punkte',
+        pts: (n) => `⭐ ${n}`, ptsLong: (n) => `${n} Punkte`,
+        earnSave: '🐷 2 Pkt. pro 1 € + 1 🪙 pro 5 € gespart', earnCard: '💳 1 Pkt. pro 1 € mit Karte',
+        cat: { all: 'Alle', concerts: '🎤 Konzerte', events: '🎟️ Events', shopping: '🛍️ Shopping' },
+        unlock: 'Freischalten', toGo: (n) => `Noch ${n} Pkt.`, unlocked: 'Freigeschaltet ✓',
+        cardPay: '💳 Mit Karte zahlen (Demo)',
+        rwHint: 'Demo-Partner & Fantasie-Codes – keine echten Angebote.',
+        rwUnlocked: (name) => `Freigeschaltet: ${name}! Viel Spaß 🎉`,
+        rwNew: (name) => `⭐ Neuer Reward verfügbar: ${name}`,
+        rwEarnSave: (n, c) => `+${n} Punkte${c ? ` & +${c} 🪙` : ''} fürs Sparen ⭐`,
+        rwEarnCard: (name, a, n) => `${name} · ${a} · +${n} Punkte ⭐`,
+        rwNotYet: (n) => `Noch ${n} Punkte – Sparen bringt doppelt ⭐`,
+        locale: 'de-DE',
+      },
+      en: {
+        proto: 'PROTOTYPE · demo data · not a real banking app',
+        greeting: 'Good evening', coinsTitle: 'Coins from saving and the money games – unlock outfits & accessories',
+        account: 'Current account', transfer: 'Transfer', save: 'Save', learn: 'Learn', style: 'Style',
+        buddySub: 'Your money bestie · tap, spin, chat', open: '💬 Chat',
+        goalName: 'New phone', goalText: (a, b) => `${a} of ${b}`, add: (n) => `Save +${n}`,
+        tx: 'Transactions', thisWeek: 'This week', txHint: 'Tip: tap a transaction – your buddy will comment on it.',
+        quizSub: '8 questions · earn coins · unlock outfits', go: 'Go',
+        navHome: 'Home', navBuddy: 'Buddy', navFeed: 'For You',
+        hello: (n) => `Hey Lea! It’s me, ${n} 👋`,
+        saved: (n, left) => `+${n} for the new phone! ${left} to go 🪙`,
+        goalReached: 'Goal reached! The phone is yours 🎉', goalToast: '🎉 Savings goal “New phone” reached!',
+        goalDone: 'Goal already reached – new goal? ✨',
+        transferOff: 'Transfers are disabled in this prototype.', transferSay: 'Coming soon – promise 😉',
+        quizDone: (s, t, c) => `Quiz: ${s}/${t} correct · +${c} coins`,
+        rwTitle: 'Rewards', rwSub: 'Save & pay by card = points',
+        pts: (n) => `⭐ ${n}`, ptsLong: (n) => `${n} points`,
+        earnSave: '🐷 2 pts per €1 + 1 🪙 per €5 saved', earnCard: '💳 1 pt per €1 by card',
+        cat: { all: 'All', concerts: '🎤 Concerts', events: '🎟️ Events', shopping: '🛍️ Shopping' },
+        unlock: 'Unlock', toGo: (n) => `${n} pts to go`, unlocked: 'Unlocked ✓',
+        cardPay: '💳 Pay by card (demo)',
+        rwHint: 'Demo partners & made-up codes – not real offers.',
+        rwUnlocked: (name) => `Unlocked: ${name}! Enjoy 🎉`,
+        rwNew: (name) => `⭐ New reward available: ${name}`,
+        rwEarnSave: (n, c) => `+${n} points${c ? ` & +${c} 🪙` : ''} for saving ⭐`,
+        rwEarnCard: (name, a, n) => `${name} · ${a} · +${n} points ⭐`,
+        rwNotYet: (n) => `${n} points to go – saving earns double ⭐`,
+        locale: 'en-IE',
+      },
+    };
+    // ?lang= → saved choice → browser language
+    const savedLang = (() => { try { return localStorage.getItem('demo-lang'); } catch { return null; } })();
+    let lang = new URLSearchParams(location.search).get('lang') || savedLang || ((navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en');
+    if (!I18N[lang]) lang = 'en';
+    const T = () => I18N[lang];
+    const fmt = (n) => n.toLocaleString(T().locale, { style: 'currency', currency: 'EUR', maximumFractionDigits: Number.isInteger(n) ? 0 : 2 });
+
+    // ---------- Avatar on the Start screen (no own UI – the app drives it) ----------
+    const home = SparkasseAvatar.mount('#avatar-home', {
+      src: AVATAR_SRC, height: '100%',
+      params: { ui: false, bg: 'transparent', lang, hint: false, badge: false, character: 'human', autoGreet: false },
+    });
+    let buddyName = 'Nova';
+    function setBuddyName(n) { if (n) { buddyName = n; $('buddy-name').textContent = n; } }
+    home.on('coins', (e) => setCoins(e.coins));
+    home.on('ready', (e) => {
+      setCoins(e.coins);
+      setBuddyName(e.look?.name);
+      home.play('greet', { text: T().hello(buddyName) });
+    });
+
+    // ---------- Full avatar (Buddy tab), created on first visit ----------
+    let full = null;
+    let fullReady = false;
+    const pending = [];
+    function getFull() {
+      if (full) return full;
+      full = SparkasseAvatar.mount('#avatar-full', {
+        src: AVATAR_SRC, height: '100%',
+        params: { lang, bg: 'transparent', badge: false, character: 'human', autoGreet: false, tabs: 'chat,feed,react,style,play', tab: 'chat' },
+      });
+      full.on('ready', (e) => { fullReady = true; setCoins(e.coins); full.setLang(lang); pending.splice(0).forEach((fn) => fn()); });
+      full.on('coins', (e) => setCoins(e.coins));
+      full.on('tab', (e) => { if (!$('screen-buddy').hidden) setNav(e.tab === 'feed' ? 'feed' : e.tab === 'play' ? 'learn' : 'buddy'); });
+      full.on('look', (e) => { home.setLook(e.look); setBuddyName(e.look.name); }); // keep the Start screen in sync (outfit + name)
+      full.on('game', (e) => {
+        if (e.phase === 'end') toast(T().quizDone(e.score, e.total, e.coinsEarned));
+      });
+      return full;
+    }
+    const whenFull = (fn) => { getFull(); fullReady ? fn() : pending.push(fn); };
+
+    // ---------- Navigation ----------
+    function show(screen) {
+      if (screen === 'feed') { show('buddy'); whenFull(() => full.openTab('feed')); setNav('feed'); return; }
+      if (screen === 'learn') { show('buddy'); whenFull(() => full.startGame('quiz')); setNav('learn'); return; }
+      if (screen !== 'buddy' && full) full.feed('pause'); // leaving the Buddy screen pauses a running clip
+      $('screen-home').hidden = screen !== 'home';
+      $('screen-buddy').hidden = screen !== 'buddy';
+      if (screen === 'buddy') getFull();
+      setNav(screen);
+    }
+    function setNav(screen) {
+      document.querySelectorAll('.tabbar button').forEach((b) => b.setAttribute('aria-current', b.dataset.screen === screen ? 'page' : 'false'));
+    }
+    document.querySelectorAll('.tabbar button').forEach((b) => b.addEventListener('click', () => show(b.dataset.screen)));
+    $('open-buddy').onclick = () => { show('buddy'); whenFull(() => full.openTab('chat')); };
+    $('q-style').onclick = () => { show('buddy'); whenFull(() => full.openTab('style')); };
+    $('q-learn').onclick = $('learn-start').onclick = () => show('learn');
+    $('q-transfer').onclick = () => { toast(T().transferOff); home.play('nod', { text: T().transferSay }); };
+    $('coins-btn').onclick = () => { show('buddy'); whenFull(() => full.openTab('play')); };
+
+    // ---------- Coins (earned in the games) ----------
+    function setCoins(n) { if (typeof n === 'number') $('coins').textContent = n; }
+
+    // ---------- Savings goal: the avatar catches a coin, celebrates at 100 % ----------
+    let saved = 210, goal = 300, balance = 1248.5;
+    function renderGoal() {
+      const pct = Math.min(100, Math.round((saved / goal) * 100));
+      $('goal-bar').style.width = pct + '%';
+      $('goal-pct').textContent = pct + ' %';
+      $('goal-text').textContent = T().goalText(fmt(saved), fmt(goal));
+      $('balance').textContent = fmt(balance);
+    }
+    document.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => {
+      if (saved >= goal) { home.play('dance', { text: T().goalDone }); return; }
+      const add = Math.min(+b.dataset.add, goal - saved);
+      saved += add; balance -= add;
+      renderGoal();
+      // saving also earns avatar coins (1 per €5) → unlock outfits & accessories in Style
+      const coinsEarned = Math.floor(add / 5);
+      if (coinsEarned) home.addCoins(coinsEarned);
+      addPoints(add * 2, T().rwEarnSave(add * 2, coinsEarned));
+      if (saved >= goal) {
+        home.play('celebrate', { text: T().goalReached });
+        toast(T().goalToast);
+      } else {
+        home.play('coin', { text: T().saved(fmt(add), fmt(goal - saved)) });
+      }
+    }));
+    $('q-save').onclick = () => document.querySelector('[data-add="10"]').click();
+
+    // ---------- Transactions: tap for a buddy tip ----------
+    const TX = [
+      { ico: '💶', amt: +850, react: 'dance',
+        de: { name: 'Ausbildungsvergütung', sub: 'Mo · Gutschrift', tip: 'Geld ist da! 💸 Direkt 10 % aufs Sparziel? „Pay yourself first“.' },
+        en: { name: 'Apprentice pay', sub: 'Mon · credit', tip: 'Payday! 💸 Move 10 % to your goal right away? “Pay yourself first”.' } },
+      { ico: '🎧', amt: -10.99, react: 'shrug',
+        de: { name: 'Musik-Streaming', sub: 'Di · Abo', tip: 'Abo-Check: 10,99 € im Monat = 131,88 € im Jahr. Nutzt du es oft? 🤔' },
+        en: { name: 'Music streaming', sub: 'Tue · subscription', tip: 'Subscription check: €10.99 a month = €131.88 a year. Do you use it a lot? 🤔' } },
+      { ico: '🚆', amt: -58, react: 'nod',
+        de: { name: 'Deutschlandticket', sub: 'Di · Abo', tip: 'Fixkosten fürs Pendeln – clever geplant 👍' },
+        en: { name: 'Monthly travel pass', sub: 'Tue · subscription', tip: 'Fixed commuting costs – nicely planned 👍' } },
+      { ico: '🛒', amt: -32.40, react: 'nod',
+        de: { name: 'Supermarkt', sub: 'Mi · Karte', tip: 'Wocheneinkauf statt täglich spontan – spart oft am meisten 👍' },
+        en: { name: 'Supermarket', sub: 'Wed · card', tip: 'One weekly shop instead of daily top-ups usually saves the most 👍' } },
+      { ico: '🍕', amt: -23.90, react: 'shrug',
+        de: { name: 'Essenslieferung', sub: 'Do · Karte', tip: 'Schon die 3. Lieferung diese Woche 🍕 Einmal selbst kochen spart ~15 €.' },
+        en: { name: 'Food delivery', sub: 'Thu · card', tip: 'Third delivery this week 🍕 Cooking once yourself saves about €15.' } },
+      { ico: '🎮', amt: -9.99, react: 'shrug',
+        de: { name: 'Game-Store', sub: 'Fr · Karte', tip: 'Gönn dir – aber setz dir ein Monatslimit für In-Game-Käufe 🎮' },
+        en: { name: 'Game store', sub: 'Fri · card', tip: 'Treat yourself – but set a monthly limit for in-game purchases 🎮' } },
+    ];
+    function renderTx() {
+      const ul = $('tx');
+      ul.innerHTML = '';
+      TX.forEach((t) => {
+        const x = t[lang];
+        const li = document.createElement('li');
+        li.innerHTML = `<button><span class="ico">${t.ico}</span><span class="name">${x.name}<small>${x.sub}</small></span><span class="amt ${t.amt > 0 ? 'plus' : ''}">${t.amt > 0 ? '+' : ''}${fmt(t.amt)}</span></button>`;
+        li.firstChild.onclick = () => {
+          home.play(t.react, { text: t[lang].tip });
+          $('avatar-home').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        };
+        ul.append(li);
+      });
+    }
+
+    // ---------- Rewards: points from saving & card payments unlock perks ----------
+    // Demo partners only – names and codes are made up.
+    const REWARDS = [
+      { id: 'presale', cat: 'concerts', ico: '🎤', cost: 150,
+        de: { name: 'Konzert-Vorverkauf 48 h früher', who: 'Demo-Arena' },
+        en: { name: 'Concert presale 48 h early', who: 'Demo Arena' } },
+      { id: 'twoforone', cat: 'concerts', ico: '🎸', cost: 400,
+        de: { name: '2-für-1 Konzertticket', who: 'Club Demo' },
+        en: { name: '2-for-1 concert ticket', who: 'Club Demo' } },
+      { id: 'festival', cat: 'events', ico: '🎪', cost: 300,
+        de: { name: '20 % aufs Festival-Tagesticket', who: 'Sommerfest Demo' },
+        en: { name: '20% off a festival day ticket', who: 'Summer Fest Demo' } },
+      { id: 'cinema', cat: 'events', ico: '🍿', cost: 120,
+        de: { name: 'Kino für 2 inkl. Popcorn', who: 'Kino Demo' },
+        en: { name: 'Cinema for 2 incl. popcorn', who: 'Cinema Demo' } },
+      { id: 'esports', cat: 'events', ico: '🎮', cost: 220,
+        de: { name: 'E-Sport-Turnier: VIP-Platz', who: 'Demo Gaming Night' },
+        en: { name: 'E-sports tournament VIP seat', who: 'Demo Gaming Night' } },
+      { id: 'sneakers', cat: 'shopping', ico: '👟', cost: 90,
+        de: { name: '10 € Rabatt auf Sneaker', who: 'Demo Sneaker Store' },
+        en: { name: '€10 off sneakers', who: 'Demo Sneaker Store' } },
+      { id: 'streetwear', cat: 'shopping', ico: '🧢', cost: 180,
+        de: { name: '15 % auf Streetwear', who: 'Demo Streetwear' },
+        en: { name: '15% off streetwear', who: 'Demo Streetwear' } },
+      { id: 'coffee', cat: 'shopping', ico: '☕', cost: 40,
+        de: { name: 'Gratis Kaffee', who: 'Demo Café' },
+        en: { name: 'Free coffee', who: 'Demo Café' } },
+    ];
+    let points = 120, rwCat = 'all';
+    const unlocked = {};   // id → demo code
+    function renderRewards() {
+      $('points').textContent = T().pts(points);
+      $('points').title = T().ptsLong(points);
+      $('earn-save').textContent = T().earnSave;
+      $('earn-card').textContent = T().earnCard;
+      document.querySelectorAll('#rw-chips button').forEach((b) => {
+        b.textContent = T().cat[b.dataset.cat];
+        b.setAttribute('aria-pressed', String(b.dataset.cat === rwCat));
+      });
+      const list = $('rw-list');
+      list.innerHTML = '';
+      REWARDS.filter((r) => rwCat === 'all' || r.cat === rwCat)
+        .sort((a, b) => (!!unlocked[a.id] - !!unlocked[b.id]) || a.cost - b.cost)
+        .forEach((r) => {
+          const x = r[lang];
+          const done = unlocked[r.id];
+          const el = document.createElement('div');
+          el.className = 'rw' + (done ? ' done' : '');
+          el.dataset.cat = r.cat;
+          el.dataset.id = r.id;
+          const pct = Math.min(100, Math.round((points / r.cost) * 100));
+          el.innerHTML = `<div class="art">${r.ico}</div><small>${x.who}</small><b>${x.name}</b>` +
+            (done
+              ? `<div class="code">${done}</div>`
+              : `<div class="cost">⭐ ${r.cost}</div><div class="mini"><div style="width:${pct}%"></div></div>` +
+                `<button ${points < r.cost ? 'disabled' : ''}>${points < r.cost ? T().toGo(r.cost - points) : T().unlock}</button>`);
+          const btn = el.querySelector('button');
+          if (btn) btn.onclick = () => unlockReward(r);
+          list.append(el);
+        });
+    }
+    function unlockReward(r) {
+      if (unlocked[r.id]) return;
+      if (points < r.cost) { home.play('shrug', { text: T().rwNotYet(r.cost - points) }); return; }
+      points -= r.cost;
+      unlocked[r.id] = 'DEMO-' + r.id.slice(0, 4).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+      renderRewards();
+      bumpPoints();
+      home.play('celebrate', { text: T().rwUnlocked(r[lang].name) });
+      toast(T().rwUnlocked(r[lang].name));
+      $('avatar-home').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    function addPoints(n, msg) {
+      const before = points;
+      points += n;
+      renderRewards();
+      bumpPoints();
+      // first reward that just became affordable
+      const fresh = REWARDS.filter((r) => !unlocked[r.id] && before < r.cost && points >= r.cost).sort((a, b) => b.cost - a.cost)[0];
+      toast(fresh ? T().rwNew(fresh[lang].name) : msg);
+    }
+    function bumpPoints() {
+      const el = $('points');
+      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    }
+    document.querySelectorAll('#rw-chips button').forEach((b) => b.addEventListener('click', () => {
+      rwCat = b.dataset.cat;
+      renderRewards();
+      $('rw-list').scrollLeft = 0;
+    }));
+
+    // Simulated card payments – each adds a transaction and earns points
+    const CARD_DEMO = [
+      { ico: '☕', amt: 4.5, de: 'Café', en: 'Café' },
+      { ico: '👕', amt: 39.99, de: 'Modegeschäft', en: 'Clothing store' },
+      { ico: '🎬', amt: 12, de: 'Kino', en: 'Cinema' },
+      { ico: '🎟️', amt: 59, de: 'Konzertticket', en: 'Concert ticket' },
+      { ico: '🥤', amt: 6.8, de: 'Imbiss', en: 'Snack bar' },
+    ];
+    let cardIdx = 0;
+    $('card-pay').onclick = () => {
+      const c = CARD_DEMO[cardIdx++ % CARD_DEMO.length];
+      const pts = Math.floor(c.amt);
+      balance -= c.amt;
+      TX.unshift({ ico: c.ico, amt: -c.amt, react: 'nod',
+        de: { name: c.de, sub: 'Jetzt · Karte', tip: `Mit Karte gezahlt – +${pts} Punkte für Rewards ⭐` },
+        en: { name: c.en, sub: 'Now · card', tip: `Paid by card – +${pts} reward points ⭐` } });
+      renderGoal();
+      renderTx();
+      home.play('coin', { text: T().rwEarnCard(c[lang], fmt(c.amt), pts) });
+      addPoints(pts, T().rwEarnCard(c[lang], fmt(c.amt), pts));
+    };
+
+    // ---------- Apply language (texts, numbers, both avatars) ----------
+    function applyLang() {
+      document.documentElement.lang = lang;
+      document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = T()[el.dataset.i18n]; });
+      document.querySelectorAll('[data-add]').forEach((b) => { b.textContent = T().add(fmt(+b.dataset.add)); });
+      $('coins-btn').title = T().coinsTitle;
+      document.querySelectorAll('.lang button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+      renderGoal();
+      renderTx();
+      renderRewards();
+    }
+    function setLang(l) {
+      if (!I18N[l] || l === lang) return;
+      lang = l;
+      try { localStorage.setItem('demo-lang', l); } catch { /* ignore */ }
+      applyLang();
+      home.setLang(l);
+      if (full) full.setLang(l);
+    }
+    document.querySelectorAll('.lang button').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
+    applyLang();
+
+    // ---------- Toast ----------
+    let toastTimer;
+    function toast(msg) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+    }
+    window.demo = { home, getFull: () => full, show, setLang, get points() { return points; }, unlocked, get lang() { return lang; } };
+  </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Avatar</title>
+  <link rel="stylesheet" href="css/avatar.css">
+  <!-- Three.js is vendored locally (vendor/three) – no CDN needed. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/addons/",
+        "./js/DragRotate.js": "./js/DragRotate.js?v=b0abd4d-mwc0na6a",
+        "./js/avatars/GltfAvatar.js": "./js/avatars/GltfAvatar.js?v=b0abd4d-mwc0na6a",
+        "./js/avatars/PlaceholderAvatar.js": "./js/avatars/PlaceholderAvatar.js?v=b0abd4d-mwc0na6a",
+        "./js/avatars/RiggedAvatar.js": "./js/avatars/RiggedAvatar.js?v=b0abd4d-mwc0na6a",
+        "./js/avatars/SparkieAvatar.js": "./js/avatars/SparkieAvatar.js?v=b0abd4d-mwc0na6a",
+        "./js/avatars/accessories.js": "./js/avatars/accessories.js?v=b0abd4d-mwc0na6a",
+        "./js/avatars/sparkie.js": "./js/avatars/sparkie.js?v=b0abd4d-mwc0na6a",
+        "./js/bridge.js": "./js/bridge.js?v=b0abd4d-mwc0na6a",
+        "./js/buddy/AvatarBuddy.js": "./js/buddy/AvatarBuddy.js?v=b0abd4d-mwc0na6a",
+        "./js/chat/brain.js": "./js/chat/brain.js?v=b0abd4d-mwc0na6a",
+        "./js/chat/chat.js": "./js/chat/chat.js?v=b0abd4d-mwc0na6a",
+        "./js/config.js": "./js/config.js?v=b0abd4d-mwc0na6a",
+        "./js/effects/Confetti.js": "./js/effects/Confetti.js?v=b0abd4d-mwc0na6a",
+        "./js/feed/beat.js": "./js/feed/beat.js?v=b0abd4d-mwc0na6a",
+        "./js/feed/clips.js": "./js/feed/clips.js?v=b0abd4d-mwc0na6a",
+        "./js/feed/feed.js": "./js/feed/feed.js?v=b0abd4d-mwc0na6a",
+        "./js/games/content.js": "./js/games/content.js?v=b0abd4d-mwc0na6a",
+        "./js/games/games.js": "./js/games/games.js?v=b0abd4d-mwc0na6a",
+        "./js/look.js": "./js/look.js?v=b0abd4d-mwc0na6a",
+        "./js/main.js": "./js/main.js?v=b0abd4d-mwc0na6a",
+        "./js/progress.js": "./js/progress.js?v=b0abd4d-mwc0na6a",
+        "./js/reactions.js": "./js/reactions.js?v=b0abd4d-mwc0na6a",
+        "./js/stage.js": "./js/stage.js?v=b0abd4d-mwc0na6a",
+        "./js/ui/customizer.js": "./js/ui/customizer.js?v=b0abd4d-mwc0na6a"
+      }
+    }
+  </script>
+  <!--
+    Optional: configure without URL params.
+    <script>window.SPARKASSE_AVATAR_CONFIG = { model: 'models/my-avatar.glb', lang: 'de' };</script>
+  -->
+</head>
+<body>
+  <main id="avatar-app" class="avatar-app">
+    <div id="avatar-stage" class="avatar-stage">
+      <div id="feed-bg" class="feed-bg" hidden></div>
+      <div id="feed-layer" class="feed-layer" hidden></div>
+      <div id="avatar-bubble" class="avatar-bubble" role="status" aria-live="polite"></div>
+      <div id="avatar-coins" class="avatar-coins" hidden aria-live="polite"></div>
+      <div id="avatar-loader" class="avatar-loader">
+        <span class="avatar-loader__dot" aria-hidden="true"></span>
+        <span class="avatar-loader__text">Loading…</span>
+      </div>
+      <p id="avatar-hint" class="avatar-hint"></p>
+    </div>
+
+    <section id="avatar-dock" class="avatar-dock">
+      <div id="dock-tabs" class="dock-tabs" role="tablist"></div>
+      <div id="panel-react" class="dock-panel dock-panel--react" role="tabpanel">
+        <nav id="avatar-actions" class="avatar-actions" aria-label="Avatar reactions"></nav>
+      </div>
+      <div id="panel-chat" class="dock-panel dock-panel--chat" role="tabpanel" hidden></div>
+      <div id="panel-feed" class="dock-panel dock-panel--feed" role="tabpanel" hidden></div>
+      <div id="panel-style" class="dock-panel" role="tabpanel" hidden></div>
+      <div id="panel-play" class="dock-panel" role="tabpanel" hidden></div>
+    </section>
+  </main>
+  <script type="module" src="js/main.js?v=b0abd4d-mwc0na6a"></script>
+</body>
+</html>
