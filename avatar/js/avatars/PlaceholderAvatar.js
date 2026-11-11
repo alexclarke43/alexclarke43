@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildAccessories } from './accessories.js';
 import { DEFAULT_LOOK, GOLD } from '../look.js';
 
 /**
@@ -351,6 +352,27 @@ export class PlaceholderAvatar {
     this.headAnchor = new THREE.Object3D();
     this.headAnchor.position.set(0, 0.4, 0);
     head.add(this.headAnchor);
+
+    this._buildAccessories();
+  }
+
+  /** Smartwatch / crossbody bag (shared with 3D models). The gold chain is modelled above. */
+  _buildAccessories() {
+    const S = this.style;
+    if (!S.watch && !S.bag) return;
+    const J = this.joints;
+    this.object3d.updateMatrixWorld(true);
+    const inv = this.object3d.matrixWorld.clone().invert();
+    const rest = (o) => inv.clone().multiply(o.matrixWorld);
+    const pos = (o) => new THREE.Vector3().setFromMatrixPosition(rest(o));
+    const fem = S.body === 'female';
+    const anchors = {
+      chest: pos(J.spine).add(new THREE.Vector3(0, 0.3, 0)), torsoW: fem ? 0.19 : 0.21, torsoD: 0.15,
+      hipR: pos(J.legR),
+      wristL: pos(J.handL), forearmDirL: pos(J.handL).sub(pos(J.elbowL)).normalize(), wristR: 0.037,
+      neck: pos(J.neck), neckR: 0.05,
+    };
+    buildAccessories({ ...S, chain: false }, anchors, { chest: J.spine, forearmL: J.elbowL }, rest);
   }
 
   /** Shaped torso (chest → waist → hem) built as a lathe instead of a capsule. */

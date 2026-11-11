@@ -78,6 +78,8 @@
       setLang: function (lang) { post({ type: 'setLang', lang: lang }); },
       /** Send a chat message as the user (opens the Chat tab); the avatar replies */
       chat: function (text) { post({ type: 'chat', text: text }); },
+      /** Reward the user with coins (1–100), e.g. for saving money – they unlock outfits & accessories */
+      addCoins: function (amount) { post({ type: 'addCoins', amount: amount }); },
       /** For You feed: 'play' (opens it) | 'pause' | 'next' | 'prev' */
       feed: function (action) { post({ type: 'feed', action: action }); },
       /** game: 'quiz' | 'sort' */

@@ -33,6 +33,8 @@ export const DEFAULT_LOOK = {
   headphones: true,
   earring: false,
   chain: false,
+  watch: false,
+  bag: false,
 };
 
 const L = (en, de) => ({ en, de });
@@ -71,7 +73,9 @@ export const OPTIONS = {
     { id: 'glasses', label: L('Glasses', 'Brille') },
     { id: 'headphones', label: L('Headphones', 'Kopfhörer') },
     { id: 'earring', label: L('Earring', 'Ohrring') },
+    { id: 'watch', label: L('Smartwatch', 'Smartwatch'), unlock: 20 },
     { id: 'chain', label: L('Gold chain', 'Goldkette'), unlock: 30 },
+    { id: 'bag', label: L('Crossbody bag', 'Crossbody-Bag'), unlock: 60 },
   ],
 };
 
@@ -103,7 +107,7 @@ export function sanitizeLook(input = {}) {
   for (const k of ['character', 'body', 'hairStyle', 'top', 'bottom']) {
     if (OPTIONS[k].some((o) => o.id === input[k])) out[k] = input[k];
   }
-  for (const k of ['glasses', 'shades', 'headphones', 'earring', 'chain']) {
+  for (const k of OPTIONS.extras.map((o) => o.id)) {
     if (typeof input[k] === 'boolean') out[k] = input[k];
   }
   if (typeof input.name === 'string' && cleanAvatarName(input.name)) out.name = cleanAvatarName(input.name);
@@ -117,7 +121,7 @@ export function enforceUnlocks(look, coins) {
   const l = { ...look };
   if (unlockCost('hairStyle', l.hairStyle) > coins) l.hairStyle = DEFAULT_LOOK.hairStyle;
   if (unlockCost('shoeColor', l.shoeColor) > coins) l.shoeColor = DEFAULT_LOOK.shoeColor;
-  if (l.chain && unlockCost('extras', 'chain') > coins) l.chain = false;
+  for (const o of OPTIONS.extras) if (l[o.id] && (o.unlock || 0) > coins) l[o.id] = false;
   return l;
 }
 
@@ -143,6 +147,8 @@ export function randomLook(coins = 0) {
     headphones: Math.random() < 0.5,
     earring: Math.random() < 0.5,
     chain: coins >= 30 && Math.random() < 0.3,
+    watch: coins >= 20 && Math.random() < 0.4,
+    bag: coins >= 60 && Math.random() < 0.3,
   };
 }
 

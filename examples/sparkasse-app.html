@@ -280,16 +280,16 @@
     <div class="toast" id="toast" role="status"></div>
   </div>
 
-  <script src="../embed/sparkasse-avatar-embed.js?v=b957931-mwbxbcbc"></script>
+  <script src="../embed/sparkasse-avatar-embed.js?v=97d45de-mwbxs5ef"></script>
   <script>
     const $ = (id) => document.getElementById(id);
-    const AVATAR_SRC = '../avatar/index.html?v=b957931-mwbxbcbc';
+    const AVATAR_SRC = '../avatar/index.html?v=97d45de-mwbxs5ef';
 
     // ---------- Language (EN / DE) ----------
     const I18N = {
       de: {
         proto: 'PROTOTYP · Demo-Daten · keine echte Banking-App',
-        greeting: 'Guten Abend', coinsTitle: 'Coins aus den Money-Games',
+        greeting: 'Guten Abend', coinsTitle: 'Coins fürs Sparen und die Money-Games – schalten Outfits & Accessoires frei',
         account: 'Girokonto', transfer: 'Überweisen', save: 'Sparen', learn: 'Lernen', style: 'Stylen',
         buddySub: 'Dein Money-Bestie · tippen, drehen, chatten', open: '💬 Chat',
         goalName: 'Neues Handy', goalText: (a, b) => `${a} von ${b}`, add: (n) => `+${n} sparen`,
@@ -304,21 +304,21 @@
         quizDone: (s, t, c) => `Quiz: ${s}/${t} richtig · +${c} Coins`,
         rwTitle: 'Rewards', rwSub: 'Sparen & mit Karte zahlen = Punkte',
         pts: (n) => `⭐ ${n}`, ptsLong: (n) => `${n} Punkte`,
-        earnSave: '🐷 2 Pkt. pro 1 € gespart', earnCard: '💳 1 Pkt. pro 1 € mit Karte',
+        earnSave: '🐷 2 Pkt. pro 1 € + 1 🪙 pro 5 € gespart', earnCard: '💳 1 Pkt. pro 1 € mit Karte',
         cat: { all: 'Alle', concerts: '🎤 Konzerte', events: '🎟️ Events', shopping: '🛍️ Shopping' },
         unlock: 'Freischalten', toGo: (n) => `Noch ${n} Pkt.`, unlocked: 'Freigeschaltet ✓',
         cardPay: '💳 Mit Karte zahlen (Demo)',
         rwHint: 'Demo-Partner & Fantasie-Codes – keine echten Angebote.',
         rwUnlocked: (name) => `Freigeschaltet: ${name}! Viel Spaß 🎉`,
         rwNew: (name) => `⭐ Neuer Reward verfügbar: ${name}`,
-        rwEarnSave: (n) => `+${n} Punkte fürs Sparen ⭐`,
+        rwEarnSave: (n, c) => `+${n} Punkte${c ? ` & +${c} 🪙` : ''} fürs Sparen ⭐`,
         rwEarnCard: (name, a, n) => `${name} · ${a} · +${n} Punkte ⭐`,
         rwNotYet: (n) => `Noch ${n} Punkte – Sparen bringt doppelt ⭐`,
         locale: 'de-DE',
       },
       en: {
         proto: 'PROTOTYPE · demo data · not a real banking app',
-        greeting: 'Good evening', coinsTitle: 'Coins from the money games',
+        greeting: 'Good evening', coinsTitle: 'Coins from saving and the money games – unlock outfits & accessories',
         account: 'Current account', transfer: 'Transfer', save: 'Save', learn: 'Learn', style: 'Style',
         buddySub: 'Your money bestie · tap, spin, chat', open: '💬 Chat',
         goalName: 'New phone', goalText: (a, b) => `${a} of ${b}`, add: (n) => `Save +${n}`,
@@ -333,14 +333,14 @@
         quizDone: (s, t, c) => `Quiz: ${s}/${t} correct · +${c} coins`,
         rwTitle: 'Rewards', rwSub: 'Save & pay by card = points',
         pts: (n) => `⭐ ${n}`, ptsLong: (n) => `${n} points`,
-        earnSave: '🐷 2 pts per €1 saved', earnCard: '💳 1 pt per €1 by card',
+        earnSave: '🐷 2 pts per €1 + 1 🪙 per €5 saved', earnCard: '💳 1 pt per €1 by card',
         cat: { all: 'All', concerts: '🎤 Concerts', events: '🎟️ Events', shopping: '🛍️ Shopping' },
         unlock: 'Unlock', toGo: (n) => `${n} pts to go`, unlocked: 'Unlocked ✓',
         cardPay: '💳 Pay by card (demo)',
         rwHint: 'Demo partners & made-up codes – not real offers.',
         rwUnlocked: (name) => `Unlocked: ${name}! Enjoy 🎉`,
         rwNew: (name) => `⭐ New reward available: ${name}`,
-        rwEarnSave: (n) => `+${n} points for saving ⭐`,
+        rwEarnSave: (n, c) => `+${n} points${c ? ` & +${c} 🪙` : ''} for saving ⭐`,
         rwEarnCard: (name, a, n) => `${name} · ${a} · +${n} points ⭐`,
         rwNotYet: (n) => `${n} points to go – saving earns double ⭐`,
         locale: 'en-IE',
@@ -360,6 +360,7 @@
     });
     let buddyName = 'Nova';
     function setBuddyName(n) { if (n) { buddyName = n; $('buddy-name').textContent = n; } }
+    home.on('coins', (e) => setCoins(e.coins));
     home.on('ready', (e) => {
       setCoins(e.coins);
       setBuddyName(e.look?.name);
@@ -424,7 +425,10 @@
       const add = Math.min(+b.dataset.add, goal - saved);
       saved += add; balance -= add;
       renderGoal();
-      addPoints(add * 2, T().rwEarnSave(add * 2));
+      // saving also earns avatar coins (1 per €5) → unlock outfits & accessories in Style
+      const coinsEarned = Math.floor(add / 5);
+      if (coinsEarned) home.addCoins(coinsEarned);
+      addPoints(add * 2, T().rwEarnSave(add * 2, coinsEarned));
       if (saved >= goal) {
         home.play('celebrate', { text: T().goalReached });
         toast(T().goalToast);

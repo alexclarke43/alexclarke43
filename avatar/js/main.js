@@ -48,6 +48,8 @@ const bridge = createBridge({
     setLang: (d) => setLang(d.lang),
     startGame: (d) => { if (openTab('play')) games?.startGame(d.game); },
     chat: (d) => { if (openTab('chat')) chat?.send(String(d.text ?? '')); },
+    // the platform rewards real-world behaviour (e.g. saving money) with coins; capped per message
+    addCoins: (d) => { const n = Math.round(Number(d.amount)); if (n > 0) addCoins(Math.min(n, 100)); },
     feed: (d) => {
       if (d.action === 'pause') return feed?.pause();
       if (d.action === 'play') return feed?.active ? feed.resume() : openTab('feed');
@@ -375,6 +377,7 @@ function buildDock() {
       getCoins,
       supportsStyle: () => !!avatar?.supportsStyle,
       styleKeys: () => avatar?.styleKeys || null,
+      supportedExtras: () => avatar?.extras || null,
       supportsHeight: () => avatar?.supportsHeight !== false,
       canSwitchCharacter: () => !cfg.model && !cfg.character, // a host that fixes the character hides the picker
       canSwitchBody: () => look.character !== 'sparkie',

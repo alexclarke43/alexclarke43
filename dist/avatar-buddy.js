@@ -1,9 +1,104 @@
 // avatar/js/buddy/AvatarBuddy.js
-import * as THREE4 from "three";
+import * as THREE5 from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 // avatar/js/avatars/PlaceholderAvatar.js
+import * as THREE2 from "three";
+
+// avatar/js/avatars/accessories.js
 import * as THREE from "three";
+function buildAccessories(style, anchors, bones, restMatrix) {
+  const made = [];
+  const M = materials();
+  const place = (obj, bone, pos, quat = new THREE.Quaternion()) => {
+    const world = new THREE.Matrix4().compose(pos, quat, new THREE.Vector3(1, 1, 1));
+    const local = restMatrix(bone).clone().invert().multiply(world);
+    local.decompose(obj.position, obj.quaternion, obj.scale);
+    obj.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.userData.accessory = true;
+      }
+    });
+    bone.add(obj);
+    made.push(obj);
+  };
+  if (style.chain && anchors.neck) {
+    const g = new THREE.Group();
+    const r = anchors.neckR * 1.9;
+    g.add(new THREE.Mesh(new THREE.TorusGeometry(r, Math.max(4e-3, r * 0.05), 8, 48), M.gold));
+    const pendant = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.2, r * 0.2, r * 0.05, 24), M.gold);
+    pendant.position.set(0, r * 1.12, 0);
+    g.add(pendant);
+    const pos = anchors.neck.clone().add(new THREE.Vector3(0, -r * 0.6, anchors.chainZ ?? anchors.neckR * 0.6));
+    place(g, bones.chest, pos, new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2 + 0.6, 0, 0)));
+  }
+  if (style.watch && anchors.wristL) {
+    const g = new THREE.Group();
+    const r = anchors.wristR;
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.12, r * 1.12, r * 0.75, 28, 1, true), M.strap);
+    band.material.side = THREE.DoubleSide;
+    g.add(band);
+    const face = new THREE.Mesh(new THREE.BoxGeometry(r * 0.95, r * 0.95, r * 0.35), M.watchCase);
+    face.position.set(0, 0, r * 1.15);
+    g.add(face);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(r * 0.75, r * 0.75), M.screen);
+    screen.position.set(0, 0, r * 1.33);
+    g.add(screen);
+    const dir = anchors.forearmDirL.clone().normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    const twist = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+    q.multiply(twist);
+    const pos = anchors.wristL.clone().addScaledVector(dir, -r * 1.3);
+    place(g, bones.forearmL, pos, q);
+  }
+  if (style.bag && anchors.chest) {
+    const g = new THREE.Group();
+    const w = anchors.torsoW;
+    const d = anchors.torsoD;
+    const tilt = new THREE.Group();
+    tilt.rotation.z = -0.62;
+    g.add(tilt);
+    const loop = new THREE.Group();
+    loop.rotation.y = Math.PI / 2;
+    tilt.add(loop);
+    const rx = d * 1.15;
+    const ry = w * 1.9;
+    const pts = [];
+    for (let i = 0; i < 64; i++) {
+      const t = i / 64 * Math.PI * 2;
+      pts.push(new THREE.Vector3(rx * Math.cos(t), ry * Math.sin(t), 0));
+    }
+    const strap = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 96, Math.max(8e-3, w * 0.055), 8, true), M.strapRed);
+    loop.add(strap);
+    const pouch = new THREE.Group();
+    if (anchors.hipR) pouch.position.copy(anchors.hipR).sub(anchors.chest).add(new THREE.Vector3(0, w * 0.35, d * 1.05));
+    else pouch.position.set(-w * 0.62, -w * 1.55, d * 0.98);
+    pouch.rotation.z = -0.3;
+    g.add(pouch);
+    pouch.add(new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, w * 0.5, d * 0.4), M.bag));
+    const zip = new THREE.Mesh(new THREE.BoxGeometry(w * 0.75, w * 0.035, d * 0.05), M.zip);
+    zip.position.set(0, w * 0.16, d * 0.21);
+    pouch.add(zip);
+    place(g, bones.chest, anchors.chest.clone(), new THREE.Quaternion());
+  }
+  return made;
+}
+var cached;
+function materials() {
+  if (cached) return cached;
+  const std = (color, roughness = 0.5, metalness = 0, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
+  cached = {
+    gold: std("#d4af37", 0.22, 1),
+    strap: std("#15131a", 0.6),
+    watchCase: std("#2a2a33", 0.3, 0.6),
+    screen: new THREE.MeshBasicMaterial({ color: "#7cf5d0" }),
+    strapRed: std("#e3000f", 0.55),
+    bag: std("#15131a", 0.45, 0.05),
+    zip: std("#d4af37", 0.3, 1)
+  };
+  return cached;
+}
 
 // avatar/js/look.js
 var BASE_HEIGHT = 175;
@@ -36,7 +131,9 @@ var DEFAULT_LOOK = {
   shades: true,
   headphones: true,
   earring: false,
-  chain: false
+  chain: false,
+  watch: false,
+  bag: false
 };
 var L = (en, de) => ({ en, de });
 var OPTIONS = {
@@ -73,7 +170,9 @@ var OPTIONS = {
     { id: "glasses", label: L("Glasses", "Brille") },
     { id: "headphones", label: L("Headphones", "Kopfh\xF6rer") },
     { id: "earring", label: L("Earring", "Ohrring") },
-    { id: "chain", label: L("Gold chain", "Goldkette"), unlock: 30 }
+    { id: "watch", label: L("Smartwatch", "Smartwatch"), unlock: 20 },
+    { id: "chain", label: L("Gold chain", "Goldkette"), unlock: 30 },
+    { id: "bag", label: L("Crossbody bag", "Crossbody-Bag"), unlock: 60 }
   ]
 };
 var isColor = (v) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
@@ -86,7 +185,7 @@ function sanitizeLook(input = {}) {
   for (const k of ["character", "body", "hairStyle", "top", "bottom"]) {
     if (OPTIONS[k].some((o) => o.id === input[k])) out[k] = input[k];
   }
-  for (const k of ["glasses", "shades", "headphones", "earring", "chain"]) {
+  for (const k of OPTIONS.extras.map((o) => o.id)) {
     if (typeof input[k] === "boolean") out[k] = input[k];
   }
   if (typeof input.name === "string" && cleanAvatarName(input.name)) out.name = cleanAvatarName(input.name);
@@ -110,7 +209,7 @@ var PlaceholderAvatar = class {
     this.opts = opts;
     this.style = { ...DEFAULT_LOOK, ...style };
     this.supportsStyle = true;
-    this.object3d = new THREE.Group();
+    this.object3d = new THREE2.Group();
     this.object3d.name = "PlaceholderAvatar";
     this.joints = {};
     this.rest = {};
@@ -121,8 +220,8 @@ var PlaceholderAvatar = class {
     this.final = {};
     this.from = null;
     this.fade = 1;
-    this.gaze = new THREE.Vector2();
-    this.gazeTarget = new THREE.Vector2();
+    this.gaze = new THREE2.Vector2();
+    this.gazeTarget = new THREE2.Vector2();
     this.blinkIn = 1.5;
     this.blinkT = -1;
     this._build();
@@ -299,58 +398,58 @@ var PlaceholderAvatar = class {
   _build() {
     const o = this.opts;
     const S = this.style;
-    const std = (color, roughness = 0.7, metalness = 0, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
+    const std = (color, roughness = 0.7, metalness = 0, extra = {}) => new THREE2.MeshStandardMaterial({ color, roughness, metalness, ...extra });
     const cloth = (color, roughness = 0.85, extra = {}) => {
-      const c = new THREE.Color(color);
-      return new THREE.MeshPhysicalMaterial({
+      const c = new THREE2.Color(color);
+      return new THREE2.MeshPhysicalMaterial({
         color: c,
         roughness,
         sheen: 0.45,
         sheenRoughness: 0.6,
-        sheenColor: c.clone().lerp(new THREE.Color("#ffffff"), 0.15),
+        sheenColor: c.clone().lerp(new THREE2.Color("#ffffff"), 0.15),
         ...extra
       });
     };
-    const skinColor = new THREE.Color(S.skin);
-    const topColor = new THREE.Color(S.topColor);
-    const bottomColor = new THREE.Color(S.bottomColor);
+    const skinColor = new THREE2.Color(S.skin);
+    const topColor = new THREE2.Color(S.topColor);
+    const bottomColor = new THREE2.Color(S.bottomColor);
     const goldShoes = S.shoeColor.toLowerCase() === GOLD;
     const M = {
-      skin: new THREE.MeshPhysicalMaterial({ color: skinColor, roughness: 0.52, sheen: 0.35, sheenRoughness: 0.7, sheenColor: new THREE.Color("#ffd8c8") }),
+      skin: new THREE2.MeshPhysicalMaterial({ color: skinColor, roughness: 0.52, sheen: 0.35, sheenRoughness: 0.7, sheenColor: new THREE2.Color("#ffd8c8") }),
       skinShade: std(skinColor.clone().multiplyScalar(0.9), 0.6),
-      lips: std(skinColor.clone().lerp(new THREE.Color("#b0414b"), 0.42).multiplyScalar(0.92), 0.45),
-      lipsFem: std(skinColor.clone().lerp(new THREE.Color("#c0394f"), 0.6).multiplyScalar(0.92), 0.35),
+      lips: std(skinColor.clone().lerp(new THREE2.Color("#b0414b"), 0.42).multiplyScalar(0.92), 0.45),
+      lipsFem: std(skinColor.clone().lerp(new THREE2.Color("#c0394f"), 0.6).multiplyScalar(0.92), 0.35),
       top: cloth(topColor),
       topDark: cloth(topColor.clone().multiplyScalar(0.72), 0.9),
       rib: cloth("#1d1c22", 0.9),
       bottom: cloth(bottomColor, 0.9),
       bottomDark: cloth(bottomColor.clone().multiplyScalar(0.78), 0.95),
-      bottomLight: cloth(bottomColor.clone().lerp(new THREE.Color("#ffffff"), 0.25), 0.95),
-      skirt: cloth(bottomColor, 0.85, { flatShading: true, side: THREE.DoubleSide }),
+      bottomLight: cloth(bottomColor.clone().lerp(new THREE2.Color("#ffffff"), 0.25), 0.95),
+      skirt: cloth(bottomColor, 0.85, { flatShading: true, side: THREE2.DoubleSide }),
       shoe: goldShoes ? std(GOLD, 0.28, 0.9) : std(S.shoeColor, 0.45),
       sole: std("#ebe7df", 0.65),
       sock: cloth("#f4f2ee", 0.9),
       accent: std(o.accent, 0.35),
-      hair: new THREE.MeshPhysicalMaterial({ color: S.hairColor, roughness: 0.62, sheen: 0.8, sheenRoughness: 0.4, sheenColor: new THREE.Color(S.hairColor).lerp(new THREE.Color("#ffffff"), 0.3) }),
+      hair: new THREE2.MeshPhysicalMaterial({ color: S.hairColor, roughness: 0.62, sheen: 0.8, sheenRoughness: 0.4, sheenColor: new THREE2.Color(S.hairColor).lerp(new THREE2.Color("#ffffff"), 0.3) }),
       hat: cloth(S.hatColor, 0.95),
       white: std("#ffffff", 0.25),
       sclera: std("#f6f3ef", 0.3),
-      iris: new THREE.MeshBasicMaterial({ color: "#3d2416" }),
+      iris: new THREE2.MeshBasicMaterial({ color: "#3d2416" }),
       // unlit so both eyes match regardless of light direction
       pupil: std("#0c0c10", 0.2),
       dark: std("#18181d", 0.45, 0.2),
       mouth: std("#4a1a20", 0.7),
       silver: std("#e8e8ee", 0.2, 1),
       gold: std(GOLD, 0.22, 1),
-      shine: new THREE.MeshBasicMaterial({ color: 16777215 }),
+      shine: new THREE2.MeshBasicMaterial({ color: 16777215 }),
       phones: std("#ff4a1c", 0.32, 0.1),
       // red-orange headphones like the 3D model
-      lens: new THREE.MeshPhysicalMaterial({ color: "#ff5a2a", roughness: 0.08, metalness: 0.4, clearcoat: 1, emissive: "#5a0d00", emissiveIntensity: 0.4 }),
+      lens: new THREE2.MeshPhysicalMaterial({ color: "#ff5a2a", roughness: 0.08, metalness: 0.4, clearcoat: 1, emissive: "#5a0d00", emissiveIntensity: 0.4 }),
       trim: std("#3fc6d6", 0.4)
       // teal trims (tank hem, jogger stripes)
     };
     const J = (name, parent, x, y, z, rx = 0, ry = 0, rz = 0) => {
-      const g = new THREE.Group();
+      const g = new THREE2.Group();
       g.name = name;
       g.position.set(x, y, z);
       g.rotation.set(rx, ry, rz);
@@ -360,7 +459,7 @@ var PlaceholderAvatar = class {
       return g;
     };
     const add = (parent, geo, mat, p = [0, 0, 0], s = [1, 1, 1], r = [0, 0, 0]) => {
-      const m = new THREE.Mesh(geo, mat);
+      const m = new THREE2.Mesh(geo, mat);
       m.position.set(...p);
       m.scale.set(...s);
       m.rotation.set(...r);
@@ -368,9 +467,9 @@ var PlaceholderAvatar = class {
       parent.add(m);
       return m;
     };
-    const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 8, 20);
-    const sph = (r, w = 28, h = 20) => new THREE.SphereGeometry(r, w, h);
-    const cyl = (rt, rb, h, s = 24, open = false) => new THREE.CylinderGeometry(rt, rb, h, s, 1, open);
+    const cap = (r, l) => new THREE2.CapsuleGeometry(r, l, 8, 20);
+    const sph = (r, w = 28, h = 20) => new THREE2.SphereGeometry(r, w, h);
+    const cyl = (rt, rb, h, s = 24, open = false) => new THREE2.CylinderGeometry(rt, rb, h, s, 1, open);
     const K = { M, J, add, cap, sph, cyl };
     const body = J("body", this.object3d, 0, 0, 0);
     const fem = S.body === "female";
@@ -379,7 +478,7 @@ var PlaceholderAvatar = class {
     const spine = J("spine", hips, 0, 0.04, 0);
     this._buildTop(spine, K);
     if (S.chain) {
-      add(spine, new THREE.TorusGeometry(0.12, 6e-3, 8, 48), M.gold, [0, 0.505, 0.045], [1, 1, 1], [Math.PI / 2 + 0.6, 0, 0]);
+      add(spine, new THREE2.TorusGeometry(0.12, 6e-3, 8, 48), M.gold, [0, 0.505, 0.045], [1, 1, 1], [Math.PI / 2 + 0.6, 0, 0]);
       add(spine, cyl(0.018, 0.018, 5e-3, 20), M.gold, [0, 0.425, 0.15], [1, 1, 1], [Math.PI / 2 - 0.3, 0, 0]);
     }
     const neck = J("neck", spine, 0, 0.53, 0);
@@ -389,31 +488,55 @@ var PlaceholderAvatar = class {
     this._buildHead(head, K);
     this._buildArms(spine, K);
     this._buildLegs(hips, K);
-    const coinGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.012, 36);
+    const coinGeo = new THREE2.CylinderGeometry(0.055, 0.055, 0.012, 36);
     coinGeo.rotateX(Math.PI / 2);
-    const coin = new THREE.Mesh(coinGeo, [M.gold, coinFaceMaterial(), coinFaceMaterial()]);
+    const coin = new THREE2.Mesh(coinGeo, [M.gold, coinFaceMaterial(), coinFaceMaterial()]);
     coin.visible = false;
     this.object3d.add(coin);
     this.parts.coin = coin;
-    this._v1 = new THREE.Vector3();
-    this.headAnchor = new THREE.Object3D();
+    this._v1 = new THREE2.Vector3();
+    this.headAnchor = new THREE2.Object3D();
     this.headAnchor.position.set(0, 0.4, 0);
     head.add(this.headAnchor);
+    this._buildAccessories();
+  }
+  /** Smartwatch / crossbody bag (shared with 3D models). The gold chain is modelled above. */
+  _buildAccessories() {
+    const S = this.style;
+    if (!S.watch && !S.bag) return;
+    const J = this.joints;
+    this.object3d.updateMatrixWorld(true);
+    const inv = this.object3d.matrixWorld.clone().invert();
+    const rest = (o) => inv.clone().multiply(o.matrixWorld);
+    const pos = (o) => new THREE2.Vector3().setFromMatrixPosition(rest(o));
+    const fem = S.body === "female";
+    const anchors = {
+      chest: pos(J.spine).add(new THREE2.Vector3(0, 0.3, 0)),
+      torsoW: fem ? 0.19 : 0.21,
+      torsoD: 0.15,
+      hipR: pos(J.legR),
+      wristL: pos(J.handL),
+      forearmDirL: pos(J.handL).sub(pos(J.elbowL)).normalize(),
+      wristR: 0.037,
+      neck: pos(J.neck),
+      neckR: 0.05
+    };
+    buildAccessories({ ...S, chain: false }, anchors, { chest: J.spine, forearmL: J.elbowL }, rest);
   }
   /** Shaped torso (chest → waist → hem) built as a lathe instead of a capsule. */
   _torsoGeometry(scale = 1) {
     const pts = this.style.body === "female" ? [[1e-3, -0.08], [0.208, -0.08], [0.214, -0.03], [0.186, 0.07], [0.156, 0.17], [0.17, 0.27], [0.186, 0.35], [0.176, 0.43], [0.146, 0.5], [0.095, 0.543], [1e-3, 0.56]] : [[1e-3, -0.08], [0.188, -0.08], [0.198, -0.03], [0.19, 0.08], [0.186, 0.17], [0.2, 0.28], [0.212, 0.38], [0.205, 0.45], [0.17, 0.51], [0.105, 0.548], [1e-3, 0.56]];
-    const curve = new THREE.SplineCurve(pts.map(([r, y]) => new THREE.Vector2(r * scale, y)));
-    return new THREE.LatheGeometry(curve.getPoints(40), 40);
+    const curve = new THREE2.SplineCurve(pts.map(([r, y]) => new THREE2.Vector2(r * scale, y)));
+    return new THREE2.LatheGeometry(curve.getPoints(40), 40);
   }
   _buildTop(spine, { M, add, cyl, sph }) {
     const S = this.style;
     if (S.top === "hoodie") {
       add(spine, this._torsoGeometry(1.04), M.top, [0, 0, 0], [1.08, 1, 0.74]);
       add(spine, cyl(0.206, 0.206, 0.075, 32), M.topDark, [0, -0.05, 0], [1.1, 1, 0.76]);
-      add(spine, new THREE.CylinderGeometry(0.2, 0.198, 0.11, 24, 1, true, -0.62, 1.24), M.topDark, [0, 0.085, 0], [1.1, 1, 0.76]);
-      add(spine, new THREE.BoxGeometry(0.06, 0.022, 5e-3), M.accent, [0.085, 0.4, 0.154], [1, 1, 1], [-0.3, 0.3, 0]);
-      add(spine, new THREE.TorusGeometry(0.105, 0.05, 14, 32), M.topDark, [0, 0.54, -0.03], [1.15, 1, 0.95], [Math.PI / 2 - 0.25, 0, 0]);
+      add(spine, new THREE2.CylinderGeometry(0.2, 0.198, 0.11, 24, 1, true, -0.62, 1.24), M.topDark, [0, 0.085, 0], [1.1, 1, 0.76]);
+      add(spine, new THREE2.BoxGeometry(0.06, 0.022, 5e-3), M.accent, [0.085, 0.4, 0.154], [1, 1, 1], [-0.3, 0.3, 0]);
+      add(spine, new THREE2.TorusGeometry(0.105, 0.05, 14, 32), M.topDark, [0, 0.54, -0.03], [1.15, 1, 0.95], [Math.PI / 2 - 0.25, 0, 0]);
       for (const sx of [-1, 1]) {
         add(spine, cyl(55e-4, 55e-4, 0.17, 8), M.white, [sx * 0.04, 0.43, 0.15], [1, 1, 1], [-0.22, 0, sx * 0.05]);
         add(spine, cyl(9e-3, 9e-3, 0.022, 10), M.accent, [sx * 0.044, 0.34, 0.165], [1, 1, 1], [-0.22, 0, 0]);
@@ -422,31 +545,31 @@ var PlaceholderAvatar = class {
       add(spine, this._torsoGeometry(1.05), M.top, [0, 0, 0], [1.08, 1, 0.76]);
       add(spine, cyl(0.205, 0.2, 0.065, 32), M.rib, [0, -0.05, 0], [1.1, 1, 0.78]);
       add(spine, cyl(0.2065, 0.2065, 0.01, 32), M.accent, [0, -0.045, 0], [1.1, 1, 0.78]);
-      add(spine, new THREE.BoxGeometry(0.01, 0.3, 0.01), M.silver, [0, 0.22, 0.154]);
-      add(spine, new THREE.TorusGeometry(0.085, 0.026, 10, 28), M.rib, [0, 0.53, 0], [1.2, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
+      add(spine, new THREE2.BoxGeometry(0.01, 0.3, 0.01), M.silver, [0, 0.22, 0.154]);
+      add(spine, new THREE2.TorusGeometry(0.085, 0.026, 10, 28), M.rib, [0, 0.53, 0], [1.2, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
       add(spine, cyl(0.065, 0.07, 0.05), M.white, [0, 0.52, 0]);
-      for (const sx of [-1, 1]) add(spine, new THREE.BoxGeometry(0.07, 8e-3, 0.01), M.topDark, [sx * 0.095, 0.15, 0.146], [1, 1, 1], [0, sx * 0.45, 0]);
+      for (const sx of [-1, 1]) add(spine, new THREE2.BoxGeometry(0.07, 8e-3, 0.01), M.topDark, [sx * 0.095, 0.15, 0.146], [1, 1, 1], [0, sx * 0.45, 0]);
     } else if (S.top === "tank") {
       add(spine, this._torsoGeometry(0.97), M.top, [0, 0, 0], [1.05, 1, 0.7]);
       add(spine, cyl(0.192, 0.196, 0.014, 32), M.trim, [0, -0.072, 0], [1.06, 1, 0.71]);
-      add(spine, new THREE.TorusGeometry(0.07, 8e-3, 8, 28), M.trim, [0, 0.528, 0.012], [1.25, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
+      add(spine, new THREE2.TorusGeometry(0.07, 8e-3, 8, 28), M.trim, [0, 0.528, 0.012], [1.25, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
       add(spine, sph(0.05), M.skin, [0, 0.49, 0.07], [1.3, 0.7, 0.6]);
     } else {
       add(spine, this._torsoGeometry(0.97), M.top, [0, 0, 0], [1.05, 1, 0.7]);
-      add(spine, new THREE.TorusGeometry(0.062, 0.01, 8, 28), M.topDark, [0, 0.535, 0.01], [1.15, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
-      add(spine, new THREE.RingGeometry(0.022, 0.034, 28), M.accent, [0, 0.33, 0.146], [1, 1, 1], [-0.12, 0, 0]);
-      add(spine, new THREE.CircleGeometry(0.01, 16), M.accent, [0, 0.33, 0.147], [1, 1, 1], [-0.12, 0, 0]);
+      add(spine, new THREE2.TorusGeometry(0.062, 0.01, 8, 28), M.topDark, [0, 0.535, 0.01], [1.15, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
+      add(spine, new THREE2.RingGeometry(0.022, 0.034, 28), M.accent, [0, 0.33, 0.146], [1, 1, 1], [-0.12, 0, 0]);
+      add(spine, new THREE2.CircleGeometry(0.01, 16), M.accent, [0, 0.33, 0.147], [1, 1, 1], [-0.12, 0, 0]);
     }
   }
   /** Over-ear headphones worn on the head (band over the hair, cups on the ears). */
   _buildHeadphones(head, { M, add, cyl }) {
     const big = ["curls", "bun", "long", "beanie"].includes(this.style.hairStyle);
     const r = big ? 0.205 : 0.19;
-    const phones = new THREE.Group();
+    const phones = new THREE2.Group();
     phones.position.set(0, 0.155, -5e-3);
     phones.rotation.x = -0.12;
     head.add(phones);
-    add(phones, new THREE.TorusGeometry(r, 0.014, 10, 48, Math.PI), M.phones, [0, 0, 0], [1, 1.08, 1.3]);
+    add(phones, new THREE2.TorusGeometry(r, 0.014, 10, 48, Math.PI), M.phones, [0, 0, 0], [1, 1.08, 1.3]);
     for (const sx of [-1, 1]) {
       add(phones, cyl(0.058, 0.058, 0.045, 28), M.phones, [sx * (r - 0.012), -0.01, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
       add(phones, cyl(0.046, 0.046, 0.012, 28), M.dark, [sx * (r + 0.014), -0.01, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
@@ -469,7 +592,7 @@ var PlaceholderAvatar = class {
       } else {
         add(sh, cap(0.058, 0.21), M.top, [0, -0.15, 0]);
         if (S.top === "jacket" && side === "L") {
-          add(sh, new THREE.CircleGeometry(0.024, 20), M.accent, [0.059, -0.1, 0], [1, 1, 1], [0, Math.PI / 2, 0]);
+          add(sh, new THREE2.CircleGeometry(0.024, 20), M.accent, [0.059, -0.1, 0], [1, 1, 1], [0, Math.PI / 2, 0]);
         }
       }
       const el = J(`elbow${side}`, sh, 0, -0.3, 0, -0.14, 0, 0);
@@ -508,9 +631,9 @@ var PlaceholderAvatar = class {
         add(knee, cyl(0.062, 0.066, 0.07, 24), M.rib, [0, -0.38, 0]);
       } else if (b === "cargo") {
         add(leg, cap(0.092, 0.37), M.bottom, [0, -0.235, 0]);
-        add(leg, new THREE.BoxGeometry(0.035, 0.1, 0.07), M.bottomDark, [sx * 0.09, -0.28, 0]);
+        add(leg, new THREE2.BoxGeometry(0.035, 0.1, 0.07), M.bottomDark, [sx * 0.09, -0.28, 0]);
         add(knee, cyl(0.082, 0.09, 0.42), M.bottom, [0, -0.2, 0]);
-        add(knee, new THREE.TorusGeometry(0.078, 0.017, 10, 28), M.bottomDark, [0, -0.39, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+        add(knee, new THREE2.TorusGeometry(0.078, 0.017, 10, 28), M.bottomDark, [0, -0.39, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
       } else if (b === "jeans") {
         add(leg, cap(0.078, 0.38), M.bottom, [0, -0.24, 0]);
         add(knee, cyl(0.064, 0.074, 0.42), M.bottom, [0, -0.2, 0]);
@@ -527,9 +650,9 @@ var PlaceholderAvatar = class {
       const foot = J(`foot${side}`, knee, 0, -0.45, 0, 0, sx * 0.1, 0);
       add(foot, cap(0.05, 0.14), M.shoe, [0, -0.01, 0.05], [1.02, 0.82, 1], [Math.PI / 2, 0, 0]);
       add(foot, cap(0.058, 0.155), M.sole, [0, -0.052, 0.05], [1.1, 0.5, 1.04], [Math.PI / 2, 0, 0]);
-      add(foot, new THREE.BoxGeometry(0.06, 0.02, 0.03), M.phones, [0, -0.02, -0.04]);
+      add(foot, new THREE2.BoxGeometry(0.06, 0.02, 0.03), M.phones, [0, -0.02, -0.04]);
       for (const ss of [-1, 1]) {
-        add(foot, new THREE.BoxGeometry(5e-3, 0.02, 0.11), M.accent, [ss * 0.052, -0.015, 0.045], [1, 1, 1], [0.15, 0, 0]);
+        add(foot, new THREE2.BoxGeometry(5e-3, 0.02, 0.11), M.accent, [ss * 0.052, -0.015, 0.045], [1, 1, 1], [0.15, 0, 0]);
       }
       add(foot, cyl(0.044, 0.05, 0.04), M.dark, [0, 0.035, -5e-3]);
     }
@@ -545,55 +668,55 @@ var PlaceholderAvatar = class {
       add(head, sph(0.034), M.skin, [sx * 0.153, 0.15, -5e-3], [0.42, 1, 0.68], [0, 0, -sx * 0.1]);
       add(head, sph(0.017), M.skinShade, [sx * 0.158, 0.15, 0], [0.3, 1, 0.6]);
     }
-    if (S.earring) add(head, new THREE.TorusGeometry(0.014, 3e-3, 8, 24), M.silver, [0.158, 0.102, 5e-3], [1, 1, 1], [0, Math.PI / 2, 0]);
+    if (S.earring) add(head, new THREE2.TorusGeometry(0.014, 3e-3, 8, 24), M.silver, [0.158, 0.102, 5e-3], [1, 1, 1], [0, Math.PI / 2, 0]);
     add(head, cap(0.011, 0.04), M.skin, [0, 0.162, 0.157], [1, 1, 0.9], [-0.32, 0, 0]);
     add(head, sph(0.018), M.skin, [0, 0.133, 0.17], [1, 0.82, 0.9]);
     for (const sx of [-1, 1]) add(head, sph(0.011), M.skinShade, [sx * 0.015, 0.128, 0.161]);
     for (const [side, sx] of [["L", 1], ["R", -1]]) {
-      const eye = new THREE.Group();
+      const eye = new THREE2.Group();
       eye.position.set(sx * 0.056, 0.18, 0.14);
       eye.rotation.y = sx * 0.22;
       head.add(eye);
       add(eye, sph(0.029), M.sclera, [0, 0, 0], [1.2, 0.95, 0.55]);
-      const iris = new THREE.Group();
+      const iris = new THREE2.Group();
       iris.position.z = 0.0162;
       eye.add(iris);
-      add(iris, new THREE.CircleGeometry(0.0158, 24), M.iris);
-      add(iris, new THREE.CircleGeometry(72e-4, 20), M.pupil, [0, 0, 5e-4]);
-      add(iris, new THREE.CircleGeometry(34e-4, 12), M.shine, [4e-3, 5e-3, 1e-3]);
-      add(eye, new THREE.SphereGeometry(0.0305, 24, 12, 0, TAU, 0, 0.8), M.skin, [0, 1e-3, 0], [1.22, 0.98, 0.62], [0.12, 0, 0]);
-      add(eye, new THREE.TorusGeometry(0.029, fem ? 42e-4 : 28e-4, 6, 24, Math.PI * 0.92), M.dark, [0, 2e-3, 4e-3], [1.2, 0.92, 0.6], [0.1, 0, Math.PI * 0.04]);
+      add(iris, new THREE2.CircleGeometry(0.0158, 24), M.iris);
+      add(iris, new THREE2.CircleGeometry(72e-4, 20), M.pupil, [0, 0, 5e-4]);
+      add(iris, new THREE2.CircleGeometry(34e-4, 12), M.shine, [4e-3, 5e-3, 1e-3]);
+      add(eye, new THREE2.SphereGeometry(0.0305, 24, 12, 0, TAU, 0, 0.8), M.skin, [0, 1e-3, 0], [1.22, 0.98, 0.62], [0.12, 0, 0]);
+      add(eye, new THREE2.TorusGeometry(0.029, fem ? 42e-4 : 28e-4, 6, 24, Math.PI * 0.92), M.dark, [0, 2e-3, 4e-3], [1.2, 0.92, 0.6], [0.1, 0, Math.PI * 0.04]);
       if (fem) add(eye, cap(26e-4, 0.012), M.dark, [sx * 0.034, 8e-3, 4e-3], [1, 1, 1], [0, 0, sx * 1]);
       P[`eye${side}`] = eye;
       P[`iris${side}`] = iris;
-      const brow = new THREE.Group();
+      const brow = new THREE2.Group();
       brow.position.set(sx * 0.058, 0.218, 0.147);
       brow.rotation.y = sx * 0.3;
       brow.userData.y = brow.position.y;
       head.add(brow);
-      add(brow, new THREE.TorusGeometry(0.042, fem ? 42e-4 : 62e-4, 6, 16, 0.85), M.hair, [0, -0.04, 0], [1, 1, 0.6], [0, 0, Math.PI / 2 - 0.425]);
+      add(brow, new THREE2.TorusGeometry(0.042, fem ? 42e-4 : 62e-4, 6, 16, 0.85), M.hair, [0, -0.04, 0], [1, 1, 0.6], [0, 0, Math.PI / 2 - 0.425]);
       P[`brow${side}`] = brow;
       if (S.glasses) {
-        add(head, new THREE.TorusGeometry(0.034, 45e-4, 8, 32), M.dark, [sx * 0.057, 0.178, 0.17], [1.15, 0.88, 1], [0, sx * 0.2, 0]);
-        add(head, new THREE.BoxGeometry(4e-3, 6e-3, 0.15), M.dark, [sx * 0.146, 0.186, 0.092], [1, 1, 1], [0, sx * 0.08, 0]);
+        add(head, new THREE2.TorusGeometry(0.034, 45e-4, 8, 32), M.dark, [sx * 0.057, 0.178, 0.17], [1.15, 0.88, 1], [0, sx * 0.2, 0]);
+        add(head, new THREE2.BoxGeometry(4e-3, 6e-3, 0.15), M.dark, [sx * 0.146, 0.186, 0.092], [1, 1, 1], [0, sx * 0.08, 0]);
       }
     }
-    if (S.glasses) add(head, new THREE.CylinderGeometry(35e-4, 35e-4, 0.03, 8), M.dark, [0, 0.185, 0.176], [1, 1, 1], [0, 0, Math.PI / 2]);
+    if (S.glasses) add(head, new THREE2.CylinderGeometry(35e-4, 35e-4, 0.03, 8), M.dark, [0, 0.185, 0.176], [1, 1, 1], [0, 0, Math.PI / 2]);
     if (S.shades && !S.glasses) {
       for (const sx of [-1, 1]) {
-        add(head, new THREE.CylinderGeometry(0.037, 0.037, 8e-3, 32), M.lens, [sx * 0.058, 0.182, 0.172], [1.05, 1, 0.92], [Math.PI / 2, 0, sx * 0.2]);
-        add(head, new THREE.TorusGeometry(0.037, 42e-4, 8, 32), M.dark, [sx * 0.058, 0.182, 0.176], [1.05, 0.92, 1], [0, sx * 0.2, 0]);
-        add(head, new THREE.BoxGeometry(4e-3, 6e-3, 0.15), M.dark, [sx * 0.146, 0.19, 0.092], [1, 1, 1], [0, sx * 0.08, 0]);
+        add(head, new THREE2.CylinderGeometry(0.037, 0.037, 8e-3, 32), M.lens, [sx * 0.058, 0.182, 0.172], [1.05, 1, 0.92], [Math.PI / 2, 0, sx * 0.2]);
+        add(head, new THREE2.TorusGeometry(0.037, 42e-4, 8, 32), M.dark, [sx * 0.058, 0.182, 0.176], [1.05, 0.92, 1], [0, sx * 0.2, 0]);
+        add(head, new THREE2.BoxGeometry(4e-3, 6e-3, 0.15), M.dark, [sx * 0.146, 0.19, 0.092], [1, 1, 1], [0, sx * 0.08, 0]);
       }
-      add(head, new THREE.CylinderGeometry(35e-4, 35e-4, 0.032, 8), M.dark, [0, 0.19, 0.18], [1, 1, 1], [0, 0, Math.PI / 2]);
+      add(head, new THREE2.CylinderGeometry(35e-4, 35e-4, 0.032, 8), M.dark, [0, 0.19, 0.18], [1, 1, 1], [0, 0, Math.PI / 2]);
     }
-    const mouth = new THREE.Group();
+    const mouth = new THREE2.Group();
     mouth.position.set(0, 0.09, 0.149);
     mouth.rotation.x = -0.25;
     head.add(mouth);
     P.mouth = mouth;
-    P.smile = add(mouth, new THREE.TorusGeometry(0.024, fem ? 82e-4 : 68e-4, 10, 28, Math.PI), fem ? M.lipsFem : M.lips, [0, 0.01, 0], [1, 1, 0.8], [0, 0, Math.PI]);
-    const openGeo = new THREE.SphereGeometry(0.023, 20, 14);
+    P.smile = add(mouth, new THREE2.TorusGeometry(0.024, fem ? 82e-4 : 68e-4, 10, 28, Math.PI), fem ? M.lipsFem : M.lips, [0, 0.01, 0], [1, 1, 0.8], [0, 0, Math.PI]);
+    const openGeo = new THREE2.SphereGeometry(0.023, 20, 14);
     openGeo.scale(1, 1, 0.35);
     openGeo.translate(0, -0.011, 0);
     P.mouthOpen = add(mouth, openGeo, M.mouth, [0, 0.012, 0]);
@@ -602,17 +725,17 @@ var PlaceholderAvatar = class {
   }
   _buildHair(head, { M, add, sph, cap }) {
     const style = this.style.hairStyle;
-    add(head, new THREE.SphereGeometry(0.1735, 40, 20, 0, TAU, 0, 1.45), M.hair, [0, 0.162, -4e-3], [0.95, 1.05, 0.99], [-1.2, 0, 0]);
-    const top = new THREE.Group();
+    add(head, new THREE2.SphereGeometry(0.1735, 40, 20, 0, TAU, 0, 1.45), M.hair, [0, 0.162, -4e-3], [0.95, 1.05, 0.99], [-1.2, 0, 0]);
+    const top = new THREE2.Group();
     top.position.set(0, 0.165, -8e-3);
     top.rotation.x = -0.42;
     head.add(top);
-    const capGeo = (r, len = 1.25) => new THREE.SphereGeometry(r, 40, 24, 0, TAU, 0, len);
+    const capGeo = (r, len = 1.25) => new THREE2.SphereGeometry(r, 40, 24, 0, TAU, 0, len);
     if (style === "curls") {
       add(top, capGeo(0.176), M.hair, [0, 0, 0], [0.98, 1.05, 1.02]);
       let seed = 7;
       const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
-      const dir = new THREE.Vector3();
+      const dir = new THREE2.Vector3();
       for (let i = 0; i < 90; i++) {
         const theta = Math.sqrt(rnd()) * 1.22;
         const phi = rnd() * TAU;
@@ -626,7 +749,7 @@ var PlaceholderAvatar = class {
     } else if (style === "bun") {
       add(top, capGeo(0.178, 1.3), M.hair, [0, 0, 0], [0.97, 1.05, 1.01]);
       add(head, sph(0.075, 24, 18), M.hair, [0, 0.355, -0.075]);
-      add(head, new THREE.TorusGeometry(0.052, 0.014, 10, 28), M.accent, [0, 0.315, -0.06], [1, 1, 1], [Math.PI / 2 + 0.6, 0, 0]);
+      add(head, new THREE2.TorusGeometry(0.052, 0.014, 10, 28), M.accent, [0, 0.315, -0.06], [1, 1, 1], [Math.PI / 2 + 0.6, 0, 0]);
     } else if (style === "long") {
       add(top, capGeo(0.181, 1.55), M.hair, [0, 0, 0], [0.98, 1.05, 1.03]);
       add(head, cap(0.15, 0.2), M.hair, [0, 0.06, -0.06], [1.1, 1, 0.62]);
@@ -635,13 +758,13 @@ var PlaceholderAvatar = class {
       }
       add(head, sph(0.1, 24, 16), M.hair, [0.035, 0.282, 0.068], [1.2, 0.42, 0.85], [0.35, 0, -0.28]);
     } else if (style === "beanie") {
-      const hat = new THREE.Group();
+      const hat = new THREE2.Group();
       hat.position.set(0, 0.17, -0.01);
       hat.rotation.x = -0.25;
       head.add(hat);
-      add(hat, new THREE.SphereGeometry(0.19, 40, 24, 0, TAU, 0, 1.45), M.hat, [0, 0, 0], [0.98, 1.08, 1.02]);
-      add(hat, new THREE.TorusGeometry(0.183, 0.03, 12, 40), M.hat, [0, 0.04, 0], [0.98, 1, 1.02], [Math.PI / 2, 0, 0]);
-      add(hat, new THREE.BoxGeometry(0.05, 0.03, 0.01), M.accent, [0, 0.045, 0.205]);
+      add(hat, new THREE2.SphereGeometry(0.19, 40, 24, 0, TAU, 0, 1.45), M.hat, [0, 0, 0], [0.98, 1.08, 1.02]);
+      add(hat, new THREE2.TorusGeometry(0.183, 0.03, 12, 40), M.hat, [0, 0.04, 0], [0.98, 1, 1.02], [Math.PI / 2, 0, 0]);
+      add(hat, new THREE2.BoxGeometry(0.05, 0.03, 0.01), M.accent, [0, 0.045, 0.205]);
     }
   }
 };
@@ -667,10 +790,10 @@ function coinFaceMaterial() {
     x.textAlign = "center";
     x.textBaseline = "middle";
     x.fillText("\u20AC", 64, 69);
-    coinTex = new THREE.CanvasTexture(c);
-    coinTex.colorSpace = THREE.SRGBColorSpace;
+    coinTex = new THREE2.CanvasTexture(c);
+    coinTex.colorSpace = THREE2.SRGBColorSpace;
   }
-  return new THREE.MeshStandardMaterial({ map: coinTex, metalness: 0.55, roughness: 0.3 });
+  return new THREE2.MeshStandardMaterial({ map: coinTex, metalness: 0.55, roughness: 0.3 });
 }
 var FACE_DEFAULTS = {
   "face.smile": 0.35,
@@ -1264,7 +1387,7 @@ var MOTIONS = {
 };
 
 // avatar/js/avatars/RiggedAvatar.js
-import * as THREE2 from "three";
+import * as THREE3 from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 var TARGET_HEIGHT = 1.92 * (BASE_HEIGHT / 175);
@@ -1319,12 +1442,14 @@ var RiggedAvatar = class _RiggedAvatar {
     return new _RiggedAvatar(gltf, opts, style);
   }
   constructor(gltf, opts = {}, style = {}) {
-    this.object3d = new THREE2.Group();
+    this.object3d = new THREE3.Group();
     this.object3d.name = "RiggedAvatar";
-    this.motion = new THREE2.Group();
+    this.motion = new THREE3.Group();
     this.object3d.add(this.motion);
     this.supportsStyle = true;
-    this.styleKeys = ["skin", "topColor", "bottomColor"];
+    this.styleKeys = ["skin", "topColor", "bottomColor", "shoeColor", "extras"];
+    this.extras = ["watch", "chain", "bag"];
+    this.accessories = [];
     this.style = { ...style };
     this.driver = new PlaceholderAvatar(opts, { ...style, body: style.body || "female" });
     this.driver._lookWeight = 1;
@@ -1332,6 +1457,9 @@ var RiggedAvatar = class _RiggedAvatar {
     this.driver.object3d.updateMatrixWorld(true);
     const model = cloneSkinned(gltf.scene);
     this.model = model;
+    model.traverse((o) => {
+      if (o.isSkinnedMesh) markFeet(o);
+    });
     model.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = true;
@@ -1350,13 +1478,13 @@ var RiggedAvatar = class _RiggedAvatar {
       model.traverse((o) => {
         if (o.isSkinnedMesh) o.skeleton.update();
       });
-      return new THREE2.Box3().setFromObject(model, true);
+      return new THREE3.Box3().setFromObject(model, true);
     };
     let box = measure();
-    const size = box.getSize(new THREE2.Vector3());
+    const size = box.getSize(new THREE3.Vector3());
     model.scale.multiplyScalar(TARGET_HEIGHT / (size.y || 1));
     box = measure();
-    const c = box.getCenter(new THREE2.Vector3());
+    const c = box.getCenter(new THREE3.Vector3());
     model.position.x -= c.x;
     model.position.z -= c.z;
     model.position.y -= box.min.y;
@@ -1365,7 +1493,7 @@ var RiggedAvatar = class _RiggedAvatar {
     this.object3d.updateMatrixWorld(true);
     this._alignRestPose();
     this._captureRest();
-    this.mixer = new THREE2.AnimationMixer(model);
+    this.mixer = new THREE3.AnimationMixer(model);
     this.clips = {};
     for (const [move, re] of Object.entries(CLIP_MOVES)) {
       const clip = gltf.animations.find((a) => re.test(a.name) && !/t.?pose/i.test(a.name));
@@ -1378,17 +1506,17 @@ var RiggedAvatar = class _RiggedAvatar {
     this.coin.visible = false;
     this.object3d.add(this.coin);
     this.parts = { coin: this.coin };
-    const hit = new THREE2.Mesh(new THREE2.CylinderGeometry(0.32, 0.28, TARGET_HEIGHT, 12), new THREE2.MeshBasicMaterial({ visible: false }));
+    const hit = new THREE3.Mesh(new THREE3.CylinderGeometry(0.32, 0.28, TARGET_HEIGHT, 12), new THREE3.MeshBasicMaterial({ visible: false }));
     hit.position.y = TARGET_HEIGHT / 2;
     this.motion.add(hit);
     this.hitObjects = [hit];
-    this.headAnchor = new THREE2.Object3D();
+    this.headAnchor = new THREE3.Object3D();
     this.headAnchor.position.set(0, this.height, 0);
     this.object3d.add(this.headAnchor);
-    this._q = new THREE2.Quaternion();
-    this._q2 = new THREE2.Quaternion();
-    this._v = new THREE2.Vector3();
-    this._v2 = new THREE2.Vector3();
+    this._q = new THREE3.Quaternion();
+    this._q2 = new THREE3.Quaternion();
+    this._v = new THREE3.Vector3();
+    this._v2 = new THREE3.Vector3();
     this.setStyle(style);
     this._retarget(0);
   }
@@ -1402,7 +1530,7 @@ var RiggedAvatar = class _RiggedAvatar {
     const action = this.clips[name];
     if (action) {
       this.driver.current = null;
-      action.reset().setLoop(THREE2.LoopOnce, 1).play();
+      action.reset().setLoop(THREE3.LoopOnce, 1).play();
       action.clampWhenFinished = true;
       this.clipMove = { name, action, t: 0, duration: Math.min(action.getClip().duration, 8) };
       return this.clipMove.duration;
@@ -1421,13 +1549,36 @@ var RiggedAvatar = class _RiggedAvatar {
     this.style = { ...this.style, ...style };
     const u = this.uniforms;
     if (!u) return;
-    for (const [key, uni] of [["skin", "uSkin"], ["topColor", "uTop"], ["bottomColor", "uBottom"]]) {
+    for (const [key, uni] of [["skin", "uSkin"], ["topColor", "uTop"], ["bottomColor", "uBottom"], ["shoeColor", "uShoe"]]) {
       const col = this.style[key];
       const ref = RECOLOR.ref[key];
       const on = !!col && col.toLowerCase() !== ref;
       u[`${uni}On`].value = on ? 1 : 0;
       if (on) u[uni].value.set(col);
     }
+    u.uShoeGold.value = (this.style.shoeColor || "").toLowerCase() === GOLD ? 1 : 0;
+    this._buildAccessories();
+  }
+  _buildAccessories() {
+    if (!this.restM) return;
+    for (const a of this.accessories) a.removeFromParent();
+    const B = (n) => this.bones[n];
+    const rest = (b) => this.restM.get(b);
+    const pos = (n) => new THREE3.Vector3().setFromMatrixPosition(rest(B(n)));
+    const shoulderW = pos("LeftArm").distanceTo(pos("RightArm"));
+    const anchors = {
+      neck: pos("Neck"),
+      neckR: shoulderW * 0.2,
+      chainZ: shoulderW * 0.3,
+      chest: pos("Spine2").lerp(pos("Neck"), 0.25),
+      torsoW: shoulderW * 0.45,
+      torsoD: shoulderW * 0.4,
+      hipR: pos("RightUpLeg"),
+      wristL: pos("LeftHand"),
+      forearmDirL: pos("LeftHand").sub(pos("LeftForeArm")).normalize(),
+      wristR: shoulderW * 0.085
+    };
+    this.accessories = buildAccessories(this.style, anchors, { chest: B("Spine2"), forearmL: B("LeftForeArm") }, rest);
   }
   dispose() {
     this.model.traverse((o) => {
@@ -1443,17 +1594,17 @@ var RiggedAvatar = class _RiggedAvatar {
   /** Rotate T-pose limbs so the model's rest pose matches the driver's (arms down). */
   _alignRestPose() {
     const D = this.driver.joints;
-    const toModel = new THREE2.Matrix4().copy(this.object3d.matrixWorld).invert();
-    const pos = (o) => o.getWorldPosition(new THREE2.Vector3()).applyMatrix4(toModel);
-    const qWorld = (o) => o.getWorldQuaternion(new THREE2.Quaternion());
+    const toModel = new THREE3.Matrix4().copy(this.object3d.matrixWorld).invert();
+    const pos = (o) => o.getWorldPosition(new THREE3.Vector3()).applyMatrix4(toModel);
+    const qWorld = (o) => o.getWorldQuaternion(new THREE3.Quaternion());
     for (const [b, cb, j, cj] of ALIGN) {
       const bone = this._bone(b);
       const child = this._bone(cb);
       if (!bone || !child) continue;
       this.object3d.updateMatrixWorld(true);
       const cur = pos(child).sub(pos(bone)).normalize();
-      const tgt = D[cj].getWorldPosition(new THREE2.Vector3()).sub(D[j].getWorldPosition(new THREE2.Vector3())).normalize();
-      const rot = new THREE2.Quaternion().setFromUnitVectors(cur, tgt);
+      const tgt = D[cj].getWorldPosition(new THREE3.Vector3()).sub(D[j].getWorldPosition(new THREE3.Vector3())).normalize();
+      const rot = new THREE3.Quaternion().setFromUnitVectors(cur, tgt);
       const world = rot.multiply(qWorld(bone));
       const parentQ = qWorld(bone.parent);
       bone.quaternion.copy(parentQ.invert().multiply(world));
@@ -1463,40 +1614,47 @@ var RiggedAvatar = class _RiggedAvatar {
   /** Remember rest rotations (driver + model) so per-frame deltas can be applied. */
   _captureRest() {
     const D = this.driver.joints;
-    this.driverBodyQ0 = D.body.getWorldQuaternion(new THREE2.Quaternion());
+    this.driverBodyQ0 = D.body.getWorldQuaternion(new THREE3.Quaternion());
     this.R0 = {};
-    for (const j of Object.keys(D)) this.R0[j] = this._driverQ(j, new THREE2.Quaternion());
-    this.hipsDriver0 = this._driverPos("hips", new THREE2.Vector3());
+    for (const j of Object.keys(D)) this.R0[j] = this._driverQ(j, new THREE3.Quaternion());
+    this.hipsDriver0 = this._driverPos("hips", new THREE3.Vector3());
+    this.restM = /* @__PURE__ */ new Map();
+    {
+      const invM = this.object3d.matrixWorld.clone().invert();
+      this.model.traverse((o) => {
+        if (o.isBone) this.restM.set(o, invM.clone().multiply(o.matrixWorld));
+      });
+    }
     this.W0 = /* @__PURE__ */ new Map();
     this.model.traverse((o) => {
       if (o.isBone) o.userData.restQ = o.quaternion.clone();
     });
-    const inv = this.object3d.getWorldQuaternion(new THREE2.Quaternion()).invert();
+    const inv = this.object3d.getWorldQuaternion(new THREE3.Quaternion()).invert();
     this.model.traverse((o) => {
-      if (o.isBone) this.W0.set(o, inv.clone().multiply(o.getWorldQuaternion(new THREE2.Quaternion())));
+      if (o.isBone) this.W0.set(o, inv.clone().multiply(o.getWorldQuaternion(new THREE3.Quaternion())));
     });
     const hips = this._bone("Hips");
     this.hipsRest = hips.position.clone();
-    this.hipsParentQ0 = inv.clone().multiply(hips.parent.getWorldQuaternion(new THREE2.Quaternion()));
-    this.hipsParentScale = hips.parent.getWorldScale(new THREE2.Vector3()).x / this.object3d.getWorldScale(new THREE2.Vector3()).x;
+    this.hipsParentQ0 = inv.clone().multiply(hips.parent.getWorldQuaternion(new THREE3.Quaternion()));
+    this.hipsParentScale = hips.parent.getWorldScale(new THREE3.Vector3()).x / this.object3d.getWorldScale(new THREE3.Vector3()).x;
     this.legRatio = this._modelLegLength() / 0.92;
     this.footRest = { L: this._footY("Left"), R: this._footY("Right") };
   }
   _modelLegLength() {
-    const a = this._bone("LeftUpLeg").getWorldPosition(new THREE2.Vector3());
-    const b = this._bone("LeftFoot").getWorldPosition(new THREE2.Vector3());
-    return a.distanceTo(b) / this.object3d.getWorldScale(new THREE2.Vector3()).x;
+    const a = this._bone("LeftUpLeg").getWorldPosition(new THREE3.Vector3());
+    const b = this._bone("LeftFoot").getWorldPosition(new THREE3.Vector3());
+    return a.distanceTo(b) / this.object3d.getWorldScale(new THREE3.Vector3()).x;
   }
   _footY(side) {
     const f = this._bone(`${side}Foot`);
     if (!f) return 0;
-    return this.object3d.worldToLocal(f.getWorldPosition(this._v ?? new THREE2.Vector3())).y;
+    return this.object3d.worldToLocal(f.getWorldPosition(this._v ?? new THREE3.Vector3())).y;
   }
   /** Driver joint rotation relative to the driver's body joint. */
   _driverQ(j, out) {
     const D = this.driver.joints;
-    const bodyInv = D.body.getWorldQuaternion(new THREE2.Quaternion()).invert();
-    return out.copy(bodyInv).multiply(D[j].getWorldQuaternion(new THREE2.Quaternion()));
+    const bodyInv = D.body.getWorldQuaternion(new THREE3.Quaternion()).invert();
+    return out.copy(bodyInv).multiply(D[j].getWorldQuaternion(new THREE3.Quaternion()));
   }
   _driverPos(j, out) {
     const D = this.driver.joints;
@@ -1510,7 +1668,7 @@ var RiggedAvatar = class _RiggedAvatar {
     const delta = {};
     for (const j of Object.keys(MAP).concat(["spine", "fingersL", "fingersR", "thumbL", "thumbR"])) {
       if (!D[j]) continue;
-      const P = this._driverQ(j, new THREE2.Quaternion());
+      const P = this._driverQ(j, new THREE3.Quaternion());
       delta[j] = P.multiply(this.R0[j].clone().invert());
     }
     const dHips = delta.hips;
@@ -1553,7 +1711,7 @@ var RiggedAvatar = class _RiggedAvatar {
     const motionY = this.motion.position.y;
     const drop = Math.min(this._footY("Left") - this.footRest.L, this._footY("Right") - this.footRest.R) - motionY;
     if (Math.abs(drop) > 1e-4) {
-      const fix = new THREE2.Vector3(0, -drop, 0).applyQuaternion(this.hipsParentQ0.clone().invert()).divideScalar(this.hipsParentScale);
+      const fix = new THREE3.Vector3(0, -drop, 0).applyQuaternion(this.hipsParentQ0.clone().invert()).divideScalar(this.hipsParentScale);
       hips.position.add(fix);
     }
     this._blendClip(dt);
@@ -1607,22 +1765,28 @@ var RiggedAvatar = class _RiggedAvatar {
     m.roughness = 1;
     m.envMapIntensity = 0.8;
     const uniforms = {
-      uSkin: { value: new THREE2.Color() },
+      uSkin: { value: new THREE3.Color() },
       uSkinOn: { value: 0 },
-      uSkinRef: { value: new THREE2.Color(RECOLOR.ref.skin) },
-      uTop: { value: new THREE2.Color() },
+      uSkinRef: { value: new THREE3.Color(RECOLOR.ref.skin) },
+      uTop: { value: new THREE3.Color() },
       uTopOn: { value: 0 },
-      uTopRef: { value: new THREE2.Color(RECOLOR.ref.topColor) },
-      uBottom: { value: new THREE2.Color() },
+      uTopRef: { value: new THREE3.Color(RECOLOR.ref.topColor) },
+      uBottom: { value: new THREE3.Color() },
       uBottomOn: { value: 0 },
-      uBottomRef: { value: new THREE2.Color(RECOLOR.ref.bottomColor) }
+      uBottomRef: { value: new THREE3.Color(RECOLOR.ref.bottomColor) },
+      uShoe: { value: new THREE3.Color() },
+      uShoeOn: { value: 0 },
+      uShoeGold: { value: 0 }
     };
     this.uniforms = uniforms;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
+      shader.vertexShader = shader.vertexShader.replace("#include <common>", "#include <common>\nattribute float aFoot;\nvarying float vFoot;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvFoot = aFoot;");
       shader.fragmentShader = shader.fragmentShader.replace("#include <common>", `#include <common>
           uniform vec3 uSkin, uSkinRef, uTop, uTopRef, uBottom, uBottomRef;
           uniform float uSkinOn, uTopOn, uBottomOn;
+          uniform vec3 uShoe; uniform float uShoeOn, uShoeGold;
+          varying float vFoot;
           vec3 rgb2hsv(vec3 c) {
             vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
             vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
@@ -1645,44 +1809,74 @@ var RiggedAvatar = class _RiggedAvatar {
             if (uBottomOn > 0.5 && isBottom > 0.5) diffuseColor.rgb = uBottom * clamp(lumi(lin) / lumi(uBottomRef), 0.0, 1.6);
             if (uTopOn > 0.5 && isTop > 0.5) diffuseColor.rgb = uTop * clamp(lumi(lin) / lumi(uTopRef), 0.0, 2.2);
             if (uSkinOn > 0.5 && isSkin > 0.5) diffuseColor.rgb = lin * (uSkin / max(uSkinRef, vec3(0.002)));
+            // sneakers: the light parts of anything skinned to the feet
+            float isShoe = step(0.5, vFoot) * step(hsv.y, 0.3) * step(0.5, hsv.z) * (1.0 - isBottom);
+            if (uShoeOn > 0.5 && isShoe > 0.5) diffuseColor.rgb = uShoe * clamp(lumi(lin) / 0.62, 0.0, 1.4);
           }`);
     };
-    m.customProgramCacheKey = () => "rigged-recolor-v1";
+    m.onBeforeCompile = /* @__PURE__ */ ((orig) => (shader) => {
+      orig(shader);
+      shader.fragmentShader = shader.fragmentShader.replace("#include <metalnessmap_fragment>", `#include <metalnessmap_fragment>
+        {
+          vec3 h = rgb2hsv(pow(max(texture2D(map, vMapUv).rgb, 0.0), vec3(1.0 / 2.2)));
+          float shoeMask = step(0.5, vFoot) * step(h.y, 0.3) * step(0.5, h.z);
+          metalnessFactor = mix(metalnessFactor, 1.0, shoeMask * uShoeGold);
+        }`).replace("#include <roughnessmap_fragment>", `#include <roughnessmap_fragment>
+        {
+          vec3 h2 = rgb2hsv(pow(max(texture2D(map, vMapUv).rgb, 0.0), vec3(1.0 / 2.2)));
+          roughnessFactor = mix(roughnessFactor, 0.25, step(0.5, vFoot) * step(h2.y, 0.3) * step(0.5, h2.z) * uShoeGold);
+        }`);
+    })(m.onBeforeCompile);
+    m.customProgramCacheKey = () => "rigged-recolor-v2";
     m.needsUpdate = true;
   }
 };
 var RECOLOR = {
-  ref: { skin: "#613d26", topColor: "#746764", bottomColor: "#fbda53" }
+  ref: { skin: "#613d26", topColor: "#746764", bottomColor: "#fbda53", shoeColor: "#f7f6f2" }
 };
+function markFeet(mesh) {
+  const g = mesh.geometry;
+  if (g.getAttribute("aFoot")) return;
+  const idx = g.getAttribute("skinIndex");
+  const wt = g.getAttribute("skinWeight");
+  const feet = new Set(mesh.skeleton.bones.map((b, i) => /(Foot|Toe)/i.test(b.name) ? i : -1).filter((i) => i >= 0));
+  const out = new Float32Array(idx.count);
+  for (let v = 0; v < idx.count; v++) {
+    let w = 0;
+    for (let k = 0; k < 4; k++) if (feet.has(idx.getComponent(v, k))) w += wt.getComponent(v, k);
+    out[v] = w;
+  }
+  g.setAttribute("aFoot", new THREE3.BufferAttribute(out, 1));
+}
 
 // avatar/js/effects/Confetti.js
-import * as THREE3 from "three";
+import * as THREE4 from "three";
 var Confetti = class {
   constructor(scene, colors, count = 140) {
     this.count = count;
-    const geo = new THREE3.PlaneGeometry(0.035, 0.06);
-    const mat = new THREE3.MeshBasicMaterial({ side: THREE3.DoubleSide, toneMapped: false });
-    this.mesh = new THREE3.InstancedMesh(geo, mat, count);
+    const geo = new THREE4.PlaneGeometry(0.035, 0.06);
+    const mat = new THREE4.MeshBasicMaterial({ side: THREE4.DoubleSide, toneMapped: false });
+    this.mesh = new THREE4.InstancedMesh(geo, mat, count);
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;
     scene.add(this.mesh);
-    const palette = colors.map((c) => new THREE3.Color(c));
+    const palette = colors.map((c) => new THREE4.Color(c));
     this.p = Array.from({ length: count }, (_, i) => {
       this.mesh.setColorAt(i, palette[i % palette.length]);
       return {
-        pos: new THREE3.Vector3(),
-        vel: new THREE3.Vector3(),
-        rot: new THREE3.Euler(),
-        spin: new THREE3.Vector3(),
+        pos: new THREE4.Vector3(),
+        vel: new THREE4.Vector3(),
+        rot: new THREE4.Euler(),
+        spin: new THREE4.Vector3(),
         life: 0
       };
     });
-    this.dummy = new THREE3.Object3D();
+    this.dummy = new THREE4.Object3D();
     this.active = 0;
   }
-  burst(origin = new THREE3.Vector3(0, 1.9, 0)) {
+  burst(origin = new THREE4.Vector3(0, 1.9, 0)) {
     for (const p of this.p) {
-      p.pos.copy(origin).add(new THREE3.Vector3((Math.random() - 0.5) * 0.3, Math.random() * 0.2, (Math.random() - 0.5) * 0.3));
+      p.pos.copy(origin).add(new THREE4.Vector3((Math.random() - 0.5) * 0.3, Math.random() * 0.2, (Math.random() - 0.5) * 0.3));
       const a = Math.random() * Math.PI * 2;
       const r = 0.6 + Math.random() * 1.4;
       p.vel.set(Math.cos(a) * r, 2.2 + Math.random() * 2.4, Math.sin(a) * r * 0.6);
@@ -1745,38 +1939,38 @@ var AvatarBuddy = class {
     this.yaw = 0;
     this.yawTarget = 0;
     this.lookState = sanitizeLook({ ...DEFAULT_LOOK, ...look || {}, character: "human" });
-    this.renderer = new THREE4.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer = new THREE5.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor(0, 0);
-    this.renderer.toneMapping = THREE4.ACESFilmicToneMapping;
+    this.renderer.toneMapping = THREE5.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
-    this.renderer.outputColorSpace = THREE4.SRGBColorSpace;
+    this.renderer.outputColorSpace = THREE5.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.canvas = this.renderer.domElement;
     this.canvas.className = "sparkie-canvas";
     this.canvas.style.touchAction = "pan-y";
-    this.scene = new THREE4.Scene();
-    const pmrem = new THREE4.PMREMGenerator(this.renderer);
+    this.scene = new THREE5.Scene();
+    const pmrem = new THREE5.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     this.scene.environmentIntensity = 0.55;
-    this.scene.add(new THREE4.HemisphereLight(16777215, 14275816, 0.9));
-    const key = new THREE4.DirectionalLight(16774122, 2.3);
+    this.scene.add(new THREE5.HemisphereLight(16777215, 14275816, 0.9));
+    const key = new THREE5.DirectionalLight(16774122, 2.3);
     key.position.set(0.9, 4, 2.6);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     Object.assign(key.shadow.camera, { left: -2, right: 2, top: 2.4, bottom: -0.4, near: 0.5, far: 8 });
     key.shadow.bias = -5e-4;
     key.shadow.normalBias = 0.02;
-    const rim = new THREE4.DirectionalLight(new THREE4.Color(accent), 2);
+    const rim = new THREE5.DirectionalLight(new THREE5.Color(accent), 2);
     rim.position.set(-2.2, 2.2, -2.5);
-    const rim2 = new THREE4.DirectionalLight(16765142, 1.2);
+    const rim2 = new THREE5.DirectionalLight(16765142, 1.2);
     rim2.position.set(2.4, 1.4, -2);
     this.scene.add(key, rim, rim2);
-    const ground = new THREE4.Mesh(new THREE4.PlaneGeometry(6, 6), new THREE4.ShadowMaterial({ opacity: 0.16 }));
+    const ground = new THREE5.Mesh(new THREE5.PlaneGeometry(6, 6), new THREE5.ShadowMaterial({ opacity: 0.16 }));
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
-    this.blob = new THREE4.Mesh(new THREE4.CircleGeometry(0.62, 48), new THREE4.MeshBasicMaterial({
+    this.blob = new THREE5.Mesh(new THREE5.CircleGeometry(0.62, 48), new THREE5.MeshBasicMaterial({
       map: blobTexture(),
       transparent: true,
       depthWrite: false,
@@ -1785,12 +1979,12 @@ var AvatarBuddy = class {
     this.blob.rotation.x = -Math.PI / 2;
     this.blob.position.y = 2e-3;
     this.scene.add(this.blob);
-    this.root = new THREE4.Group();
+    this.root = new THREE5.Group();
     this.scene.add(this.root);
     this._setAvatar(new PlaceholderAvatar({ accent }, this.lookState));
     this._loadModel();
     this.confetti = new Confetti(this.scene, ["#e3000f", "#ffffff", accent, "#ffd23f", "#b8a4ff"], this.reduced ? 40 : 140);
-    this.camera = new THREE4.PerspectiveCamera(28, 1, 0.1, 50);
+    this.camera = new THREE5.PerspectiveCamera(28, 1, 0.1, 50);
     this.bindPointer();
     this.ro = new ResizeObserver(() => this.fit());
     this.mount(host);
@@ -1820,7 +2014,7 @@ var AvatarBuddy = class {
   }
   burst() {
     const top = (this.avatar.height || 2) * this.avatar.object3d.scale.y + 0.1;
-    this.confetti.burst(new THREE4.Vector3(0, top, 0.1));
+    this.confetti.burst(new THREE5.Vector3(0, top, 0.1));
   }
   fit() {
     const w = this.host?.clientWidth || 0, h = this.host?.clientHeight || 0;
@@ -1828,7 +2022,7 @@ var AvatarBuddy = class {
     this.renderer.setSize(w, h, false);
     const cam = this.camera;
     cam.aspect = w / h;
-    const t = Math.tan(THREE4.MathUtils.degToRad(cam.fov / 2));
+    const t = Math.tan(THREE5.MathUtils.degToRad(cam.fov / 2));
     const d = Math.max(FRAME.h / 2 / t, FRAME.w / 2 / (t * cam.aspect));
     cam.position.set(0, FRAME.cy + FRAME.up, d);
     cam.lookAt(0, FRAME.cy, 0);
@@ -1836,8 +2030,8 @@ var AvatarBuddy = class {
   }
   hitTest(e) {
     const r = this.canvas.getBoundingClientRect();
-    const v = new THREE4.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    const ray = new THREE4.Raycaster();
+    const v = new THREE5.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    const ray = new THREE5.Raycaster();
     ray.setFromCamera(v, this.camera);
     const targets = this.avatar.hitObjects || [this.avatar.object3d];
     return ray.intersectObjects(targets, true).length > 0;
@@ -1973,8 +2167,8 @@ function blobTexture() {
   grad.addColorStop(1, "rgba(20,10,30,0)");
   g.fillStyle = grad;
   g.fillRect(0, 0, 128, 128);
-  const tex = new THREE4.CanvasTexture(c);
-  tex.colorSpace = THREE4.SRGBColorSpace;
+  const tex = new THREE5.CanvasTexture(c);
+  tex.colorSpace = THREE5.SRGBColorSpace;
   return tex;
 }
 export {

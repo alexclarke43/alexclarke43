@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { PlaceholderAvatar } from './PlaceholderAvatar.js';
-import { BASE_HEIGHT } from '../look.js';
+import { BASE_HEIGHT, GOLD } from '../look.js';
+import { buildAccessories } from './accessories.js';
 
 /**
  * A rigged character (Mixamo-style skeleton, e.g. "mixamorig:Hips") driven by the
@@ -63,7 +64,9 @@ export class RiggedAvatar {
     this.motion = new THREE.Group(); // body root motion (jumps, spins)
     this.object3d.add(this.motion);
     this.supportsStyle = true;
-    this.styleKeys = ['skin', 'topColor', 'bottomColor']; // what the Style panel can change on this model
+    this.styleKeys = ['skin', 'topColor', 'bottomColor', 'shoeColor', 'extras']; // what the Style panel can change on this model
+    this.extras = ['watch', 'chain', 'bag']; // shades + headphones are part of the model itself
+    this.accessories = [];
     this.style = { ...style };
 
     // Hidden driver: computes poses, never rendered
@@ -75,6 +78,7 @@ export class RiggedAvatar {
     // Model (cloned so several instances can share one download)
     const model = cloneSkinned(gltf.scene);
     this.model = model;
+    model.traverse((o) => { if (o.isSkinnedMesh) markFeet(o); });
     model.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = true;
@@ -165,13 +169,31 @@ export class RiggedAvatar {
     this.style = { ...this.style, ...style };
     const u = this.uniforms;
     if (!u) return;
-    for (const [key, uni] of [['skin', 'uSkin'], ['topColor', 'uTop'], ['bottomColor', 'uBottom']]) {
+    for (const [key, uni] of [['skin', 'uSkin'], ['topColor', 'uTop'], ['bottomColor', 'uBottom'], ['shoeColor', 'uShoe']]) {
       const col = this.style[key];
       const ref = RECOLOR.ref[key];
       const on = !!col && col.toLowerCase() !== ref;
       u[`${uni}On`].value = on ? 1 : 0;
       if (on) u[uni].value.set(col); // THREE.Color.set() converts sRGB hex → linear
     }
+    u.uShoeGold.value = (this.style.shoeColor || '').toLowerCase() === GOLD ? 1 : 0;
+    this._buildAccessories();
+  }
+
+  _buildAccessories() {
+    if (!this.restM) return;
+    for (const a of this.accessories) a.removeFromParent();
+    const B = (n) => this.bones[n];
+    const rest = (b) => this.restM.get(b);
+    const pos = (n) => new THREE.Vector3().setFromMatrixPosition(rest(B(n)));
+    const shoulderW = pos('LeftArm').distanceTo(pos('RightArm'));
+    const anchors = {
+      neck: pos('Neck'), neckR: shoulderW * 0.2, chainZ: shoulderW * 0.3,
+      chest: pos('Spine2').lerp(pos('Neck'), 0.25), torsoW: shoulderW * 0.45, torsoD: shoulderW * 0.4,
+      hipR: pos('RightUpLeg'),
+      wristL: pos('LeftHand'), forearmDirL: pos('LeftHand').sub(pos('LeftForeArm')).normalize(), wristR: shoulderW * 0.085,
+    };
+    this.accessories = buildAccessories(this.style, anchors, { chest: B('Spine2'), forearmL: B('LeftForeArm') }, rest);
   }
 
   dispose() {
@@ -212,6 +234,11 @@ export class RiggedAvatar {
     for (const j of Object.keys(D)) this.R0[j] = this._driverQ(j, new THREE.Quaternion());
     this.hipsDriver0 = this._driverPos('hips', new THREE.Vector3());
     // model bones: rest world (model-space) quaternions and the Hips position
+    this.restM = new Map(); // bone rest transforms in avatar space (for accessories)
+    {
+      const invM = this.object3d.matrixWorld.clone().invert();
+      this.model.traverse((o) => { if (o.isBone) this.restM.set(o, invM.clone().multiply(o.matrixWorld)); });
+    }
     this.W0 = new Map();
     this.model.traverse((o) => { if (o.isBone) o.userData.restQ = o.quaternion.clone(); });
     const inv = this.object3d.getWorldQuaternion(new THREE.Quaternion()).invert();
@@ -369,14 +396,20 @@ export class RiggedAvatar {
       uSkin: { value: new THREE.Color() }, uSkinOn: { value: 0 }, uSkinRef: { value: new THREE.Color(RECOLOR.ref.skin) },
       uTop: { value: new THREE.Color() }, uTopOn: { value: 0 }, uTopRef: { value: new THREE.Color(RECOLOR.ref.topColor) },
       uBottom: { value: new THREE.Color() }, uBottomOn: { value: 0 }, uBottomRef: { value: new THREE.Color(RECOLOR.ref.bottomColor) },
+      uShoe: { value: new THREE.Color() }, uShoeOn: { value: 0 }, uShoeGold: { value: 0 },
     };
     this.uniforms = uniforms;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float aFoot;\nvarying float vFoot;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFoot = aFoot;');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform vec3 uSkin, uSkinRef, uTop, uTopRef, uBottom, uBottomRef;
           uniform float uSkinOn, uTopOn, uBottomOn;
+          uniform vec3 uShoe; uniform float uShoeOn, uShoeGold;
+          varying float vFoot;
           vec3 rgb2hsv(vec3 c) {
             vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
             vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
@@ -400,14 +433,46 @@ export class RiggedAvatar {
             if (uBottomOn > 0.5 && isBottom > 0.5) diffuseColor.rgb = uBottom * clamp(lumi(lin) / lumi(uBottomRef), 0.0, 1.6);
             if (uTopOn > 0.5 && isTop > 0.5) diffuseColor.rgb = uTop * clamp(lumi(lin) / lumi(uTopRef), 0.0, 2.2);
             if (uSkinOn > 0.5 && isSkin > 0.5) diffuseColor.rgb = lin * (uSkin / max(uSkinRef, vec3(0.002)));
+            // sneakers: the light parts of anything skinned to the feet
+            float isShoe = step(0.5, vFoot) * step(hsv.y, 0.3) * step(0.5, hsv.z) * (1.0 - isBottom);
+            if (uShoeOn > 0.5 && isShoe > 0.5) diffuseColor.rgb = uShoe * clamp(lumi(lin) / 0.62, 0.0, 1.4);
           }`);
     };
-    m.customProgramCacheKey = () => 'rigged-recolor-v1';
+    // gold sneakers get a metallic shine (roughness/metalness tweaked only where the shoe mask applies)
+    m.onBeforeCompile = ((orig) => (shader) => {
+      orig(shader);
+      shader.fragmentShader = shader.fragmentShader.replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+        {
+          vec3 h = rgb2hsv(pow(max(texture2D(map, vMapUv).rgb, 0.0), vec3(1.0 / 2.2)));
+          float shoeMask = step(0.5, vFoot) * step(h.y, 0.3) * step(0.5, h.z);
+          metalnessFactor = mix(metalnessFactor, 1.0, shoeMask * uShoeGold);
+        }`).replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        {
+          vec3 h2 = rgb2hsv(pow(max(texture2D(map, vMapUv).rgb, 0.0), vec3(1.0 / 2.2)));
+          roughnessFactor = mix(roughnessFactor, 0.25, step(0.5, vFoot) * step(h2.y, 0.3) * step(0.5, h2.z) * uShoeGold);
+        }`);
+    })(m.onBeforeCompile);
+    m.customProgramCacheKey = () => 'rigged-recolor-v2';
     m.needsUpdate = true;
   }
 }
 
 /** Reference colours of the uploaded model's texture (= the default look, so no recolour by default). */
 export const RECOLOR = {
-  ref: { skin: '#613d26', topColor: '#746764', bottomColor: '#fbda53' },
+  ref: { skin: '#613d26', topColor: '#746764', bottomColor: '#fbda53', shoeColor: '#f7f6f2' },
 };
+
+/** Per-vertex weight of the foot/toe bones → shader attribute `aFoot` (finds the sneakers). */
+function markFeet(mesh) {
+  const g = mesh.geometry;
+  if (g.getAttribute('aFoot')) return;
+  const idx = g.getAttribute('skinIndex'); const wt = g.getAttribute('skinWeight');
+  const feet = new Set(mesh.skeleton.bones.map((b, i) => (/(Foot|Toe)/i.test(b.name) ? i : -1)).filter((i) => i >= 0));
+  const out = new Float32Array(idx.count);
+  for (let v = 0; v < idx.count; v++) {
+    let w = 0;
+    for (let k = 0; k < 4; k++) if (feet.has(idx.getComponent(v, k))) w += wt.getComponent(v, k);
+    out[v] = w;
+  }
+  g.setAttribute('aFoot', new THREE.BufferAttribute(out, 1));
+}

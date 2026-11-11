@@ -300,6 +300,26 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await A(() => window.SparkasseAvatarApp.setLook({ topColor: '#e3000f', bottomColor: '#3d5a80', skin: '#e8b896' }));
       const u = await A(() => { const x = window.SparkasseAvatarApp.avatar.uniforms; return [x.uTopOn.value, x.uBottomOn.value, x.uSkinOn.value]; });
       check('Style colours recolour the model (top, joggers, skin)', u.join() === '1,1,1');
+      await A(() => { localStorage.setItem('sparkasse-avatar-coins', '0'); });
+      await A(() => window.SparkasseAvatarApp.setLook({ shoeColor: '#15131a', watch: true, chain: true, bag: true }));
+      const acc0 = await A(() => window.SparkasseAvatarApp.look);
+      check('locked accessories stay off without coins', !acc0.watch && !acc0.chain && !acc0.bag && acc0.shoeColor === '#15131a');
+      check('sneaker colour recolours the model', (await A(() => window.SparkasseAvatarApp.avatar.uniforms.uShoeOn.value)) === 1);
+      await page.click('#tab-style');
+      check('3D model Style tab has Sneakers + Extras again', (await page.locator('#panel-style [data-key="shoeColor"]').count()) > 0 &&
+        (await page.locator('#panel-style [data-type="toggle"][data-key="watch"]').count()) === 1 &&
+        (await page.locator('#panel-style [data-type="toggle"][data-key="shades"]').count()) === 0);
+      check('accessories show as locked until enough coins', await page.locator('#panel-style [data-key="bag"]').isDisabled());
+      await A(() => window.postMessage({ target: 'sparkasse-avatar', type: 'addCoins', amount: 70 }, '*'));
+      await page.waitForFunction(() => window.SparkasseAvatarApp.coins >= 70, null, { timeout: 5000 }).catch(() => {});
+      check('host can reward coins (addCoins)', (await A(() => window.SparkasseAvatarApp.coins)) === 70);
+      await page.click('#panel-style [data-type="toggle"][data-key="watch"]');
+      await page.click('#panel-style [data-type="toggle"][data-key="chain"]');
+      await page.click('#panel-style [data-type="toggle"][data-key="bag"]');
+      await page.click('#panel-style [data-key="shoeColor"][data-value="#d4af37"]').catch(() => {});
+      const acc1 = await A(() => ({ look: window.SparkasseAvatarApp.look, n: window.SparkasseAvatarApp.avatar.accessories.length, gold: window.SparkasseAvatarApp.avatar.uniforms.uShoeGold.value }));
+      check('unlocked accessories appear on the 3D model (watch, chain, bag)', acc1.look.watch && acc1.look.chain && acc1.look.bag && acc1.n === 3, JSON.stringify(acc1.look));
+      check('gold sneakers stay locked below 80 coins', acc1.gold === 0);
       await A(() => window.SparkasseAvatarApp.setLook({ height: 190 }));
       check('height works on the model', Math.abs((await A(() => window.SparkasseAvatarApp.avatar.object3d.scale.y)) - 190 / 175) < 1e-3);
       await A(() => window.SparkasseAvatarApp.setLook({ body: 'male' }));
@@ -616,6 +636,8 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await hf.waitForFunction(() => document.getElementById('avatar-bubble').textContent.includes('new phone'), null, { timeout: 15000 }).catch(() => {});
       check('avatar speaks English in the app', (await hf.textContent('#avatar-bubble')).includes('new phone'));
       check('rewards: saving €10 earns 20 points', (await page.evaluate(() => demo.points)) === 140);
+      await page.waitForFunction(() => document.getElementById('coins').textContent === '2', null, { timeout: 10000 }).catch(() => {});
+      check('saving €10 also earns 2 avatar coins', (await page.textContent('#coins')) === '2' && (await hf.evaluate(() => window.SparkasseAvatarApp.coins)) === 2);
       await page.click('.rw[data-id="cinema"] button');
       await hf.waitForFunction(() => document.getElementById('avatar-bubble').textContent.includes('Unlocked'), null, { timeout: 15000 }).catch(() => {});
       check('rewards: unlocking spends points, shows a code and the avatar celebrates',

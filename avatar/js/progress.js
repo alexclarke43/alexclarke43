@@ -21,3 +21,15 @@ export function addCoins(n) {
 }
 
 export function onCoins(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+
+// Several avatar frames on one page (e.g. home card + Buddy screen) share the coin balance.
+try {
+  addEventListener('storage', (e) => {
+    if (!persist || e.key !== KEY) return;
+    const next = Math.max(0, parseInt(e.newValue, 10) || 0);
+    if (next === coins) return;
+    const delta = next - coins;
+    coins = next;
+    listeners.forEach((fn) => fn(coins, delta));
+  });
+} catch { /* no window */ }

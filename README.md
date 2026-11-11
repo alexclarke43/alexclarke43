@@ -261,14 +261,17 @@ All options are listed in `avatar/js/look.js`:
 |---|---|
 | `body` | `female` (default) = the 3D model `femaleModel`; `male` = `maleModel` if set, otherwise the built-in character. Switching loads the other avatar live; a downloaded model is cached. |
 | `height` | 150–200 (cm). Scales the whole avatar, 3D model included. |
-| `skin`, `topColor`, `bottomColor` | hex colours. On the 3D model they recolour the skin, crop top and joggers in the shader; the defaults equal the model's own colours. |
-| `hairColor`, `hatColor`, `shoeColor` | hex colours (built-in character only). The UI offers curated palettes, while the API accepts any `#rrggbb`. |
+| `skin`, `topColor`, `bottomColor`, `shoeColor` | hex colours. On the 3D model they recolour the skin, crop top, joggers and sneakers in the shader; the defaults equal the model's own colours. Gold sneakers 🔒80 also get a metallic shine. |
+| `hairColor`, `hatColor` | hex colours (built-in character only). The UI offers curated palettes, while the API accepts any `#rrggbb`. |
 | `hairStyle` | `curls`, `buzz`, `bun`, `long`, `beanie` 🔒50 (built-in character) |
 | `top` | `tank` (default, like the model's top), `hoodie`, `jacket` (bomber), `tee` |
 | `bottom` | `joggers` (default: baggy, knee stripes, cuffs), `cargo`, `jeans`, `shorts`, `skirt` |
-| `shades`, `glasses`, `headphones`, `earring`, `chain` 🔒30 | booleans. Shades and on-head headphones match the 3D model's accessories. |
+| `watch` 🔒20, `chain` 🔒30, `bag` 🔒60 | unlockable accessories (smartwatch, gold chain, crossbody bag). They work on **both** the 3D model and the built-in character (`accessories.js` places them from body anchors and attaches them to the bones). |
+| `shades`, `glasses`, `headphones`, `earring` | booleans (built-in character). The 3D model wears its own shades and headphones. |
 
-On the 3D model the Style tab shows only name, body, height, skin tone, top colour and joggers colour, with a short note. Hairstyles and garments belong to the male (built-in) character.
+On the 3D model the Style tab shows name, body, height, skin tone, top/joggers/sneaker colours and the unlockable accessories (watch, chain, bag), with a short note. Hairstyles and garments belong to the male (built-in) character.
+
+**Earning coins:** coins come from the games, from watching learn clips in the feed, and from the platform. `avatar.addCoins(n)` (helper) or the `addCoins` message rewards real behaviour. The banking prototype gives **1 coin per €5 saved**, so the more you save, the more you unlock. Coins are shared by all avatar frames on a page.
 
 🔒 = unlocked with coins earned in the games. Gold sneakers cost 80. To add or rename options, edit `OPTIONS`/`PALETTES` in `look.js`. To add new geometry, edit the matching `_build…` method in `PlaceholderAvatar.js`. Changing the look rebuilds the meshes, so running animations keep playing.
 

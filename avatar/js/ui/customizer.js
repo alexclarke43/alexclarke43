@@ -21,8 +21,8 @@ const TXT = {
   reset: { en: '↺ Reset', de: '↺ Zurücksetzen' },
   locked: { en: 'Earn {n} coins in Play to unlock', de: 'Sammle {n} Coins unter „Spielen“, um das freizuschalten' },
   modelNote: {
-    en: 'This 3D model keeps its outfit – skin tone and clothing colours can be changed. Male uses the built-in character with the full wardrobe.',
-    de: 'Dieses 3D-Modell behält sein Outfit – Hautton und Kleidungsfarben lassen sich ändern. „Männlich“ nutzt die eingebaute Figur mit allen Outfits.',
+    en: 'This 3D model keeps its hair, shades and headphones – change skin tone, colours, sneakers and unlock accessories. Male uses the built-in character with the full wardrobe.',
+    de: 'Dieses 3D-Modell behält Frisur, Sonnenbrille und Kopfhörer – ändere Hautton, Farben, Sneaker und schalte Accessoires frei. „Männlich“ nutzt die eingebaute Figur mit allen Outfits.',
   },
   glbNote: {
     en: 'Hair and outfit options are available for the built-in avatar. Height works for every model.',
@@ -34,7 +34,7 @@ const TXT = {
  * Renders the "Style" panel. All changes go through setLook(partial) → the app
  * rebuilds the avatar, saves the look and notifies the host page.
  */
-export function createCustomizer(root, { lang, getLook, setLook, getCoins, supportsStyle, styleKeys = () => null, supportsHeight = () => true, canSwitchCharacter = () => false, canSwitchBody = () => true }) {
+export function createCustomizer(root, { lang, getLook, setLook, getCoins, supportsStyle, styleKeys = () => null, supportedExtras = () => null, supportsHeight = () => true, canSwitchCharacter = () => false, canSwitchBody = () => true }) {
   // `lang` may be a string or a function (so the language can change at runtime)
   const lng = () => (typeof lang === 'function' ? lang() : lang);
   const t = (k, n) => (TXT[k][lng()] ?? TXT[k].en).replace('{n}', n);
@@ -102,7 +102,7 @@ export function createCustomizer(root, { lang, getLook, setLook, getCoins, suppo
         ${sec(has('top') || has('topColor'), `<section class="cz-sec"><h3>${t('top')}</h3>${has('top') ? chips('top', OPTIONS.top, L.top) : ''}${swatches('topColor', L.topColor)}</section>`)}
         ${sec(has('bottom') || has('bottomColor'), `<section class="cz-sec"><h3>${t('bottom')}</h3>${has('bottom') ? chips('bottom', OPTIONS.bottom, L.bottom) : ''}${swatches('bottomColor', L.bottomColor)}</section>`)}
         ${sec(has('shoeColor'), `<section class="cz-sec"><h3>${t('shoes')}</h3>${swatches('shoeColor', L.shoeColor)}</section>`)}
-        ${sec(has('extras'), `<section class="cz-sec"><h3>${t('extras')}</h3>${chips('extras', OPTIONS.extras, null, true)}</section>`)}
+        ${sec(has('extras'), `<section class="cz-sec"><h3>${t('extras')}</h3>${chips('extras', OPTIONS.extras.filter((o) => !supportedExtras() || supportedExtras().includes(o.id)), null, true)}</section>`)}
       </div>`;
   }
 
