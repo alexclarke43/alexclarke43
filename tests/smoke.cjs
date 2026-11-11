@@ -426,6 +426,72 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await ctx.close();
     }
 
+    console.log('Language switch (EN ⇄ DE)');
+    {
+      const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&persist=0&lang=en&tab=play');
+      check('starts in English', (await page.textContent('#tab-play')).includes('Play'));
+      await page.click('[data-start="quiz"]');
+      const correct = await page.evaluate(() => window.SparkasseAvatarApp.games.state.game.items[0].correct);
+      await page.click(`[data-answer="${correct}"]`);
+      const coinsBefore = await page.evaluate(() => window.SparkasseAvatarApp.coins);
+      const qEn = await page.textContent('.gm-q');
+      await page.evaluate(() => window.SparkasseAvatarApp.setLang('de'));
+      check('tabs relabel live', (await page.textContent('#tab-play')).includes('Spielen') && (await page.textContent('#tab-react')).includes('Reagieren'));
+      const qDe = await page.textContent('.gm-q');
+      check('running quiz question switches language', qDe !== qEn, qDe.slice(0, 40));
+      check('answered state + explanation kept', await page.locator('.gm-feedback').isVisible() && (await page.locator('.gm-answer.is-correct').count()) === 1);
+      check('"Next" button translated', (await page.textContent('.gm-next')).includes('Weiter'));
+      check('no coins re-awarded on switch', (await page.evaluate(() => window.SparkasseAvatarApp.coins)) === coinsBefore);
+      await page.click('#tab-react');
+      check('reaction buttons relabel', (await page.locator('.avatar-btn').allTextContents()).some((l) => l.includes('Feiern')));
+      await page.click('#tab-style');
+      check('style panel relabels', (await page.textContent('#panel-style')).includes('Größe'));
+      check('html lang updated', (await page.evaluate(() => document.documentElement.lang)) === 'de');
+      check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+    {
+      const ctx = await browser.newContext({ viewport: { width: 500, height: 900 } });
+      const page = await ctx.newPage();
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(`${base}/examples/sparkasse-app.html?lang=de`);
+      const homeFrame = async () => {
+        for (let i = 0; i < 150; i++) {
+          const f = page.frames().find((fr) => fr.url().includes('ui=false'));
+          if (f && await f.evaluate(() => !!window.SparkasseAvatarApp).catch(() => false)) return f;
+          await page.waitForTimeout(200);
+        }
+      };
+      const hf = await homeFrame();
+      check('banking prototype starts in German', (await page.textContent('[data-i18n="account"]')) === 'Girokonto' && (await page.textContent('#balance')).includes('1.248,50'));
+      await page.click('.lang [data-lang="en"]');
+      check('EN switch: app texts', (await page.textContent('[data-i18n="account"]')) === 'Current account' && (await page.textContent('[data-i18n="navHome"]')) === 'Home');
+      check('EN switch: number format', (await page.textContent('#balance')).includes('1,248.50'));
+      await hf.waitForFunction(() => document.documentElement.lang === 'en', null, { timeout: 15000 }).catch(() => {});
+      check('EN switch reaches the avatar', (await hf.evaluate(() => window.SparkasseAvatarApp.config.lang)) === 'en');
+      await page.click('[data-add="10"]');
+      await hf.waitForFunction(() => document.getElementById('avatar-bubble').textContent.includes('new phone'), null, { timeout: 15000 }).catch(() => {});
+      check('avatar speaks English in the app', (await hf.textContent('#avatar-bubble')).includes('new phone'));
+      await page.click('[data-screen="buddy"]');
+      let ff;
+      for (let i = 0; i < 150 && !ff; i++) {
+        const f = page.frames().find((fr) => fr.url().includes('tabs=react'));
+        if (f && await f.evaluate(() => !!window.SparkasseAvatarApp).catch(() => false)) ff = f; else await page.waitForTimeout(200);
+      }
+      await ff.waitForFunction(() => document.getElementById('tab-play')?.textContent.includes('Play'), null, { timeout: 15000 }).catch(() => {});
+      check('Buddy tab opens in English', (await ff.textContent('#tab-play')).includes('Play'));
+      await page.click('.lang [data-lang="de"]');
+      await ff.waitForFunction(() => document.getElementById('tab-play').textContent.includes('Spielen'), null, { timeout: 15000 }).catch(() => {});
+      check('DE switch reaches the Buddy tab live', (await ff.textContent('#tab-play')).includes('Spielen'));
+      await page.click('.lang [data-lang="en"]');
+      await page.goto(`${base}/examples/sparkasse-app.html`); // no ?lang → saved choice wins
+      await page.waitForFunction(() => document.querySelector('[data-i18n="account"]').textContent !== '');
+      check('language choice remembered across visits', (await page.textContent('[data-i18n="account"]')) === 'Current account');
+      check('no page errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
     console.log('GLB model support');
     {
       const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&model=/test-model.glb');

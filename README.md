@@ -105,6 +105,7 @@ Commands sent before the iframe is ready are queued automatically.
 | `reset()` | Spin the avatar back to face the user |
 | `setLook(partialLook)` | Change the outfit, e.g. `{ hairStyle: 'bun', top: 'tee', topColor: '#7cf5d0', height: 168 }` |
 | `openTab(tab)` | `react`, `style` or `play` |
+| `setLang(lang)` | `en` or `de`. Switches all avatar texts **live**: tabs, buttons, Style panel, games (even mid-quiz). The look, coins and a running game are kept. |
 | `startGame(game)` | `quiz` or `sort` (Need or Want?) |
 | `on(type, fn)` | Events: `ready`, `reaction`, `tap`, `look`, `game`, `coins`, `tab`, `error`, `*`. Returns an unsubscribe function. |
 
@@ -162,7 +163,7 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 |---|---|---|
 | `model` | *(empty)* | URL of a `.glb` / `.gltf`. Empty means the built-in placeholder. |
 | `clips` | – | JSON map from reaction to clip name, e.g. `{"greet":"Wave_01","celebrate":"Victory"}` |
-| `lang` | `en` | `en` or `de` (buttons, bubbles, hint) |
+| `lang` | `en` | `en` or `de` (buttons, bubbles, hint, games). Can be changed later with `setLang()`. |
 | `ui` | `true` | Show the tab dock (buttons, Style, Play). Set `0` for a pure avatar. |
 | `character` | – | `human` or `sparkie`. Overrides the user's saved choice. |
 | `reactions` | `greet,celebrate,coin,nod,shrug,dance` | Which buttons to show, in order. Reactions the current character can't do are skipped (🪙 `coin` is Sparkie-only). |
@@ -181,6 +182,14 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 | `parentOrigin` | `*` | Only accept messages from (and send to) this origin. The helper sets it automatically. |
 
 Booleans accept `0/1`, `true/false`, `on/off`.
+
+## 4a. Banking-app prototype
+
+`examples/sparkasse-app.html` is a phone-style prototype of a banking app with the avatar built in (demo data, no logins, no official logos). It shows:
+
+* the avatar on the Start screen reacting to the app: saving catches a coin, reaching the goal celebrates, tapping a transaction gives a tip
+* the full avatar (React / Style / Play) in a Buddy tab, kept in sync with the Start screen
+* an **EN / DE switch** in the header. On first visit it uses `?lang=`, then the saved choice, then the browser language. Switching updates texts and number formats (`1.248,50 €` ↔ `€1,248.50`) and both avatars live through `setLang()`.
 
 ## 4b. Replacing Sparkie in the platform (drop-in)
 
@@ -311,6 +320,7 @@ The test starts its own server and checks in Chromium:
 * Sparkie: every button mapped to the right Sparkie move, its own confetti, drag, the coin reward in the quiz, switching characters both ways, and the original standalone `new Sparkie(host)` API
 * a full Money Quiz round (feedback, coins, streak bonus, avatar reactions), a full Need-or-Want round, and coins unlocking the beanie
 * GLB loading with clip mapping and fallbacks, and fallback to the placeholder when a model is missing
+* the live language switch: tabs, buttons, Style panel and a running quiz relabel without losing state or re-awarding coins; the banking prototype's EN/DE switch reaches both avatars and is remembered
 * both iframe integration options, including the postMessage round-trip, `setLook`, `startGame` and game events
 
 ## 10. Notes and next steps

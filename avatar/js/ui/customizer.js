@@ -28,8 +28,10 @@ const TXT = {
  * rebuilds the avatar, saves the look and notifies the host page.
  */
 export function createCustomizer(root, { lang, getLook, setLook, getCoins, supportsStyle, supportsHeight = () => true, canSwitchCharacter = () => false }) {
-  const t = (k, n) => (TXT[k][lang] ?? TXT[k].en).replace('{n}', n);
-  const label = (o) => o.label[lang] ?? o.label.en;
+  // `lang` may be a string or a function (so the language can change at runtime)
+  const lng = () => (typeof lang === 'function' ? lang() : lang);
+  const t = (k, n) => (TXT[k][lng()] ?? TXT[k].en).replace('{n}', n);
+  const label = (o) => o.label[lng()] ?? o.label.en;
 
   function lockAttrs(cost) {
     if (!cost || cost <= getCoins()) return '';

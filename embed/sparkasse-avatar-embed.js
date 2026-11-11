@@ -74,9 +74,11 @@
       setLook: function (look) { post({ type: 'setLook', look: look }); },
       /** tab: 'react' | 'style' | 'play' */
       openTab: function (tab) { post({ type: 'openTab', tab: tab }); },
+      /** lang: 'en' | 'de' – switches the avatar's UI language live */
+      setLang: function (lang) { post({ type: 'setLang', lang: lang }); },
       /** game: 'quiz' | 'sort' */
       startGame: function (game) { post({ type: 'startGame', game: game }); },
-      /** events: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'error' | '*' – returns an unsubscribe function */
+      /** events: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'lang' | 'character' | 'error' | '*' – returns an unsubscribe function */
       on: function (type, fn) {
         (listeners[type] = listeners[type] || []).push(fn);
         return function () { listeners[type] = listeners[type].filter(function (f) { return f !== fn; }); };

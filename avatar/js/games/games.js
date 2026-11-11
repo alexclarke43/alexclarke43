@@ -47,8 +47,10 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
  * react(reaction, text) makes the avatar respond; onEvent(type, payload) informs the host page.
  */
 export function createGames(root, { lang, react, onEvent, getCoins, addCoins }) {
-  const t = (k, vars = {}) => Object.entries(vars).reduce((s, [k2, v]) => s.replace(`{${k2}}`, v), TXT[k][lang] ?? TXT[k].en);
-  const L = (o) => o[lang] ?? o.en;
+  // `lang` may be a string or a function (so the language can change at runtime)
+  const lng = () => (typeof lang === 'function' ? lang() : lang);
+  const t = (k, vars = {}) => Object.entries(vars).reduce((s, [k2, v]) => s.replace(`{${k2}}`, v), TXT[k][lng()] ?? TXT[k].en);
+  const L = (o) => o[lng()] ?? o.en;
   const state = { screen: 'menu', game: null };
 
   const bestKey = (g) => `sparkasse-avatar-best-${g}`;
@@ -64,7 +66,7 @@ export function createGames(root, { lang, react, onEvent, getCoins, addCoins }) 
     const items = [
       ...OPTIONS.hairStyle.filter((o) => o.unlock).map((o) => ({ n: o.unlock, item: L(o.label) })),
       ...OPTIONS.extras.filter((o) => o.unlock).map((o) => ({ n: o.unlock, item: L(o.label) })),
-      ...PALETTES.shoeColor.filter((c) => typeof c === 'object').map((c) => ({ n: c.unlock, item: lang === 'de' ? 'Gold-Sneaker' : 'Gold sneakers' })),
+      ...PALETTES.shoeColor.filter((c) => typeof c === 'object').map((c) => ({ n: c.unlock, item: lng() === 'de' ? 'Gold-Sneaker' : 'Gold sneakers' })),
     ].sort((a, b) => a.n - b.n);
     const next = items.find((i) => i.n > getCoins());
     return next ? t('nextUnlock', next) : t('allUnlocked');
@@ -120,7 +122,6 @@ export function createGames(root, { lang, react, onEvent, getCoins, addCoins }) 
 
   function renderQuestion() {
     const g = state.game;
-    g.answered = false;
     const item = g.items[g.i];
     if (g.id === 'quiz') {
       root.innerHTML = `<div class="gm gm-play">${header()}
@@ -141,12 +142,11 @@ export function createGames(root, { lang, react, onEvent, getCoins, addCoins }) 
     root.scrollTop = 0;
   }
 
-  function answer(isRight, chosenBtn, correctBtn, explanation) {
+  /** Score an answer. `explain` is a function so the tip can be re-rendered in another language. */
+  function answer(isRight, chosenSel, correctSel, explain) {
     const g = state.game;
     g.answered = true;
-    root.querySelectorAll('.gm-answer').forEach((b) => { b.disabled = true; });
-    chosenBtn.classList.add(isRight ? 'is-correct' : 'is-wrong');
-    correctBtn?.classList.add('is-correct');
+    g.marked = { isRight, chosenSel, correctSel, explain };
     const per = COINS[g.id];
     if (isRight) {
       g.score++;
@@ -164,21 +164,34 @@ export function createGames(root, { lang, react, onEvent, getCoins, addCoins }) 
       g.streak = 0;
       react('shrug', t('sayWrong'));
     }
-    root.querySelector('.gm-earned').textContent = `🪙 +${g.earned}`;
     onEvent('game', { game: g.id, phase: 'answer', correct: isRight, index: g.i });
+    markAnswered(true);
+  }
 
+  /** UI part of an answer (no scoring) – also used to re-render after a language switch. */
+  function markAnswered(focus) {
+    const g = state.game;
+    const m = g.marked;
+    root.querySelectorAll('.gm-answer').forEach((b) => { b.disabled = true; });
+    root.querySelector(m.chosenSel)?.classList.add(m.isRight ? 'is-correct' : 'is-wrong');
+    root.querySelector(m.correctSel)?.classList.add('is-correct');
+    root.querySelector('.gm-earned').textContent = `🪙 +${g.earned}`;
     const fb = root.querySelector('.gm-feedback');
     const last = g.i === g.items.length - 1;
-    fb.innerHTML = `<p>${esc(explanation)}</p><button type="button" class="gm-next" data-act="next">${last ? t('finish') : t('next')}</button>`;
+    fb.innerHTML = `<p>${esc(m.explain())}</p><button type="button" class="gm-next" data-act="next">${last ? t('finish') : t('next')}</button>`;
     fb.hidden = false;
-    fb.classList.toggle('is-right', isRight);
-    fb.querySelector('.gm-next').focus({ preventScroll: true });
-    fb.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    fb.classList.toggle('is-right', m.isRight);
+    if (focus) {
+      fb.querySelector('.gm-next').focus({ preventScroll: true });
+      fb.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   function next() {
     const g = state.game;
     g.i++;
+    g.answered = false;
+    g.marked = null;
     if (g.i >= g.items.length) return showResult();
     renderQuestion();
   }
@@ -188,9 +201,21 @@ export function createGames(root, { lang, react, onEvent, getCoins, addCoins }) 
     state.screen = 'result';
     const ratio = g.score / g.items.length;
     setBest(g.id, g.score, g.items.length);
-    const msg = ratio >= 0.75 ? t('resultGreat') : ratio >= 0.5 ? t('resultOk') : t('resultLow');
+    const msg = resultMsg();
     react(ratio >= 0.75 ? 'celebrate' : ratio >= 0.5 ? 'dance' : 'greet', `${g.score}/${g.items.length} – ${msg}`);
     onEvent('game', { game: g.id, phase: 'end', score: g.score, total: g.items.length, coinsEarned: g.earned, coins: getCoins() });
+    renderResult();
+  }
+
+  function resultMsg() {
+    const g = state.game;
+    const ratio = g.score / g.items.length;
+    return ratio >= 0.75 ? t('resultGreat') : ratio >= 0.5 ? t('resultOk') : t('resultLow');
+  }
+
+  function renderResult() {
+    const g = state.game;
+    const msg = resultMsg();
     root.innerHTML = `<div class="gm gm-result">
         <div class="gm-score"><b>${g.score}</b><span>/${g.items.length}</span></div>
         <p class="gm-msg">${esc(msg)}</p>
@@ -214,15 +239,25 @@ export function createGames(root, { lang, react, onEvent, getCoins, addCoins }) 
     const item = g.items[g.i];
     if (btn.dataset.answer != null) {
       const k = Number(btn.dataset.answer);
-      answer(k === item.correct, btn, root.querySelector(`[data-answer="${item.correct}"]`), L(item.why));
+      answer(k === item.correct, `[data-answer="${k}"]`, `[data-answer="${item.correct}"]`, () => L(item.why));
     } else if (btn.dataset.sort) {
       const saidNeed = btn.dataset.sort === 'need';
       const right = saidNeed === item.need;
-      const tip = right ? (item.need ? t('isNeed') : t('isWant')) : (item.need ? t('wrongNeed') : t('wrongWant'));
-      answer(right, btn, root.querySelector(`[data-sort="${item.need ? 'need' : 'want'}"]`), tip);
+      const tip = () => (right ? (item.need ? t('isNeed') : t('isWant')) : (item.need ? t('wrongNeed') : t('wrongWant')));
+      answer(right, `[data-sort="${btn.dataset.sort}"]`, `[data-sort="${item.need ? 'need' : 'want'}"]`, tip);
     }
   });
 
   showMenu();
-  return { state, showMenu, startGame, refresh: () => { if (state.screen === 'menu') showMenu(); } };
+  /** Re-render the current screen (e.g. after a language switch) without changing game state. */
+  function relabel() {
+    if (state.screen === 'menu') return showMenu();
+    if (state.screen === 'result') return renderResult();
+    const scroll = root.scrollTop;
+    renderQuestion();
+    if (state.game.answered) markAnswered(false);
+    root.scrollTop = scroll;
+  }
+
+  return { state, showMenu, startGame, relabel, refresh: () => { if (state.screen === 'menu') showMenu(); } };
 }

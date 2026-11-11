@@ -40,6 +40,7 @@ const bridge = createBridge({
     reset: () => controls?.reset(),
     setLook: (d) => setLook(d.look || {}),
     openTab: (d) => openTab(d.tab),
+    setLang: (d) => setLang(d.lang),
     startGame: (d) => { if (openTab('play')) games?.startGame(d.game); },
   },
 });
@@ -106,7 +107,7 @@ async function boot() {
   if (!cfg.hint) hintEl.hidden = true;
 
   window.SparkasseAvatarApp = {
-    play, say, setLook, openTab,
+    play, say, setLook, openTab, setLang,
     reset: () => controls.reset(),
     get look() { return { ...look }; },
     get coins() { return getCoins(); },
@@ -304,7 +305,7 @@ function buildDock() {
   buildButtons();
   if (cfg.tabs.includes('style')) {
     customizer = createCustomizer($('panel-style'), {
-      lang: cfg.lang,
+      lang: () => cfg.lang,
       getLook: () => look,
       setLook: (partial, opts = {}) => setLook(partial, { ...opts, fromPanel: true }),
       getCoins,
@@ -315,7 +316,7 @@ function buildDock() {
   }
   if (cfg.tabs.includes('play')) {
     games = createGames($('panel-play'), {
-      lang: cfg.lang,
+      lang: () => cfg.lang,
       react: (reaction, text) => play(reaction, { text }),
       onEvent: (type, payload) => bridge.emit(type, payload),
       getCoins,
@@ -356,6 +357,24 @@ function buildButtons() {
     btn.addEventListener('click', () => { hideHint(); play(name); });
     actionsEl.append(btn);
   }
+}
+
+/** Switch the UI language at runtime ('en' | 'de'). Look, coins and a running game are kept. */
+function setLang(lang) {
+  const l = lang === 'de' ? 'de' : 'en';
+  if (l === cfg.lang) return false;
+  cfg.lang = l;
+  document.documentElement.lang = l;
+  hintEl.textContent = t(UI_TEXT.hint);
+  for (const id of cfg.tabs) {
+    const b = $(`tab-${id}`);
+    if (b) b.lastChild.textContent = t(TABS[id].label);
+  }
+  if (cfg.ui) buildButtons();
+  customizer?.render();
+  games?.relabel();
+  bridge.emit('lang', { lang: l });
+  return true;
 }
 
 function setActiveButton(name) {

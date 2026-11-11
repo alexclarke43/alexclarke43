@@ -7,6 +7,7 @@
  *                 { target: 'sparkasse-avatar', type: 'setLook', look: { hairStyle: 'bun', height: 168, … } }
  *                 { target: 'sparkasse-avatar', type: 'openTab', tab: 'react' | 'style' | 'play' }
  *                 { target: 'sparkasse-avatar', type: 'startGame', game: 'quiz' | 'sort' }
+ *                 { target: 'sparkasse-avatar', type: 'setLang', lang: 'en' | 'de' }
  * Avatar → host:  { source: 'sparkasse-avatar', type: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'error', … }
  *
  * The same events are also dispatched on window as `sparkasse-avatar:<type>` CustomEvents.
