@@ -273,6 +273,16 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.waitForFunction(() => window.SparkasseAvatarApp.avatar, null, { timeout: 30000 });
       const A = (fn, arg) => page.evaluate(fn, arg);
       check('default avatar is the rigged 3D model', (await A(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'RiggedAvatar');
+      // a look saved by an older version (built-in character) must not hide the new avatar; the name survives
+      await A(() => localStorage.setItem('sparkasse-avatar-look', JSON.stringify({ name: 'Lexy', body: 'female', hairStyle: 'long', top: 'tee', bottom: 'shorts', topColor: '#7cf5d0', height: 170 })));
+      await page.goto(`${base}/avatar/index.html?autoGreet=0`);
+      await page.waitForFunction(() => window.SparkasseAvatarApp?.avatar, null, { timeout: 30000 });
+      const migrated = await A(() => ({ kind: window.SparkasseAvatarApp.avatar.constructor.name, look: window.SparkasseAvatarApp.look }));
+      check('old saved look migrates to the new avatar (keeps name + height)', migrated.kind === 'RiggedAvatar' && migrated.look.name === 'Lexy' && migrated.look.height === 170 && migrated.look.top === 'tank' && migrated.look.topColor === '#746764', JSON.stringify(migrated.look));
+      check('modules are cache-busted via the import map', await A(() => performance.getEntriesByType('resource').some((r) => /\/js\/look\.js\?v=/.test(r.name))));
+      await A(() => localStorage.clear());
+      await page.goto(`${base}/avatar/index.html?autoGreet=0&persist=0`);
+      await page.waitForFunction(() => window.SparkasseAvatarApp?.avatar, null, { timeout: 30000 });
       check('model normalised to the stage', await A(() => { const a = window.SparkasseAvatarApp.avatar; const h = a.bones.Head.getWorldPosition(a.bones.Head.position.clone()).y; return h > 1.2 && h < 2.0; }));
       const armQ = () => A(() => window.SparkasseAvatarApp.avatar.bones.RightArm.quaternion.toArray().map((v) => +v.toFixed(3)).join());
       const restArm = await armQ();

@@ -148,9 +148,18 @@ export function randomLook(coins = 0) {
 
 // --- persistence (localStorage may be blocked in third-party iframes → fail silently)
 const KEY = 'sparkasse-avatar-look';
+// Bump when the default avatar changes: older saved looks keep only the name and height,
+// so returning users see the new avatar instead of their old outfit.
+export const LOOK_VERSION = 2;
 export function loadSavedLook() {
-  try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+  try {
+    const s = localStorage.getItem(KEY);
+    if (!s) return null;
+    const saved = JSON.parse(s);
+    if (saved?.v === LOOK_VERSION) return saved;
+    return { name: saved?.name, height: saved?.height };
+  } catch { return null; }
 }
 export function saveLook(look) {
-  try { localStorage.setItem(KEY, JSON.stringify(look)); } catch { /* ignore */ }
+  try { localStorage.setItem(KEY, JSON.stringify({ ...look, v: LOOK_VERSION })); } catch { /* ignore */ }
 }

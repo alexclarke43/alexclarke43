@@ -370,6 +370,8 @@ Tips: keep models under about 5 MB and textures at 1024 px or smaller, and use `
 * **Transparent background**: use `bg=transparent`. The iframe then blends into the host page.
 * **Performance**: rendering pauses when the tab is hidden, and the pixel ratio is capped at 2. The placeholder needs no downloads beyond Three.js (≈0.85 MB minified, cacheable).
 * **Browser support**: current Chrome, Edge, Firefox and Safari (iOS 16.4+), because import maps and WebGL 2 are required.
+* **Updates and caching**: run `npm run stamp` before publishing. It writes a version into the import map of `avatar/index.html` (every module becomes `file.js?v=…`) and into the example pages, so phones never mix cached old files with new ones. Saved looks carry a `LOOK_VERSION` (`look.js`). Bump it when the default avatar changes, and older saved looks then keep only the name and height.
+* **The 3D model** adds a one-time ≈3 MB download, cached afterwards. The male built-in character needs none.
 
 ## 9. Tests
 
