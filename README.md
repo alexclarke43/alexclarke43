@@ -189,6 +189,7 @@ Booleans accept `0/1`, `true/false`, `on/off`.
 
 * the avatar on the Start screen reacting to the app: saving catches a coin, reaching the goal celebrates, tapping a transaction gives a tip
 * the full avatar (React / Style / Play) in a Buddy tab, kept in sync with the Start screen
+* a **Rewards** section: saving earns 2 points per €1 and card payments earn 1 point per €1 (try *Pay by card (demo)*). Points unlock perks for concerts, events and shopping, filterable by category. Unlocking shows a voucher code and the avatar celebrates. All partners and codes are made up; the data lives in `REWARDS` in the page script.
 * an **EN / DE switch** in the header. On first visit it uses `?lang=`, then the saved choice, then the browser language. Switching updates texts and number formats (`1.248,50 €` ↔ `€1,248.50`) and both avatars live through `setLang()`.
 
 ## 4b. Replacing Sparkie in the platform (drop-in)

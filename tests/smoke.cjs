@@ -473,6 +473,19 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.click('[data-add="10"]');
       await hf.waitForFunction(() => document.getElementById('avatar-bubble').textContent.includes('new phone'), null, { timeout: 15000 }).catch(() => {});
       check('avatar speaks English in the app', (await hf.textContent('#avatar-bubble')).includes('new phone'));
+      check('rewards: saving €10 earns 20 points', (await page.evaluate(() => demo.points)) === 140);
+      await page.click('.rw[data-id="cinema"] button');
+      await hf.waitForFunction(() => document.getElementById('avatar-bubble').textContent.includes('Unlocked'), null, { timeout: 15000 }).catch(() => {});
+      check('rewards: unlocking spends points, shows a code and the avatar celebrates',
+        (await page.evaluate(() => demo.points)) === 20 && (await page.textContent('.rw[data-id="cinema"] .code')).startsWith('DEMO-') &&
+        (await hf.textContent('#avatar-bubble')).includes('Unlocked'));
+      check('rewards: locked rewards are disabled', await page.isDisabled('.rw[data-id="twoforone"] button'));
+      const txBefore = await page.locator('#tx li').count();
+      await page.click('#card-pay');
+      check('rewards: card payment adds a transaction and points', (await page.locator('#tx li').count()) === txBefore + 1 && (await page.evaluate(() => demo.points)) === 24);
+      await page.click('#rw-chips [data-cat="concerts"]');
+      check('rewards: category filter', (await page.locator('#rw-list .rw').count()) === 2);
+      await page.click('#rw-chips [data-cat="all"]');
       await page.click('[data-screen="buddy"]');
       let ff;
       for (let i = 0; i < 150 && !ff; i++) {

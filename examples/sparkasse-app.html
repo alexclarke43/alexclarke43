@@ -132,6 +132,34 @@
     .learn p { margin: 2px 0 0; font-size: 13px; opacity: .8; }
     .learn .pill { background: #fff; color: var(--ink); white-space: nowrap; }
 
+    /* ---------- rewards ---------- */
+    .rw-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .rw-head .sub { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .points { background: linear-gradient(135deg, #ffd76a, #ffb648); color: #4a2a00; border-radius: 99px; padding: 6px 12px; font-weight: 800; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .points.bump { animation: bump .5s; }
+    @keyframes bump { 40% { transform: scale(1.18); } }
+    .earn { display: flex; gap: 6px; margin: 10px 0 0; flex-wrap: wrap; }
+    .earn span { background: #f5f5f7; border-radius: 10px; padding: 5px 8px; font-size: 12px; font-weight: 700; color: #3a3a40; }
+    .chips { display: flex; gap: 6px; margin: 12px 0 2px; overflow-x: auto; scrollbar-width: none; }
+    .chips button { border: 0; border-radius: 99px; padding: 7px 12px; font-size: 13px; font-weight: 700; background: #f5f5f7; color: var(--ink); white-space: nowrap; }
+    .chips button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+    .rw-list { display: flex; gap: 10px; overflow-x: auto; padding: 10px 2px 6px; margin: 0 -2px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+    .rw { flex: 0 0 168px; scroll-snap-align: start; border-radius: 18px; padding: 12px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--line); display: flex; flex-direction: column; gap: 6px; }
+    .rw .art { height: 64px; border-radius: 12px; display: grid; place-items: center; font-size: 32px; }
+    .rw[data-cat="concerts"] .art { background: linear-gradient(135deg, #ffe0ec, #e9dcff); }
+    .rw[data-cat="events"] .art { background: linear-gradient(135deg, #dffaf1, #dcecff); }
+    .rw[data-cat="shopping"] .art { background: linear-gradient(135deg, #fff1d6, #ffe1e1); }
+    .rw b { font-size: 14px; line-height: 1.25; }
+    .rw small { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+    .rw .mini { height: 6px; background: #f1eded; border-radius: 99px; overflow: hidden; margin-top: auto; }
+    .rw .mini div { height: 100%; background: linear-gradient(90deg, #ffb648, #ffd76a); border-radius: inherit; }
+    .rw .cost { font-size: 12px; font-weight: 700; color: #3a3a40; }
+    .rw button { border: 0; border-radius: 12px; padding: 8px; font-weight: 800; font-size: 13px; background: var(--red); color: #fff; }
+    .rw button:disabled { background: #f1eded; color: var(--muted); cursor: default; }
+    .rw.done { box-shadow: inset 0 0 0 2px #0b8a55; }
+    .rw .code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 800; background: #e8f7ef; color: #0b6b43; border-radius: 10px; padding: 7px; text-align: center; }
+    .card-pay { width: 100%; margin-top: 8px; min-height: 42px; }
+
     #screen-buddy { display: flex; flex-direction: column; }
     #avatar-full { flex: 1; min-height: 0; }
 
@@ -207,6 +235,23 @@
         </div>
       </section>
 
+      <section class="card" id="rewards">
+        <div class="rw-head">
+          <div><h2 data-i18n="rwTitle"></h2><div class="sub" data-i18n="rwSub"></div></div>
+          <div class="points" id="points" aria-live="polite"></div>
+        </div>
+        <div class="earn"><span id="earn-save"></span><span id="earn-card"></span></div>
+        <div class="chips" role="group" id="rw-chips">
+          <button data-cat="all" aria-pressed="true"></button>
+          <button data-cat="concerts" aria-pressed="false"></button>
+          <button data-cat="events" aria-pressed="false"></button>
+          <button data-cat="shopping" aria-pressed="false"></button>
+        </div>
+        <div class="rw-list" id="rw-list"></div>
+        <button class="pill light card-pay" id="card-pay" data-i18n="cardPay"></button>
+        <p class="hint" data-i18n="rwHint"></p>
+      </section>
+
       <section class="card">
         <div class="tx-head"><h2 data-i18n="tx"></h2><small data-i18n="thisWeek"></small></div>
         <ul class="tx" id="tx"></ul>
@@ -258,6 +303,18 @@
         transferOff: 'Überweisungen sind im Prototyp deaktiviert.', transferSay: 'Kommt bald – versprochen 😉',
         moreOff: '„Mehr“ ist im Prototyp nicht ausgebaut.',
         quizDone: (s, t, c) => `Quiz: ${s}/${t} richtig · +${c} Coins`,
+        rwTitle: 'Rewards', rwSub: 'Sparen & mit Karte zahlen = Punkte',
+        pts: (n) => `⭐ ${n}`, ptsLong: (n) => `${n} Punkte`,
+        earnSave: '🐷 2 Pkt. pro 1 € gespart', earnCard: '💳 1 Pkt. pro 1 € mit Karte',
+        cat: { all: 'Alle', concerts: '🎤 Konzerte', events: '🎟️ Events', shopping: '🛍️ Shopping' },
+        unlock: 'Freischalten', toGo: (n) => `Noch ${n} Pkt.`, unlocked: 'Freigeschaltet ✓',
+        cardPay: '💳 Mit Karte zahlen (Demo)',
+        rwHint: 'Demo-Partner & Fantasie-Codes – keine echten Angebote.',
+        rwUnlocked: (name) => `Freigeschaltet: ${name}! Viel Spaß 🎉`,
+        rwNew: (name) => `⭐ Neuer Reward verfügbar: ${name}`,
+        rwEarnSave: (n) => `+${n} Punkte fürs Sparen ⭐`,
+        rwEarnCard: (name, a, n) => `${name} · ${a} · +${n} Punkte ⭐`,
+        rwNotYet: (n) => `Noch ${n} Punkte – Sparen bringt doppelt ⭐`,
         locale: 'de-DE',
       },
       en: {
@@ -276,6 +333,18 @@
         transferOff: 'Transfers are disabled in this prototype.', transferSay: 'Coming soon – promise 😉',
         moreOff: '“More” isn’t built in this prototype.',
         quizDone: (s, t, c) => `Quiz: ${s}/${t} correct · +${c} coins`,
+        rwTitle: 'Rewards', rwSub: 'Save & pay by card = points',
+        pts: (n) => `⭐ ${n}`, ptsLong: (n) => `${n} points`,
+        earnSave: '🐷 2 pts per €1 saved', earnCard: '💳 1 pt per €1 by card',
+        cat: { all: 'All', concerts: '🎤 Concerts', events: '🎟️ Events', shopping: '🛍️ Shopping' },
+        unlock: 'Unlock', toGo: (n) => `${n} pts to go`, unlocked: 'Unlocked ✓',
+        cardPay: '💳 Pay by card (demo)',
+        rwHint: 'Demo partners & made-up codes – not real offers.',
+        rwUnlocked: (name) => `Unlocked: ${name}! Enjoy 🎉`,
+        rwNew: (name) => `⭐ New reward available: ${name}`,
+        rwEarnSave: (n) => `+${n} points for saving ⭐`,
+        rwEarnCard: (name, a, n) => `${name} · ${a} · +${n} points ⭐`,
+        rwNotYet: (n) => `${n} points to go – saving earns double ⭐`,
         locale: 'en-IE',
       },
     };
@@ -352,6 +421,7 @@
       const add = Math.min(+b.dataset.add, goal - saved);
       saved += add; balance -= add;
       renderGoal();
+      addPoints(add * 2, T().rwEarnSave(add * 2));
       if (saved >= goal) {
         home.play('celebrate', { text: T().goalReached });
         toast(T().goalToast);
@@ -397,6 +467,119 @@
       });
     }
 
+    // ---------- Rewards: points from saving & card payments unlock perks ----------
+    // Demo partners only – names and codes are made up.
+    const REWARDS = [
+      { id: 'presale', cat: 'concerts', ico: '🎤', cost: 150,
+        de: { name: 'Konzert-Vorverkauf 48 h früher', who: 'Demo-Arena' },
+        en: { name: 'Concert presale 48 h early', who: 'Demo Arena' } },
+      { id: 'twoforone', cat: 'concerts', ico: '🎸', cost: 400,
+        de: { name: '2-für-1 Konzertticket', who: 'Club Demo' },
+        en: { name: '2-for-1 concert ticket', who: 'Club Demo' } },
+      { id: 'festival', cat: 'events', ico: '🎪', cost: 300,
+        de: { name: '20 % aufs Festival-Tagesticket', who: 'Sommerfest Demo' },
+        en: { name: '20% off a festival day ticket', who: 'Summer Fest Demo' } },
+      { id: 'cinema', cat: 'events', ico: '🍿', cost: 120,
+        de: { name: 'Kino für 2 inkl. Popcorn', who: 'Kino Demo' },
+        en: { name: 'Cinema for 2 incl. popcorn', who: 'Cinema Demo' } },
+      { id: 'esports', cat: 'events', ico: '🎮', cost: 220,
+        de: { name: 'E-Sport-Turnier: VIP-Platz', who: 'Demo Gaming Night' },
+        en: { name: 'E-sports tournament VIP seat', who: 'Demo Gaming Night' } },
+      { id: 'sneakers', cat: 'shopping', ico: '👟', cost: 90,
+        de: { name: '10 € Rabatt auf Sneaker', who: 'Demo Sneaker Store' },
+        en: { name: '€10 off sneakers', who: 'Demo Sneaker Store' } },
+      { id: 'streetwear', cat: 'shopping', ico: '🧢', cost: 180,
+        de: { name: '15 % auf Streetwear', who: 'Demo Streetwear' },
+        en: { name: '15% off streetwear', who: 'Demo Streetwear' } },
+      { id: 'coffee', cat: 'shopping', ico: '☕', cost: 40,
+        de: { name: 'Gratis Kaffee', who: 'Demo Café' },
+        en: { name: 'Free coffee', who: 'Demo Café' } },
+    ];
+    let points = 120, rwCat = 'all';
+    const unlocked = {};   // id → demo code
+    function renderRewards() {
+      $('points').textContent = T().pts(points);
+      $('points').title = T().ptsLong(points);
+      $('earn-save').textContent = T().earnSave;
+      $('earn-card').textContent = T().earnCard;
+      document.querySelectorAll('#rw-chips button').forEach((b) => {
+        b.textContent = T().cat[b.dataset.cat];
+        b.setAttribute('aria-pressed', String(b.dataset.cat === rwCat));
+      });
+      const list = $('rw-list');
+      list.innerHTML = '';
+      REWARDS.filter((r) => rwCat === 'all' || r.cat === rwCat)
+        .sort((a, b) => (!!unlocked[a.id] - !!unlocked[b.id]) || a.cost - b.cost)
+        .forEach((r) => {
+          const x = r[lang];
+          const done = unlocked[r.id];
+          const el = document.createElement('div');
+          el.className = 'rw' + (done ? ' done' : '');
+          el.dataset.cat = r.cat;
+          el.dataset.id = r.id;
+          const pct = Math.min(100, Math.round((points / r.cost) * 100));
+          el.innerHTML = `<div class="art">${r.ico}</div><small>${x.who}</small><b>${x.name}</b>` +
+            (done
+              ? `<div class="code">${done}</div>`
+              : `<div class="cost">⭐ ${r.cost}</div><div class="mini"><div style="width:${pct}%"></div></div>` +
+                `<button ${points < r.cost ? 'disabled' : ''}>${points < r.cost ? T().toGo(r.cost - points) : T().unlock}</button>`);
+          const btn = el.querySelector('button');
+          if (btn) btn.onclick = () => unlockReward(r);
+          list.append(el);
+        });
+    }
+    function unlockReward(r) {
+      if (unlocked[r.id]) return;
+      if (points < r.cost) { home.play('shrug', { text: T().rwNotYet(r.cost - points) }); return; }
+      points -= r.cost;
+      unlocked[r.id] = 'DEMO-' + r.id.slice(0, 4).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+      renderRewards();
+      bumpPoints();
+      home.play('celebrate', { text: T().rwUnlocked(r[lang].name) });
+      toast(T().rwUnlocked(r[lang].name));
+      $('avatar-home').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    function addPoints(n, msg) {
+      const before = points;
+      points += n;
+      renderRewards();
+      bumpPoints();
+      // first reward that just became affordable
+      const fresh = REWARDS.filter((r) => !unlocked[r.id] && before < r.cost && points >= r.cost).sort((a, b) => b.cost - a.cost)[0];
+      toast(fresh ? T().rwNew(fresh[lang].name) : msg);
+    }
+    function bumpPoints() {
+      const el = $('points');
+      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    }
+    document.querySelectorAll('#rw-chips button').forEach((b) => b.addEventListener('click', () => {
+      rwCat = b.dataset.cat;
+      renderRewards();
+      $('rw-list').scrollLeft = 0;
+    }));
+
+    // Simulated card payments – each adds a transaction and earns points
+    const CARD_DEMO = [
+      { ico: '☕', amt: 4.5, de: 'Café', en: 'Café' },
+      { ico: '👕', amt: 39.99, de: 'Modegeschäft', en: 'Clothing store' },
+      { ico: '🎬', amt: 12, de: 'Kino', en: 'Cinema' },
+      { ico: '🎟️', amt: 59, de: 'Konzertticket', en: 'Concert ticket' },
+      { ico: '🥤', amt: 6.8, de: 'Imbiss', en: 'Snack bar' },
+    ];
+    let cardIdx = 0;
+    $('card-pay').onclick = () => {
+      const c = CARD_DEMO[cardIdx++ % CARD_DEMO.length];
+      const pts = Math.floor(c.amt);
+      balance -= c.amt;
+      TX.unshift({ ico: c.ico, amt: -c.amt, react: 'nod',
+        de: { name: c.de, sub: 'Jetzt · Karte', tip: `Mit Karte gezahlt – +${pts} Punkte für Rewards ⭐` },
+        en: { name: c.en, sub: 'Now · card', tip: `Paid by card – +${pts} reward points ⭐` } });
+      renderGoal();
+      renderTx();
+      home.play('coin', { text: T().rwEarnCard(c[lang], fmt(c.amt), pts) });
+      addPoints(pts, T().rwEarnCard(c[lang], fmt(c.amt), pts));
+    };
+
     // ---------- Apply language (texts, numbers, both avatars) ----------
     function applyLang() {
       document.documentElement.lang = lang;
@@ -406,6 +589,7 @@
       document.querySelectorAll('.lang button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
       renderGoal();
       renderTx();
+      renderRewards();
     }
     function setLang(l) {
       if (!I18N[l] || l === lang) return;
@@ -427,7 +611,7 @@
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
     }
-    window.demo = { home, getFull: () => full, show, setLang, get lang() { return lang; } };
+    window.demo = { home, getFull: () => full, show, setLang, get points() { return points; }, unlocked, get lang() { return lang; } };
   </script>
 </body>
 </html>
