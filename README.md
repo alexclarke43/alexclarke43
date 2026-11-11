@@ -4,13 +4,13 @@ An interactive, customisable 3D avatar for a Gen Z (16–24) banking experience,
 
 | Feature | Details |
 |---|---|
-| Semi-realistic 3D character | Built-in placeholder with young-adult proportions, shaped torso, five-finger hands, eyelids, fabric shading. Default: brand-red hoodie, cargo pants, sneakers, curly hair, headphones. No 3D asset needed. For production-level realism, swap in an artist-made GLB (see section 7). |
+| **3D character** | Default: the rigged 3D model `avatar/models/buddy.glb` (crop top, yellow joggers, chunky sneakers, red headphones, shades). Every reaction, dance and emote is retargeted onto its skeleton, and its own Samba clip is an extra dance. **Male** version: the built-in character in the same outfit style (tank, joggers with knee stripes, shades, headphones). See section 7a. |
 | Rotate with mouse and touch | Drag to spin, with inertia. Vertical page scrolling still works on phones. Arrow keys also rotate. |
 | Natural idle | Breathing, weight shifts, glances, random blinks. The head and eyes follow the pointer. |
 | Reactions | 👋 greet (wave), 🎉 celebrate (jump + spin + confetti), 👍 nod (thumbs-up + wink), 🤷 shrug, 🎶 dance |
 | Buttons and tap | Reaction buttons, plus tapping the avatar itself |
 | **Sparkie mascot** | The team's savings buddy (`sparkie.js`) runs inside the app as a second character, with its drop-in intro, coin drop, confetti and mood eyes. Users switch between **Sparkie** and **You** in the Style tab, or the platform picks one with `?character=sparkie`. |
-| **Customisable** | **Style** tab: height (1.50–2.00 m), skin tone, 5 hairstyles + colours, 3 tops, 4 bottoms, sneakers, extras (glasses, headphones, earring, chain). The look is saved and can also be set by the platform. |
+| **Customisable** | **Style** tab: name, body (female = 3D model / male), height (1.50–2.00 m), skin tone and clothing colours (recoloured on the 3D model). The male character also has 5 hairstyles, 4 tops, 5 bottoms, sneakers and extras (shades, glasses, headphones, earring, chain). The look is saved and can also be set by the platform. |
 | **Money games** | **Play** tab: *Money Quiz* (18 questions, 8 per round) and *Need or Want?*. The avatar reacts to every answer, explains the right answer, and coins unlock cosmetic items. |
 | Responsive | Fills whatever box it's given: phone portrait, desktop, landscape (buttons move to the side) and tiny embeds |
 | GLB/GLTF | Load your own model with `?model=…`. Clips are matched to reactions automatically. |
@@ -165,7 +165,9 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 
 | Option | Default | Description |
 |---|---|---|
-| `model` | *(empty)* | URL of a `.glb` / `.gltf`. Empty means the built-in placeholder. |
+| `model` | *(empty)* | URL of a `.glb` / `.gltf` used for **everyone**, overriding the two below. |
+| `femaleModel` | `models/buddy.glb` | 3D model for body `female` (default avatar). Empty means the built-in character. |
+| `maleModel` | *(empty)* | Optional 3D model for body `male`. Empty means the built-in character in the matching outfit. |
 | `clips` | – | JSON map from reaction to clip name, e.g. `{"greet":"Wave_01","celebrate":"Victory"}` |
 | `lang` | `en` | `en` or `de` (buttons, bubbles, hint, games). Can be changed later with `setLang()`. |
 | `ui` | `true` | Show the tab dock (buttons, Style, Play). Set `0` for a pure avatar. |
@@ -201,7 +203,7 @@ Booleans accept `0/1`, `true/false`, `on/off`.
 
 If the platform already shows Sparkie with `sparkie.js`, you can swap in our avatar **without changing any other code**.
 
-1. Copy **`dist/avatar-buddy.js`** next to `sparkie.js`. It's a single file of about 50 KB and uses the platform's existing `three` / `three/addons/` imports.
+1. Copy **`dist/avatar-buddy.js`** and **`dist/buddy.glb`** next to `sparkie.js`. The script is a single file of about 60 KB and uses the platform's existing `three` / `three/addons/` imports (GLTFLoader, SkeletonUtils, RoomEnvironment). It loads `buddy.glb` from its own folder; pass `models: { female: '/path/buddy.glb', male: '' }` to change that. Until the model has loaded, nothing is drawn; if it fails, the built-in character appears.
 2. Change one import:
 
 ```diff
@@ -257,13 +259,16 @@ All options are listed in `avatar/js/look.js`:
 
 | Key | Values |
 |---|---|
-| `body` | `male`, `female`: shoulders, waist, hips and face shape. Hair and outfit stay independent, so every combination works. |
-| `height` | 150–200 (cm). Scales the whole avatar. Works for GLB models too. |
-| `skin`, `hairColor`, `hatColor`, `topColor`, `bottomColor`, `shoeColor` | hex colours. The UI offers curated palettes, while the API accepts any `#rrggbb`. |
-| `hairStyle` | `curls`, `buzz`, `bun`, `long`, `beanie` 🔒50 |
-| `top` | `hoodie`, `jacket` (bomber), `tee` |
-| `bottom` | `cargo`, `jeans`, `shorts`, `skirt` |
-| `glasses`, `headphones`, `earring`, `chain` 🔒30 | booleans |
+| `body` | `female` (default) = the 3D model `femaleModel`; `male` = `maleModel` if set, otherwise the built-in character. Switching loads the other avatar live; a downloaded model is cached. |
+| `height` | 150–200 (cm). Scales the whole avatar, 3D model included. |
+| `skin`, `topColor`, `bottomColor` | hex colours. On the 3D model they recolour the skin, crop top and joggers in the shader; the defaults equal the model's own colours. |
+| `hairColor`, `hatColor`, `shoeColor` | hex colours (built-in character only). The UI offers curated palettes, while the API accepts any `#rrggbb`. |
+| `hairStyle` | `curls`, `buzz`, `bun`, `long`, `beanie` 🔒50 (built-in character) |
+| `top` | `tank` (default, like the model's top), `hoodie`, `jacket` (bomber), `tee` |
+| `bottom` | `joggers` (default: baggy, knee stripes, cuffs), `cargo`, `jeans`, `shorts`, `skirt` |
+| `shades`, `glasses`, `headphones`, `earring`, `chain` 🔒30 | booleans. Shades and on-head headphones match the 3D model's accessories. |
+
+On the 3D model the Style tab shows only name, body, height, skin tone, top colour and joggers colour, with a short note. Hairstyles and garments belong to the male (built-in) character.
 
 🔒 = unlocked with coins earned in the games. Gold sneakers cost 80. To add or rename options, edit `OPTIONS`/`PALETTES` in `look.js`. To add new geometry, edit the matching `_build…` method in `PlaceholderAvatar.js`. Changing the look rebuilds the meshes, so running animations keep playing.
 
@@ -327,12 +332,23 @@ The avatar is the game buddy. It waves at the start, gives a thumbs-up and "+10 
 
 **Editing content**: all text is in `avatar/js/games/content.js` (English and German side by side). Keep questions general and timeless. Have someone from the bank review them for compliance before going live.
 
+## 7a. The 3D model (`buddy.glb`) and how it's animated
+
+`avatar/models/buddy.glb` (copied to `dist/buddy.glb` for the drop-in) is a rigged character with a Mixamo-style skeleton (`mixamorig:Hips`, `…LeftArm`, …), one 512 px texture atlas, and two clips (`SambaDance`, `TPose`). `RiggedAvatar.js` makes it behave exactly like the built-in character:
+
+* **Retargeting:** a hidden built-in character computes every pose (idle, reactions, feed dances and emotes, pointer look-at, crouch/jump). Each frame its joint rotations are applied to the model's bones (arms are first rotated from T-pose to the same arms-down rest pose). The hips follow the crouch, and the lowest foot is kept on the floor. All 20 moves work, including the coin catch at the model's hand.
+* **Model clips:** clips with a matching name become extra moves (`samba`), blended in and out over the procedural pose.
+* **Recolouring:** the shader detects the joggers (yellow), the crop top (grey, in its atlas area) and the skin (warm brown) and recolours them from the look's `bottomColor`, `topColor` and `skin`. The reference colours live in `RECOLOR` at the bottom of `RiggedAvatar.js`.
+* No facial animation: the model has no blendshapes, so expressions such as smile and wink only exist on the built-in character.
+
+**A male 3D model:** export a male character from the same source with the same rig (Mixamo: download as FBX "T-pose", convert to GLB with Blender), put it in `avatar/models/`, and set `maleModel: 'models/buddy-male.glb'` (or `?maleModel=…`; for the drop-in, `models: { male: … }`). Any Mixamo-rigged GLB gets the full motion library. If its texture colours differ, adjust the masks and reference colours in `RiggedAvatar.js`.
+
 ## 7. Using your own GLB/GLTF model
 
 1. Put the file in `avatar/models/` (or host it anywhere CORS allows).
 2. Open `index.html?model=models/my-avatar.glb`.
 
-The model is automatically scaled to about 1.85 m, centred, and its feet are placed on the floor. Animation clips are matched to reactions **by name**:
+**Mixamo-style rigs** are detected automatically (a bone ending in `Hips`) and handled by `RiggedAvatar` (section 7a), which gives them all moves. Other models use `GltfAvatar`, described below. The model is automatically scaled to about 1.85 m, centred, and its feet are placed on the floor. Animation clips are matched to reactions **by name**:
 
 | Reaction | Clip names matched (case-insensitive) |
 |---|---|

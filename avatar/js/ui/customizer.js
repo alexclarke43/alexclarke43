@@ -20,6 +20,10 @@ const TXT = {
   random: { en: '🎲 Surprise me', de: '🎲 Überrasch mich' },
   reset: { en: '↺ Reset', de: '↺ Zurücksetzen' },
   locked: { en: 'Earn {n} coins in Play to unlock', de: 'Sammle {n} Coins unter „Spielen“, um das freizuschalten' },
+  modelNote: {
+    en: 'This 3D model keeps its outfit – skin tone and clothing colours can be changed. Male uses the built-in character with the full wardrobe.',
+    de: 'Dieses 3D-Modell behält sein Outfit – Hautton und Kleidungsfarben lassen sich ändern. „Männlich“ nutzt die eingebaute Figur mit allen Outfits.',
+  },
   glbNote: {
     en: 'Hair and outfit options are available for the built-in avatar. Height works for every model.',
     de: 'Frisur und Outfit gibt es für den eingebauten Avatar. Die Größe funktioniert bei jedem Modell.',
@@ -30,7 +34,7 @@ const TXT = {
  * Renders the "Style" panel. All changes go through setLook(partial) → the app
  * rebuilds the avatar, saves the look and notifies the host page.
  */
-export function createCustomizer(root, { lang, getLook, setLook, getCoins, supportsStyle, supportsHeight = () => true, canSwitchCharacter = () => false }) {
+export function createCustomizer(root, { lang, getLook, setLook, getCoins, supportsStyle, styleKeys = () => null, supportsHeight = () => true, canSwitchCharacter = () => false, canSwitchBody = () => true }) {
   // `lang` may be a string or a function (so the language can change at runtime)
   const lng = () => (typeof lang === 'function' ? lang() : lang);
   const t = (k, n) => (TXT[k][lng()] ?? TXT[k].en).replace('{n}', n);
@@ -78,6 +82,9 @@ export function createCustomizer(root, { lang, getLook, setLook, getCoins, suppo
       root.innerHTML = `<div class="cz">${nameHtml}${characterHtml}${supportsHeight() ? heightHtml : ''}<p class="cz-note">${note}</p></div>`;
       return;
     }
+    const keys = styleKeys();            // null = everything (built-in character)
+    const has = (k) => !keys || keys.includes(k);
+    const sec = (cond, html) => (cond ? html : '');
     root.innerHTML = `
       <div class="cz">
         ${nameHtml}
@@ -86,22 +93,23 @@ export function createCustomizer(root, { lang, getLook, setLook, getCoins, suppo
           <button type="button" class="cz-btn" data-act="random">${t('random')}</button>
           <button type="button" class="cz-btn cz-btn--ghost" data-act="reset">${t('reset')}</button>
         </div>
-        <section class="cz-sec cz-sec--body"><h3>${t('body')}</h3>${chips('body', OPTIONS.body, L.body)}</section>
+        ${sec(canSwitchBody(), `<section class="cz-sec cz-sec--body"><h3>${t('body')}</h3>${chips('body', OPTIONS.body, L.body)}</section>`)}
         ${heightHtml}
-        <section class="cz-sec"><h3>${t('skin')}</h3>${swatches('skin', L.skin)}</section>
-        <section class="cz-sec"><h3>${t('hair')}</h3>${chips('hairStyle', OPTIONS.hairStyle, L.hairStyle)}${swatches('hairColor', L.hairColor)}
-          ${L.hairStyle === 'beanie' ? `<h4>${t('hatColor')}</h4>${swatches('hatColor', L.hatColor)}` : ''}</section>
-        <section class="cz-sec"><h3>${t('top')}</h3>${chips('top', OPTIONS.top, L.top)}${swatches('topColor', L.topColor)}</section>
-        <section class="cz-sec"><h3>${t('bottom')}</h3>${chips('bottom', OPTIONS.bottom, L.bottom)}${swatches('bottomColor', L.bottomColor)}</section>
-        <section class="cz-sec"><h3>${t('shoes')}</h3>${swatches('shoeColor', L.shoeColor)}</section>
-        <section class="cz-sec"><h3>${t('extras')}</h3>${chips('extras', OPTIONS.extras, null, true)}</section>
+        ${sec(keys, `<p class="cz-note">${t('modelNote')}</p>`)}
+        ${sec(has('skin'), `<section class="cz-sec"><h3>${t('skin')}</h3>${swatches('skin', L.skin)}</section>`)}
+        ${sec(has('hairStyle'), `<section class="cz-sec"><h3>${t('hair')}</h3>${chips('hairStyle', OPTIONS.hairStyle, L.hairStyle)}${swatches('hairColor', L.hairColor)}
+          ${L.hairStyle === 'beanie' ? `<h4>${t('hatColor')}</h4>${swatches('hatColor', L.hatColor)}` : ''}</section>`)}
+        ${sec(has('top') || has('topColor'), `<section class="cz-sec"><h3>${t('top')}</h3>${has('top') ? chips('top', OPTIONS.top, L.top) : ''}${swatches('topColor', L.topColor)}</section>`)}
+        ${sec(has('bottom') || has('bottomColor'), `<section class="cz-sec"><h3>${t('bottom')}</h3>${has('bottom') ? chips('bottom', OPTIONS.bottom, L.bottom) : ''}${swatches('bottomColor', L.bottomColor)}</section>`)}
+        ${sec(has('shoeColor'), `<section class="cz-sec"><h3>${t('shoes')}</h3>${swatches('shoeColor', L.shoeColor)}</section>`)}
+        ${sec(has('extras'), `<section class="cz-sec"><h3>${t('extras')}</h3>${chips('extras', OPTIONS.extras, null, true)}</section>`)}
       </div>`;
   }
 
   root.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
-    if (btn.dataset.act === 'random') { setLook({ ...randomLook(getCoins()) }, { reaction: 'dance' }); render(); return; }
+    if (btn.dataset.act === 'random') { setLook({ ...randomLook(getCoins()), body: getLook().body }, { reaction: 'dance' }); render(); return; } // keep the body (avoids a model reload)
     if (btn.dataset.act === 'reset') { setLook({ ...DEFAULT_LOOK, name: getLook().name }, { reaction: 'greet' }); render(); return; } // keep the name
     const { type, key, value } = btn.dataset;
     if (!type) return;

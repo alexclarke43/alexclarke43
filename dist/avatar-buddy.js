@@ -1,5 +1,5 @@
 // avatar/js/buddy/AvatarBuddy.js
-import * as THREE3 from "three";
+import * as THREE4 from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 // avatar/js/avatars/PlaceholderAvatar.js
@@ -19,21 +19,23 @@ var DEFAULT_LOOK = {
   // the avatar's name (user can rename it)
   character: "human",
   // 'human' (customisable) | 'sparkie' (mascot)
-  body: "male",
-  // 'male' | 'female' – body shape and face
-  skin: "#c98d6b",
+  body: "female",
+  // 'female' = the 3D model (models/buddy.glb) | 'male' = matching built-in character
+  // Defaults follow the uploaded model's outfit: grey crop/tank top, yellow joggers, chunky sneakers, red headphones, shades
+  skin: "#613d26",
   hairStyle: "curls",
-  hairColor: "#24170f",
+  hairColor: "#25221e",
   hatColor: "#f2c14e",
-  top: "hoodie",
-  topColor: "#e3000f",
-  bottom: "cargo",
-  bottomColor: "#2a2a33",
+  top: "tank",
+  topColor: "#746764",
+  bottom: "joggers",
+  bottomColor: "#fbda53",
   shoeColor: "#f7f6f2",
   height: BASE_HEIGHT,
   glasses: false,
+  shades: true,
   headphones: true,
-  earring: true,
+  earring: false,
   chain: false
 };
 var L = (en, de) => ({ en, de });
@@ -54,17 +56,20 @@ var OPTIONS = {
     { id: "beanie", label: L("Beanie", "Beanie"), unlock: 50 }
   ],
   top: [
+    { id: "tank", label: L("Tank", "Tanktop") },
     { id: "hoodie", label: L("Hoodie", "Hoodie") },
     { id: "jacket", label: L("Bomber", "Bomber") },
     { id: "tee", label: L("Tee", "T-Shirt") }
   ],
   bottom: [
+    { id: "joggers", label: L("Joggers", "Jogger") },
     { id: "cargo", label: L("Cargo", "Cargo") },
     { id: "jeans", label: L("Jeans", "Jeans") },
     { id: "shorts", label: L("Shorts", "Shorts") },
     { id: "skirt", label: L("Skirt", "Rock") }
   ],
   extras: [
+    { id: "shades", label: L("Shades", "Sonnenbrille") },
     { id: "glasses", label: L("Glasses", "Brille") },
     { id: "headphones", label: L("Headphones", "Kopfh\xF6rer") },
     { id: "earring", label: L("Earring", "Ohrring") },
@@ -81,7 +86,7 @@ function sanitizeLook(input = {}) {
   for (const k of ["character", "body", "hairStyle", "top", "bottom"]) {
     if (OPTIONS[k].some((o) => o.id === input[k])) out[k] = input[k];
   }
-  for (const k of ["glasses", "headphones", "earring", "chain"]) {
+  for (const k of ["glasses", "shades", "headphones", "earring", "chain"]) {
     if (typeof input[k] === "boolean") out[k] = input[k];
   }
   if (typeof input.name === "string" && cleanAvatarName(input.name)) out.name = cleanAvatarName(input.name);
@@ -337,7 +342,12 @@ var PlaceholderAvatar = class {
       mouth: std("#4a1a20", 0.7),
       silver: std("#e8e8ee", 0.2, 1),
       gold: std(GOLD, 0.22, 1),
-      shine: new THREE.MeshBasicMaterial({ color: 16777215 })
+      shine: new THREE.MeshBasicMaterial({ color: 16777215 }),
+      phones: std("#ff4a1c", 0.32, 0.1),
+      // red-orange headphones like the 3D model
+      lens: new THREE.MeshPhysicalMaterial({ color: "#ff5a2a", roughness: 0.08, metalness: 0.4, clearcoat: 1, emissive: "#5a0d00", emissiveIntensity: 0.4 }),
+      trim: std("#3fc6d6", 0.4)
+      // teal trims (tank hem, jogger stripes)
     };
     const J = (name, parent, x, y, z, rx = 0, ry = 0, rz = 0) => {
       const g = new THREE.Group();
@@ -368,7 +378,6 @@ var PlaceholderAvatar = class {
     add(hips, sph(0.19), S.bottom === "skirt" ? M.skin : M.bottom, [0, 0, 0], fem ? [1.12, 0.64, 0.78] : [1, 0.6, 0.72]);
     const spine = J("spine", hips, 0, 0.04, 0);
     this._buildTop(spine, K);
-    if (S.headphones) this._buildHeadphones(spine, K);
     if (S.chain) {
       add(spine, new THREE.TorusGeometry(0.12, 6e-3, 8, 48), M.gold, [0, 0.505, 0.045], [1, 1, 1], [Math.PI / 2 + 0.6, 0, 0]);
       add(spine, cyl(0.018, 0.018, 5e-3, 20), M.gold, [0, 0.425, 0.15], [1, 1, 1], [Math.PI / 2 - 0.3, 0, 0]);
@@ -397,7 +406,7 @@ var PlaceholderAvatar = class {
     const curve = new THREE.SplineCurve(pts.map(([r, y]) => new THREE.Vector2(r * scale, y)));
     return new THREE.LatheGeometry(curve.getPoints(40), 40);
   }
-  _buildTop(spine, { M, add, cyl }) {
+  _buildTop(spine, { M, add, cyl, sph }) {
     const S = this.style;
     if (S.top === "hoodie") {
       add(spine, this._torsoGeometry(1.04), M.top, [0, 0, 0], [1.08, 1, 0.74]);
@@ -417,6 +426,11 @@ var PlaceholderAvatar = class {
       add(spine, new THREE.TorusGeometry(0.085, 0.026, 10, 28), M.rib, [0, 0.53, 0], [1.2, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
       add(spine, cyl(0.065, 0.07, 0.05), M.white, [0, 0.52, 0]);
       for (const sx of [-1, 1]) add(spine, new THREE.BoxGeometry(0.07, 8e-3, 0.01), M.topDark, [sx * 0.095, 0.15, 0.146], [1, 1, 1], [0, sx * 0.45, 0]);
+    } else if (S.top === "tank") {
+      add(spine, this._torsoGeometry(0.97), M.top, [0, 0, 0], [1.05, 1, 0.7]);
+      add(spine, cyl(0.192, 0.196, 0.014, 32), M.trim, [0, -0.072, 0], [1.06, 1, 0.71]);
+      add(spine, new THREE.TorusGeometry(0.07, 8e-3, 8, 28), M.trim, [0, 0.528, 0.012], [1.25, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
+      add(spine, sph(0.05), M.skin, [0, 0.49, 0.07], [1.3, 0.7, 0.6]);
     } else {
       add(spine, this._torsoGeometry(0.97), M.top, [0, 0, 0], [1.05, 1, 0.7]);
       add(spine, new THREE.TorusGeometry(0.062, 0.01, 8, 28), M.topDark, [0, 0.535, 0.01], [1.15, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
@@ -424,26 +438,32 @@ var PlaceholderAvatar = class {
       add(spine, new THREE.CircleGeometry(0.01, 16), M.accent, [0, 0.33, 0.147], [1, 1, 1], [-0.12, 0, 0]);
     }
   }
-  _buildHeadphones(spine, { M, add, cyl }) {
+  /** Over-ear headphones worn on the head (band over the hair, cups on the ears). */
+  _buildHeadphones(head, { M, add, cyl }) {
+    const big = ["curls", "bun", "long", "beanie"].includes(this.style.hairStyle);
+    const r = big ? 0.205 : 0.19;
     const phones = new THREE.Group();
-    phones.position.set(0, 0.57, 0.04);
-    phones.rotation.x = 0.5;
-    spine.add(phones);
-    add(phones, new THREE.TorusGeometry(0.125, 0.012, 10, 40, Math.PI), M.dark, [0, 0, 0], [1, 1, 1], [-Math.PI / 2, 0, 0]);
+    phones.position.set(0, 0.155, -5e-3);
+    phones.rotation.x = -0.12;
+    head.add(phones);
+    add(phones, new THREE.TorusGeometry(r, 0.014, 10, 48, Math.PI), M.phones, [0, 0, 0], [1, 1.08, 1.3]);
     for (const sx of [-1, 1]) {
-      const cup = add(phones, cyl(0.05, 0.05, 0.035, 28), M.dark, [sx * 0.13, -0.01, 0.035], [1, 1, 1], [0, 0, Math.PI / 2]);
-      cup.rotation.y = sx * 0.5;
-      add(phones, cyl(0.039, 0.039, 0.01, 28), M.accent, [sx * 0.15, -0.01, 0.048], [1, 1, 1], [0, sx * 0.5, Math.PI / 2]);
+      add(phones, cyl(0.058, 0.058, 0.045, 28), M.phones, [sx * (r - 0.012), -0.01, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
+      add(phones, cyl(0.046, 0.046, 0.012, 28), M.dark, [sx * (r + 0.014), -0.01, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
+      add(phones, cyl(0.03, 0.03, 4e-3, 24), M.trim, [sx * (r + 0.021), -0.01, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
     }
   }
   _buildArms(spine, { M, J, add, cap, sph, cyl }) {
     const S = this.style;
     const tee = S.top === "tee";
+    const bare = S.top === "tank";
     for (const [side, sx] of [["L", 1], ["R", -1]]) {
       const fem = S.body === "female";
       const sh = J(`shoulder${side}`, spine, sx * (fem ? 0.192 : 0.225), 0.45, 0, 0, 0, sx * 0.11);
-      add(sh, sph(tee ? 0.056 : 0.06), M.top, [0, -0.035, 0]);
-      if (tee) {
+      add(sh, sph(tee ? 0.054 : bare ? 0.058 : 0.06), bare ? M.skin : M.top, [0, -0.035, 0]);
+      if (bare) {
+        add(sh, cap(0.049, 0.21), M.skin, [0, -0.15, 0]);
+      } else if (tee) {
         add(sh, cap(0.062, 0.05), M.top, [0, -0.065, 0]);
         add(sh, cap(0.042, 0.22), M.skin, [0, -0.16, 0]);
       } else {
@@ -453,8 +473,8 @@ var PlaceholderAvatar = class {
         }
       }
       const el = J(`elbow${side}`, sh, 0, -0.3, 0, -0.14, 0, 0);
-      if (tee) {
-        add(el, cap(0.037, 0.21), M.skin, [0, -0.14, 0]);
+      if (tee || bare) {
+        add(el, cap(bare ? 0.041 : 0.037, 0.21), M.skin, [0, -0.14, 0]);
       } else {
         add(el, cap(0.052, 0.18), M.top, [0, -0.125, 0]);
         add(el, cyl(0.046, 0.049, 0.045), S.top === "jacket" ? M.rib : M.topDark, [0, -0.24, 0]);
@@ -481,7 +501,12 @@ var PlaceholderAvatar = class {
     for (const [side, sx] of [["L", 1], ["R", -1]]) {
       const leg = J(`leg${side}`, hips, sx * 0.098, -0.03, 0, 0, 0, sx * 0.022);
       const knee = J(`knee${side}`, leg, 0, -0.47, 0);
-      if (b === "cargo") {
+      if (b === "joggers") {
+        add(leg, cap(0.1, 0.36), M.bottom, [0, -0.235, 0]);
+        add(knee, cyl(0.096, 0.08, 0.36), M.bottom, [0, -0.17, 0]);
+        for (const y of [-0.055, -0.085]) add(knee, cyl(0.0965, 0.0955, 0.014, 28), M.trim, [0, y, 0]);
+        add(knee, cyl(0.062, 0.066, 0.07, 24), M.rib, [0, -0.38, 0]);
+      } else if (b === "cargo") {
         add(leg, cap(0.092, 0.37), M.bottom, [0, -0.235, 0]);
         add(leg, new THREE.BoxGeometry(0.035, 0.1, 0.07), M.bottomDark, [sx * 0.09, -0.28, 0]);
         add(knee, cyl(0.082, 0.09, 0.42), M.bottom, [0, -0.2, 0]);
@@ -501,7 +526,8 @@ var PlaceholderAvatar = class {
       }
       const foot = J(`foot${side}`, knee, 0, -0.45, 0, 0, sx * 0.1, 0);
       add(foot, cap(0.05, 0.14), M.shoe, [0, -0.01, 0.05], [1.02, 0.82, 1], [Math.PI / 2, 0, 0]);
-      add(foot, cap(0.056, 0.15), M.sole, [0, -0.05, 0.05], [1.06, 0.36, 1.02], [Math.PI / 2, 0, 0]);
+      add(foot, cap(0.058, 0.155), M.sole, [0, -0.052, 0.05], [1.1, 0.5, 1.04], [Math.PI / 2, 0, 0]);
+      add(foot, new THREE.BoxGeometry(0.06, 0.02, 0.03), M.phones, [0, -0.02, -0.04]);
       for (const ss of [-1, 1]) {
         add(foot, new THREE.BoxGeometry(5e-3, 0.02, 0.11), M.accent, [ss * 0.052, -0.015, 0.045], [1, 1, 1], [0.15, 0, 0]);
       }
@@ -553,6 +579,14 @@ var PlaceholderAvatar = class {
       }
     }
     if (S.glasses) add(head, new THREE.CylinderGeometry(35e-4, 35e-4, 0.03, 8), M.dark, [0, 0.185, 0.176], [1, 1, 1], [0, 0, Math.PI / 2]);
+    if (S.shades && !S.glasses) {
+      for (const sx of [-1, 1]) {
+        add(head, new THREE.CylinderGeometry(0.037, 0.037, 8e-3, 32), M.lens, [sx * 0.058, 0.182, 0.172], [1.05, 1, 0.92], [Math.PI / 2, 0, sx * 0.2]);
+        add(head, new THREE.TorusGeometry(0.037, 42e-4, 8, 32), M.dark, [sx * 0.058, 0.182, 0.176], [1.05, 0.92, 1], [0, sx * 0.2, 0]);
+        add(head, new THREE.BoxGeometry(4e-3, 6e-3, 0.15), M.dark, [sx * 0.146, 0.19, 0.092], [1, 1, 1], [0, sx * 0.08, 0]);
+      }
+      add(head, new THREE.CylinderGeometry(35e-4, 35e-4, 0.032, 8), M.dark, [0, 0.19, 0.18], [1, 1, 1], [0, 0, Math.PI / 2]);
+    }
     const mouth = new THREE.Group();
     mouth.position.set(0, 0.09, 0.149);
     mouth.rotation.x = -0.25;
@@ -564,6 +598,7 @@ var PlaceholderAvatar = class {
     openGeo.translate(0, -0.011, 0);
     P.mouthOpen = add(mouth, openGeo, M.mouth, [0, 0.012, 0]);
     this._buildHair(head, K);
+    if (S.headphones) this._buildHeadphones(head, K);
   }
   _buildHair(head, { M, add, sph, cap }) {
     const style = this.style.hairStyle;
@@ -1228,34 +1263,426 @@ var MOTIONS = {
   }
 };
 
-// avatar/js/effects/Confetti.js
+// avatar/js/avatars/RiggedAvatar.js
 import * as THREE2 from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
+var TARGET_HEIGHT = 1.92 * (BASE_HEIGHT / 175);
+var MAP = {
+  hips: "Hips",
+  neck: "Neck",
+  head: "Head",
+  shoulderL: "LeftArm",
+  elbowL: "LeftForeArm",
+  handL: "LeftHand",
+  shoulderR: "RightArm",
+  elbowR: "RightForeArm",
+  handR: "RightHand",
+  legL: "LeftUpLeg",
+  kneeL: "LeftLeg",
+  footL: "LeftFoot",
+  legR: "RightUpLeg",
+  kneeR: "RightLeg",
+  footR: "RightFoot"
+};
+var ALIGN = [
+  ["LeftArm", "LeftForeArm", "shoulderL", "elbowL"],
+  ["LeftForeArm", "LeftHand", "elbowL", "handL"],
+  ["RightArm", "RightForeArm", "shoulderR", "elbowR"],
+  ["RightForeArm", "RightHand", "elbowR", "handR"],
+  ["LeftUpLeg", "LeftLeg", "legL", "kneeL"],
+  ["LeftLeg", "LeftFoot", "kneeL", "footL"],
+  ["RightUpLeg", "RightLeg", "legR", "kneeR"],
+  ["RightLeg", "RightFoot", "kneeR", "footR"]
+];
+var CLIP_MOVES = { samba: /samba|dance/i };
+var cache = /* @__PURE__ */ new Map();
+var shortName = (n) => n.replace(/^.*[:_]?mixamorig[:_]?/i, "").replace(/^mixamorig/i, "");
+var RiggedAvatar = class _RiggedAvatar {
+  static isRigged(gltf) {
+    let found = false;
+    gltf.scene.traverse((o) => {
+      if (o.isBone && /Hips$/i.test(o.name)) found = true;
+    });
+    return found;
+  }
+  static loadGltf(url) {
+    if (!cache.has(url)) cache.set(url, new GLTFLoader().loadAsync(url).catch((e) => {
+      cache.delete(url);
+      throw e;
+    }));
+    return cache.get(url);
+  }
+  static async load(url, opts = {}, style = {}) {
+    const gltf = await _RiggedAvatar.loadGltf(url);
+    if (!_RiggedAvatar.isRigged(gltf)) throw new Error("Model has no humanoid skeleton");
+    return new _RiggedAvatar(gltf, opts, style);
+  }
+  constructor(gltf, opts = {}, style = {}) {
+    this.object3d = new THREE2.Group();
+    this.object3d.name = "RiggedAvatar";
+    this.motion = new THREE2.Group();
+    this.object3d.add(this.motion);
+    this.supportsStyle = true;
+    this.styleKeys = ["skin", "topColor", "bottomColor"];
+    this.style = { ...style };
+    this.driver = new PlaceholderAvatar(opts, { ...style, body: style.body || "female" });
+    this.driver._lookWeight = 1;
+    this.driver._apply({}, 0);
+    this.driver.object3d.updateMatrixWorld(true);
+    const model = cloneSkinned(gltf.scene);
+    this.model = model;
+    model.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.frustumCulled = false;
+        o.material = o.material.clone();
+        this._setupMaterial(o.material);
+      }
+    });
+    this.bones = {};
+    model.traverse((o) => {
+      if (o.isBone) this.bones[shortName(o.name)] = o;
+    });
+    this.headBone = this.bones.Head;
+    const measure = () => {
+      model.updateMatrixWorld(true);
+      model.traverse((o) => {
+        if (o.isSkinnedMesh) o.skeleton.update();
+      });
+      return new THREE2.Box3().setFromObject(model, true);
+    };
+    let box = measure();
+    const size = box.getSize(new THREE2.Vector3());
+    model.scale.multiplyScalar(TARGET_HEIGHT / (size.y || 1));
+    box = measure();
+    const c = box.getCenter(new THREE2.Vector3());
+    model.position.x -= c.x;
+    model.position.z -= c.z;
+    model.position.y -= box.min.y;
+    this.motion.add(model);
+    this.height = TARGET_HEIGHT + 0.05;
+    this.object3d.updateMatrixWorld(true);
+    this._alignRestPose();
+    this._captureRest();
+    this.mixer = new THREE2.AnimationMixer(model);
+    this.clips = {};
+    for (const [move, re] of Object.entries(CLIP_MOVES)) {
+      const clip = gltf.animations.find((a) => re.test(a.name) && !/t.?pose/i.test(a.name));
+      if (clip) this.clips[move] = this.mixer.clipAction(clip);
+    }
+    this.clipMove = null;
+    this.clipWeight = 0;
+    this.coin = this.driver.parts.coin;
+    this.coin.removeFromParent();
+    this.coin.visible = false;
+    this.object3d.add(this.coin);
+    this.parts = { coin: this.coin };
+    const hit = new THREE2.Mesh(new THREE2.CylinderGeometry(0.32, 0.28, TARGET_HEIGHT, 12), new THREE2.MeshBasicMaterial({ visible: false }));
+    hit.position.y = TARGET_HEIGHT / 2;
+    this.motion.add(hit);
+    this.hitObjects = [hit];
+    this.headAnchor = new THREE2.Object3D();
+    this.headAnchor.position.set(0, this.height, 0);
+    this.object3d.add(this.headAnchor);
+    this._q = new THREE2.Quaternion();
+    this._q2 = new THREE2.Quaternion();
+    this._v = new THREE2.Vector3();
+    this._v2 = new THREE2.Vector3();
+    this.setStyle(style);
+    this._retarget(0);
+  }
+  get reactions() {
+    return [...this.driver.reactions, ...Object.keys(this.clips)];
+  }
+  get current() {
+    return this.clipMove ? { name: this.clipMove.name } : this.driver.current;
+  }
+  play(name) {
+    const action = this.clips[name];
+    if (action) {
+      this.driver.current = null;
+      action.reset().setLoop(THREE2.LoopOnce, 1).play();
+      action.clampWhenFinished = true;
+      this.clipMove = { name, action, t: 0, duration: Math.min(action.getClip().duration, 8) };
+      return this.clipMove.duration;
+    }
+    this._endClip();
+    return this.driver.play(name);
+  }
+  setLookTarget(x, y) {
+    this.driver.setLookTarget(x, y);
+  }
+  update(dt) {
+    this.driver.update(dt);
+    this._retarget(dt);
+  }
+  setStyle(style) {
+    this.style = { ...this.style, ...style };
+    const u = this.uniforms;
+    if (!u) return;
+    for (const [key, uni] of [["skin", "uSkin"], ["topColor", "uTop"], ["bottomColor", "uBottom"]]) {
+      const col = this.style[key];
+      const ref = RECOLOR.ref[key];
+      const on = !!col && col.toLowerCase() !== ref;
+      u[`${uni}On`].value = on ? 1 : 0;
+      if (on) u[uni].value.set(col);
+    }
+  }
+  dispose() {
+    this.model.traverse((o) => {
+      if (o.isMesh) o.material.dispose();
+    });
+    this.mixer.stopAllAction();
+    this.driver.dispose();
+  }
+  // ---------------------------------------------------------------- internals
+  _bone(name) {
+    return this.bones[name];
+  }
+  /** Rotate T-pose limbs so the model's rest pose matches the driver's (arms down). */
+  _alignRestPose() {
+    const D = this.driver.joints;
+    const toModel = new THREE2.Matrix4().copy(this.object3d.matrixWorld).invert();
+    const pos = (o) => o.getWorldPosition(new THREE2.Vector3()).applyMatrix4(toModel);
+    const qWorld = (o) => o.getWorldQuaternion(new THREE2.Quaternion());
+    for (const [b, cb, j, cj] of ALIGN) {
+      const bone = this._bone(b);
+      const child = this._bone(cb);
+      if (!bone || !child) continue;
+      this.object3d.updateMatrixWorld(true);
+      const cur = pos(child).sub(pos(bone)).normalize();
+      const tgt = D[cj].getWorldPosition(new THREE2.Vector3()).sub(D[j].getWorldPosition(new THREE2.Vector3())).normalize();
+      const rot = new THREE2.Quaternion().setFromUnitVectors(cur, tgt);
+      const world = rot.multiply(qWorld(bone));
+      const parentQ = qWorld(bone.parent);
+      bone.quaternion.copy(parentQ.invert().multiply(world));
+    }
+    this.object3d.updateMatrixWorld(true);
+  }
+  /** Remember rest rotations (driver + model) so per-frame deltas can be applied. */
+  _captureRest() {
+    const D = this.driver.joints;
+    this.driverBodyQ0 = D.body.getWorldQuaternion(new THREE2.Quaternion());
+    this.R0 = {};
+    for (const j of Object.keys(D)) this.R0[j] = this._driverQ(j, new THREE2.Quaternion());
+    this.hipsDriver0 = this._driverPos("hips", new THREE2.Vector3());
+    this.W0 = /* @__PURE__ */ new Map();
+    this.model.traverse((o) => {
+      if (o.isBone) o.userData.restQ = o.quaternion.clone();
+    });
+    const inv = this.object3d.getWorldQuaternion(new THREE2.Quaternion()).invert();
+    this.model.traverse((o) => {
+      if (o.isBone) this.W0.set(o, inv.clone().multiply(o.getWorldQuaternion(new THREE2.Quaternion())));
+    });
+    const hips = this._bone("Hips");
+    this.hipsRest = hips.position.clone();
+    this.hipsParentQ0 = inv.clone().multiply(hips.parent.getWorldQuaternion(new THREE2.Quaternion()));
+    this.hipsParentScale = hips.parent.getWorldScale(new THREE2.Vector3()).x / this.object3d.getWorldScale(new THREE2.Vector3()).x;
+    this.legRatio = this._modelLegLength() / 0.92;
+    this.footRest = { L: this._footY("Left"), R: this._footY("Right") };
+  }
+  _modelLegLength() {
+    const a = this._bone("LeftUpLeg").getWorldPosition(new THREE2.Vector3());
+    const b = this._bone("LeftFoot").getWorldPosition(new THREE2.Vector3());
+    return a.distanceTo(b) / this.object3d.getWorldScale(new THREE2.Vector3()).x;
+  }
+  _footY(side) {
+    const f = this._bone(`${side}Foot`);
+    if (!f) return 0;
+    return this.object3d.worldToLocal(f.getWorldPosition(this._v ?? new THREE2.Vector3())).y;
+  }
+  /** Driver joint rotation relative to the driver's body joint. */
+  _driverQ(j, out) {
+    const D = this.driver.joints;
+    const bodyInv = D.body.getWorldQuaternion(new THREE2.Quaternion()).invert();
+    return out.copy(bodyInv).multiply(D[j].getWorldQuaternion(new THREE2.Quaternion()));
+  }
+  _driverPos(j, out) {
+    const D = this.driver.joints;
+    D[j].getWorldPosition(out);
+    return D.body.worldToLocal(out);
+  }
+  _retarget(dt) {
+    const drv = this.driver;
+    drv.object3d.updateMatrixWorld(true);
+    const D = drv.joints;
+    const delta = {};
+    for (const j of Object.keys(MAP).concat(["spine", "fingersL", "fingersR", "thumbL", "thumbR"])) {
+      if (!D[j]) continue;
+      const P = this._driverQ(j, new THREE2.Quaternion());
+      delta[j] = P.multiply(this.R0[j].clone().invert());
+    }
+    const dHips = delta.hips;
+    const dSpine = delta.spine || dHips;
+    const forBone = (name) => {
+      if (name === "Hips") return dHips;
+      if (name === "Spine") return dHips.clone().slerp(dSpine, 1 / 3);
+      if (name === "Spine1") return dHips.clone().slerp(dSpine, 2 / 3);
+      if (name === "Spine2" || /Shoulder$/.test(name)) return dSpine;
+      if (name === "Neck") return delta.neck;
+      if (/^Head/.test(name)) return delta.head;
+      const side = name.startsWith("Left") ? "L" : name.startsWith("Right") ? "R" : "";
+      if (/HandThumb/.test(name)) return delta[`thumb${side}`] || delta[`hand${side}`];
+      if (/Hand(Index|Middle|Ring|Pinky)/.test(name)) return delta[`fingers${side}`] || delta[`hand${side}`];
+      if (/Hand$/.test(name)) return delta[`hand${side}`];
+      if (/ForeArm$/.test(name)) return delta[`elbow${side}`];
+      if (/Arm$/.test(name)) return delta[`shoulder${side}`];
+      if (/UpLeg$/.test(name)) return delta[`leg${side}`];
+      if (/Leg$/.test(name)) return delta[`knee${side}`];
+      if (/(Foot|Toe)/.test(name)) return delta[`foot${side}`];
+      return null;
+    };
+    const bodyP = D.body.position;
+    const bodyR = D.body.rotation;
+    this.motion.position.set(bodyP.x * this.legRatio, bodyP.y * this.legRatio, bodyP.z * this.legRatio);
+    this.motion.rotation.set(bodyR.x, bodyR.y, bodyR.z);
+    const hips = this._bone("Hips");
+    const walk = (bone, parentW) => {
+      const d = forBone(shortName(bone.name));
+      const w0 = this.W0.get(bone);
+      const w = d ? d.clone().multiply(w0) : parentW.clone().multiply(this._restLocal(bone));
+      bone.quaternion.copy(parentW.clone().invert().multiply(w));
+      for (const ch of bone.children) if (ch.isBone) walk(ch, w);
+    };
+    walk(hips, this.hipsParentQ0);
+    const hp = this._driverPos("hips", this._v2).sub(this.hipsDriver0).multiplyScalar(this.legRatio);
+    hp.applyQuaternion(this.hipsParentQ0.clone().invert()).divideScalar(this.hipsParentScale);
+    hips.position.copy(this.hipsRest).add(hp);
+    this.object3d.updateMatrixWorld(true);
+    const motionY = this.motion.position.y;
+    const drop = Math.min(this._footY("Left") - this.footRest.L, this._footY("Right") - this.footRest.R) - motionY;
+    if (Math.abs(drop) > 1e-4) {
+      const fix = new THREE2.Vector3(0, -drop, 0).applyQuaternion(this.hipsParentQ0.clone().invert()).divideScalar(this.hipsParentScale);
+      hips.position.add(fix);
+    }
+    this._blendClip(dt);
+    this._applyCoin(drv.final["prop.coin"] || 0);
+  }
+  _restLocal(bone) {
+    if (!bone.userData.restQ) bone.userData.restQ = bone.quaternion.clone();
+    return bone.userData.restQ;
+  }
+  /** Model clips (samba): fade in over the retargeted pose, then back out. */
+  _blendClip(dt) {
+    const c = this.clipMove;
+    if (!c) return;
+    c.t += dt;
+    const fadeIn = Math.min(1, c.t / 0.35);
+    const fadeOut = Math.min(1, Math.max(0, (c.duration - c.t) / 0.4));
+    const w = fadeIn * fadeOut;
+    const saved = [];
+    this.model.traverse((o) => {
+      if (o.isBone) saved.push([o, o.quaternion.clone(), o.position.clone()]);
+    });
+    this.mixer.update(dt);
+    for (const [b, q, p] of saved) {
+      b.quaternion.copy(q.slerp(b.quaternion, w));
+      b.position.copy(p.lerp(b.position, w));
+    }
+    if (c.t >= c.duration) this._endClip();
+  }
+  _endClip() {
+    if (!this.clipMove) return;
+    this.clipMove.action.stop();
+    this.clipMove = null;
+  }
+  _applyCoin(c) {
+    const coin = this.coin;
+    coin.visible = c > 0.01 && c < 0.995;
+    if (!coin.visible) return;
+    this.object3d.updateMatrixWorld(true);
+    const hand = this._bone("RightHand");
+    const palm = this.object3d.worldToLocal(hand.getWorldPosition(this._v));
+    palm.y += 0.02;
+    const fall = Math.min(1, c / 0.52);
+    coin.position.set(palm.x, palm.y + 1.5 * (1 - fall * fall), palm.z + 0.03);
+    coin.rotation.set(Math.PI / 2 * (1 - fall) + 0.2, c * 30 * (1 - fall) + 0.3, 0);
+    const pop = Math.min(1, c / 0.06);
+    const pocket = 1 - Math.max(0, (c - 0.86) / 0.14);
+    coin.scale.setScalar(Math.max(1e-3, pop * pocket));
+  }
+  _setupMaterial(m) {
+    m.metalness = 0.05;
+    m.roughness = 1;
+    m.envMapIntensity = 0.8;
+    const uniforms = {
+      uSkin: { value: new THREE2.Color() },
+      uSkinOn: { value: 0 },
+      uSkinRef: { value: new THREE2.Color(RECOLOR.ref.skin) },
+      uTop: { value: new THREE2.Color() },
+      uTopOn: { value: 0 },
+      uTopRef: { value: new THREE2.Color(RECOLOR.ref.topColor) },
+      uBottom: { value: new THREE2.Color() },
+      uBottomOn: { value: 0 },
+      uBottomRef: { value: new THREE2.Color(RECOLOR.ref.bottomColor) }
+    };
+    this.uniforms = uniforms;
+    m.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, uniforms);
+      shader.fragmentShader = shader.fragmentShader.replace("#include <common>", `#include <common>
+          uniform vec3 uSkin, uSkinRef, uTop, uTopRef, uBottom, uBottomRef;
+          uniform float uSkinOn, uTopOn, uBottomOn;
+          vec3 rgb2hsv(vec3 c) {
+            vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+            vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+            vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+            float d = q.x - min(q.w, q.y);
+            return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x);
+          }
+          float lumi(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }`).replace("#include <map_fragment>", `#include <map_fragment>
+          {
+            vec3 lin = diffuseColor.rgb;
+            vec3 hsv = rgb2hsv(pow(max(lin, 0.0), vec3(1.0 / 2.2))); // detect in sRGB like the texture artist sees it
+            float hue = hsv.x * 360.0;
+            // joggers: saturated yellow
+            float isBottom = step(36.0, hue) * step(hue, 64.0) * step(0.35, hsv.y) * step(0.35, hsv.z);
+            // crop top: neutral grey inside the top's area of the atlas
+            float inTop = step(0.45, vMapUv.x) * step(vMapUv.x, 0.95) * step(0.36, vMapUv.y) * step(vMapUv.y, 0.64);
+            float isTop = inTop * step(hsv.y, 0.22) * step(0.12, hsv.z) * step(hsv.z, 0.62);
+            // skin: warm brown, not too bright (headphones) or desaturated (hair)
+            float isSkin = step(6.0, hue) * step(hue, 40.0) * step(0.3, hsv.y) * step(hsv.y, 0.9) * step(0.08, hsv.z) * step(hsv.z, 0.62) * (1.0 - isTop);
+            if (uBottomOn > 0.5 && isBottom > 0.5) diffuseColor.rgb = uBottom * clamp(lumi(lin) / lumi(uBottomRef), 0.0, 1.6);
+            if (uTopOn > 0.5 && isTop > 0.5) diffuseColor.rgb = uTop * clamp(lumi(lin) / lumi(uTopRef), 0.0, 2.2);
+            if (uSkinOn > 0.5 && isSkin > 0.5) diffuseColor.rgb = lin * (uSkin / max(uSkinRef, vec3(0.002)));
+          }`);
+    };
+    m.customProgramCacheKey = () => "rigged-recolor-v1";
+    m.needsUpdate = true;
+  }
+};
+var RECOLOR = {
+  ref: { skin: "#613d26", topColor: "#746764", bottomColor: "#fbda53" }
+};
+
+// avatar/js/effects/Confetti.js
+import * as THREE3 from "three";
 var Confetti = class {
   constructor(scene, colors, count = 140) {
     this.count = count;
-    const geo = new THREE2.PlaneGeometry(0.035, 0.06);
-    const mat = new THREE2.MeshBasicMaterial({ side: THREE2.DoubleSide, toneMapped: false });
-    this.mesh = new THREE2.InstancedMesh(geo, mat, count);
+    const geo = new THREE3.PlaneGeometry(0.035, 0.06);
+    const mat = new THREE3.MeshBasicMaterial({ side: THREE3.DoubleSide, toneMapped: false });
+    this.mesh = new THREE3.InstancedMesh(geo, mat, count);
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;
     scene.add(this.mesh);
-    const palette = colors.map((c) => new THREE2.Color(c));
+    const palette = colors.map((c) => new THREE3.Color(c));
     this.p = Array.from({ length: count }, (_, i) => {
       this.mesh.setColorAt(i, palette[i % palette.length]);
       return {
-        pos: new THREE2.Vector3(),
-        vel: new THREE2.Vector3(),
-        rot: new THREE2.Euler(),
-        spin: new THREE2.Vector3(),
+        pos: new THREE3.Vector3(),
+        vel: new THREE3.Vector3(),
+        rot: new THREE3.Euler(),
+        spin: new THREE3.Vector3(),
         life: 0
       };
     });
-    this.dummy = new THREE2.Object3D();
+    this.dummy = new THREE3.Object3D();
     this.active = 0;
   }
-  burst(origin = new THREE2.Vector3(0, 1.9, 0)) {
+  burst(origin = new THREE3.Vector3(0, 1.9, 0)) {
     for (const p of this.p) {
-      p.pos.copy(origin).add(new THREE2.Vector3((Math.random() - 0.5) * 0.3, Math.random() * 0.2, (Math.random() - 0.5) * 0.3));
+      p.pos.copy(origin).add(new THREE3.Vector3((Math.random() - 0.5) * 0.3, Math.random() * 0.2, (Math.random() - 0.5) * 0.3));
       const a = Math.random() * Math.PI * 2;
       const r = 0.6 + Math.random() * 1.4;
       p.vel.set(Math.cos(a) * r, 2.2 + Math.random() * 2.4, Math.sin(a) * r * 0.6);
@@ -1308,46 +1735,48 @@ var MOVES = {
 var CONFETTI_AT = { celebrate: 0.45 };
 var FRAME = { w: 2, h: 2.65, cy: 1.14, up: 0.18 };
 var AvatarBuddy = class {
-  constructor(host, { onTap, look, accent = "#7cf5d0" } = {}) {
+  constructor(host, { onTap, look, accent = "#7cf5d0", models } = {}) {
     this.onTap = onTap;
+    this.accent = accent;
+    this.models = { female: defaultModelUrl(), male: "", ...models || {} };
     this.spinEnabled = true;
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.queue = [];
     this.yaw = 0;
     this.yawTarget = 0;
     this.lookState = sanitizeLook({ ...DEFAULT_LOOK, ...look || {}, character: "human" });
-    this.renderer = new THREE3.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer = new THREE4.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor(0, 0);
-    this.renderer.toneMapping = THREE3.ACESFilmicToneMapping;
+    this.renderer.toneMapping = THREE4.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
-    this.renderer.outputColorSpace = THREE3.SRGBColorSpace;
+    this.renderer.outputColorSpace = THREE4.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.canvas = this.renderer.domElement;
     this.canvas.className = "sparkie-canvas";
     this.canvas.style.touchAction = "pan-y";
-    this.scene = new THREE3.Scene();
-    const pmrem = new THREE3.PMREMGenerator(this.renderer);
+    this.scene = new THREE4.Scene();
+    const pmrem = new THREE4.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     this.scene.environmentIntensity = 0.55;
-    this.scene.add(new THREE3.HemisphereLight(16777215, 14275816, 0.9));
-    const key = new THREE3.DirectionalLight(16774122, 2.3);
+    this.scene.add(new THREE4.HemisphereLight(16777215, 14275816, 0.9));
+    const key = new THREE4.DirectionalLight(16774122, 2.3);
     key.position.set(0.9, 4, 2.6);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     Object.assign(key.shadow.camera, { left: -2, right: 2, top: 2.4, bottom: -0.4, near: 0.5, far: 8 });
     key.shadow.bias = -5e-4;
     key.shadow.normalBias = 0.02;
-    const rim = new THREE3.DirectionalLight(new THREE3.Color(accent), 2);
+    const rim = new THREE4.DirectionalLight(new THREE4.Color(accent), 2);
     rim.position.set(-2.2, 2.2, -2.5);
-    const rim2 = new THREE3.DirectionalLight(16765142, 1.2);
+    const rim2 = new THREE4.DirectionalLight(16765142, 1.2);
     rim2.position.set(2.4, 1.4, -2);
     this.scene.add(key, rim, rim2);
-    const ground = new THREE3.Mesh(new THREE3.PlaneGeometry(6, 6), new THREE3.ShadowMaterial({ opacity: 0.16 }));
+    const ground = new THREE4.Mesh(new THREE4.PlaneGeometry(6, 6), new THREE4.ShadowMaterial({ opacity: 0.16 }));
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
-    this.blob = new THREE3.Mesh(new THREE3.CircleGeometry(0.62, 48), new THREE3.MeshBasicMaterial({
+    this.blob = new THREE4.Mesh(new THREE4.CircleGeometry(0.62, 48), new THREE4.MeshBasicMaterial({
       map: blobTexture(),
       transparent: true,
       depthWrite: false,
@@ -1356,13 +1785,12 @@ var AvatarBuddy = class {
     this.blob.rotation.x = -Math.PI / 2;
     this.blob.position.y = 2e-3;
     this.scene.add(this.blob);
-    this.avatar = new PlaceholderAvatar({ accent }, this.lookState);
-    this.root = new THREE3.Group();
-    this.root.add(this.avatar.object3d);
+    this.root = new THREE4.Group();
     this.scene.add(this.root);
-    this._applyHeight();
+    this._setAvatar(new PlaceholderAvatar({ accent }, this.lookState));
+    this._loadModel();
     this.confetti = new Confetti(this.scene, ["#e3000f", "#ffffff", accent, "#ffd23f", "#b8a4ff"], this.reduced ? 40 : 140);
-    this.camera = new THREE3.PerspectiveCamera(28, 1, 0.1, 50);
+    this.camera = new THREE4.PerspectiveCamera(28, 1, 0.1, 50);
     this.bindPointer();
     this.ro = new ResizeObserver(() => this.fit());
     this.mount(host);
@@ -1371,7 +1799,7 @@ var AvatarBuddy = class {
   }
   // ---------- Sparkie-compatible API ----------
   get head() {
-    return this.avatar.joints.head;
+    return this.avatar.headBone || this.avatar.joints?.head;
   }
   mount(el) {
     if (!el) return;
@@ -1392,7 +1820,7 @@ var AvatarBuddy = class {
   }
   burst() {
     const top = (this.avatar.height || 2) * this.avatar.object3d.scale.y + 0.1;
-    this.confetti.burst(new THREE3.Vector3(0, top, 0.1));
+    this.confetti.burst(new THREE4.Vector3(0, top, 0.1));
   }
   fit() {
     const w = this.host?.clientWidth || 0, h = this.host?.clientHeight || 0;
@@ -1400,7 +1828,7 @@ var AvatarBuddy = class {
     this.renderer.setSize(w, h, false);
     const cam = this.camera;
     cam.aspect = w / h;
-    const t = Math.tan(THREE3.MathUtils.degToRad(cam.fov / 2));
+    const t = Math.tan(THREE4.MathUtils.degToRad(cam.fov / 2));
     const d = Math.max(FRAME.h / 2 / t, FRAME.w / 2 / (t * cam.aspect));
     cam.position.set(0, FRAME.cy + FRAME.up, d);
     cam.lookAt(0, FRAME.cy, 0);
@@ -1408,16 +1836,19 @@ var AvatarBuddy = class {
   }
   hitTest(e) {
     const r = this.canvas.getBoundingClientRect();
-    const v = new THREE3.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    const ray = new THREE3.Raycaster();
+    const v = new THREE4.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    const ray = new THREE4.Raycaster();
     ray.setFromCamera(v, this.camera);
-    return ray.intersectObject(this.avatar.object3d, true).length > 0;
+    const targets = this.avatar.hitObjects || [this.avatar.object3d];
+    return ray.intersectObjects(targets, true).length > 0;
   }
   // ---------- extras ----------
   /** Change hair, clothes, colours, height… (keys as in look.js). Returns the full look. */
   setLook(partial = {}) {
+    const prevUrl = this._modelUrl();
     this.lookState = sanitizeLook({ ...this.lookState, ...partial, character: "human" });
-    this.avatar.setStyle(this.lookState);
+    if (this._modelUrl() !== prevUrl) this._loadModel(true);
+    else this.avatar.setStyle(this.lookState);
     this._applyHeight();
     return { ...this.lookState };
   }
@@ -1433,6 +1864,40 @@ var AvatarBuddy = class {
     this.canvas.remove();
   }
   // ---------- internals ----------
+  _modelUrl() {
+    return (this.lookState.body === "male" ? this.models.male : this.models.female) || "";
+  }
+  _setAvatar(avatar) {
+    if (this.avatar) {
+      this.root.remove(this.avatar.object3d);
+      this.avatar.dispose?.();
+    }
+    this.avatar = avatar;
+    this.root.add(avatar.object3d);
+    this._applyHeight();
+  }
+  /** Load the 3D model for the current body (or fall back to the built-in character). */
+  async _loadModel(swapNow = false) {
+    const url = this._modelUrl();
+    const seq = this._seq = (this._seq || 0) + 1;
+    if (!url) {
+      if (swapNow) this._setAvatar(new PlaceholderAvatar({ accent: this.accent }, this.lookState));
+      this.root.visible = true;
+      return;
+    }
+    this.root.visible = false;
+    try {
+      const gltf = await RiggedAvatar.loadGltf(url);
+      if (seq !== this._seq) return;
+      const move = this.avatar?.current?.name;
+      this._setAvatar(new RiggedAvatar(gltf, { accent: this.accent }, this.lookState));
+      if (move) this.avatar.play(move);
+    } catch (err) {
+      console.warn("[avatar-buddy] model failed to load, using the built-in character", err);
+      if (swapNow && seq === this._seq) this._setAvatar(new PlaceholderAvatar({ accent: this.accent }, this.lookState));
+    }
+    if (seq === this._seq) this.root.visible = true;
+  }
   _start(name) {
     this.avatar.play(MOVES[name]);
     this.current = name;
@@ -1491,6 +1956,13 @@ var AvatarBuddy = class {
     this.renderer.render(this.scene, this.camera);
   }
 };
+function defaultModelUrl() {
+  try {
+    return new URL("./buddy.glb", import.meta.url).href;
+  } catch {
+    return "";
+  }
+}
 function blobTexture() {
   const c = document.createElement("canvas");
   c.width = c.height = 128;
@@ -1501,8 +1973,8 @@ function blobTexture() {
   grad.addColorStop(1, "rgba(20,10,30,0)");
   g.fillStyle = grad;
   g.fillRect(0, 0, 128, 128);
-  const tex = new THREE3.CanvasTexture(c);
-  tex.colorSpace = THREE3.SRGBColorSpace;
+  const tex = new THREE4.CanvasTexture(c);
+  tex.colorSpace = THREE4.SRGBColorSpace;
   return tex;
 }
 export {

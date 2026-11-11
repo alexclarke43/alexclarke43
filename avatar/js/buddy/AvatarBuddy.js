@@ -14,14 +14,19 @@
  *
  * Sparkie's moves: intro, wave, celebrate, jump, coin, sad, nod, shake, dance, think, giggle.
  *
+ * The default (female) avatar is the 3D model buddy.glb, loaded from next to this
+ * file; body "male" uses the built-in character in the same outfit style.
+ *
  * Extras (optional):
- *   new Sparkie(host, { onTap, look: { hairStyle: 'bun', top: 'tee', topColor: '#7cf5d0', height: 168 } })
+ *   new Sparkie(host, { onTap, look: { body: 'male', topColor: '#e3000f', height: 168 } })
+ *   new Sparkie(host, { models: { female: '/assets/buddy.glb', male: '/assets/buddy-male.glb' } })
  *   buddy.setLook({ ... })  /  buddy.getLook()           // same look keys as the avatar app (look.js)
  *   buddy.dispose()
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { PlaceholderAvatar } from '../avatars/PlaceholderAvatar.js';
+import { RiggedAvatar } from '../avatars/RiggedAvatar.js';
 import { Confetti } from '../effects/Confetti.js';
 import { DEFAULT_LOOK, BASE_HEIGHT, sanitizeLook } from '../look.js';
 
@@ -35,8 +40,10 @@ const CONFETTI_AT = { celebrate: 0.45 }; // seconds into the move
 const FRAME = { w: 2.0, h: 2.65, cy: 1.14, up: 0.18 };
 
 export class AvatarBuddy {
-  constructor(host, { onTap, look, accent = '#7cf5d0' } = {}) {
+  constructor(host, { onTap, look, accent = '#7cf5d0', models } = {}) {
     this.onTap = onTap;
+    this.accent = accent;
+    this.models = { female: defaultModelUrl(), male: '', ...(models || {}) };
     this.spinEnabled = true;
     this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.queue = [];
@@ -85,12 +92,11 @@ export class AvatarBuddy {
     this.blob.position.y = 0.002;
     this.scene.add(this.blob);
 
-    // the avatar
-    this.avatar = new PlaceholderAvatar({ accent }, this.lookState);
+    // the avatar: built-in character right away, 3D model swapped in once loaded
     this.root = new THREE.Group();
-    this.root.add(this.avatar.object3d);
     this.scene.add(this.root);
-    this._applyHeight();
+    this._setAvatar(new PlaceholderAvatar({ accent }, this.lookState));
+    this._loadModel();
 
     this.confetti = new Confetti(this.scene, ['#e3000f', '#ffffff', accent, '#ffd23f', '#b8a4ff'], this.reduced ? 40 : 140);
 
@@ -104,7 +110,7 @@ export class AvatarBuddy {
   }
 
   // ---------- Sparkie-compatible API ----------
-  get head() { return this.avatar.joints.head; }
+  get head() { return this.avatar.headBone || this.avatar.joints?.head; }
 
   mount(el) {
     if (!el) return;
@@ -145,14 +151,17 @@ export class AvatarBuddy {
     const v = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     const ray = new THREE.Raycaster();
     ray.setFromCamera(v, this.camera);
-    return ray.intersectObject(this.avatar.object3d, true).length > 0;
+    const targets = this.avatar.hitObjects || [this.avatar.object3d];
+    return ray.intersectObjects(targets, true).length > 0;
   }
 
   // ---------- extras ----------
   /** Change hair, clothes, colours, height… (keys as in look.js). Returns the full look. */
   setLook(partial = {}) {
+    const prevUrl = this._modelUrl();
     this.lookState = sanitizeLook({ ...this.lookState, ...partial, character: 'human' });
-    this.avatar.setStyle(this.lookState);
+    if (this._modelUrl() !== prevUrl) this._loadModel(true);
+    else this.avatar.setStyle(this.lookState);
     this._applyHeight();
     return { ...this.lookState };
   }
@@ -169,6 +178,34 @@ export class AvatarBuddy {
   }
 
   // ---------- internals ----------
+  _modelUrl() { return (this.lookState.body === 'male' ? this.models.male : this.models.female) || ''; }
+
+  _setAvatar(avatar) {
+    if (this.avatar) { this.root.remove(this.avatar.object3d); this.avatar.dispose?.(); }
+    this.avatar = avatar;
+    this.root.add(avatar.object3d);
+    this._applyHeight();
+  }
+
+  /** Load the 3D model for the current body (or fall back to the built-in character). */
+  async _loadModel(swapNow = false) {
+    const url = this._modelUrl();
+    const seq = (this._seq = (this._seq || 0) + 1);
+    if (!url) { if (swapNow) this._setAvatar(new PlaceholderAvatar({ accent: this.accent }, this.lookState)); this.root.visible = true; return; }
+    this.root.visible = false; // don't flash the built-in character while the model downloads
+    try {
+      const gltf = await RiggedAvatar.loadGltf(url);
+      if (seq !== this._seq) return;
+      const move = this.avatar?.current?.name;
+      this._setAvatar(new RiggedAvatar(gltf, { accent: this.accent }, this.lookState));
+      if (move) this.avatar.play(move);
+    } catch (err) {
+      console.warn('[avatar-buddy] model failed to load, using the built-in character', err);
+      if (swapNow && seq === this._seq) this._setAvatar(new PlaceholderAvatar({ accent: this.accent }, this.lookState));
+    }
+    if (seq === this._seq) this.root.visible = true;
+  }
+
   _start(name) {
     this.avatar.play(MOVES[name]);
     this.current = name;
@@ -230,6 +267,10 @@ export class AvatarBuddy {
     this.confetti.update(dt);
     this.renderer.render(this.scene, this.camera);
   }
+}
+
+function defaultModelUrl() {
+  try { return new URL('./buddy.glb', import.meta.url).href; } catch { return ''; }
 }
 
 // Drop-in name: `import { Sparkie } from './avatar-buddy.js'`

@@ -5,7 +5,8 @@
  * small coin reward when watched to the end; `dance` / `emote` clips are just for fun.
  *
  * Moves: greet, celebrate, nod, shrug, dance, jump, coin, sad, shake, think,
- * giggle, heart, flex, mindBlown, shuffle, bounce, point, handsUp.
+ * giggle, heart, flex, mindBlown, shuffle, bounce, point, handsUp,
+ * samba (the 3D model's own dance clip; other avatars shuffle instead).
  * Avatars that lack a move fall back to a similar one (see feed.js).
  */
 const L = (en, de) => ({ en, de });
@@ -34,6 +35,16 @@ export const CLIPS = [
       { move: 'bounce', text: L('rent paid ✅ savings moved ✅', 'Miete bezahlt ✅ Sparrate weg ✅') },
       { move: 'dance', text: L('now we vibe 🕺', 'jetzt wird gevibet 🕺') },
       { move: 'handsUp', text: L('responsible AND fun 🙌', 'vernünftig UND fun 🙌') },
+    ],
+  },
+  {
+    id: 'samba', kind: 'dance', bpm: 100,
+    bg: ['#f72585', '#ffb703'],
+    title: L('Samba challenge 💃', 'Samba-Challenge 💃'),
+    tags: '#samba #dancechallenge #fyp',
+    steps: [
+      { move: 'samba', text: L('when the cashback lands 💃', 'wenn das Cashback ankommt 💃') },
+      { move: 'handsUp', text: L('your turn 👀 #dancechallenge', 'du bist dran 👀 #dancechallenge') },
     ],
   },
   {

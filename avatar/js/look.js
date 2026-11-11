@@ -16,20 +16,22 @@ export function cleanAvatarName(raw) {
 export const DEFAULT_LOOK = {
   name: DEFAULT_NAME,   // the avatar's name (user can rename it)
   character: 'human',   // 'human' (customisable) | 'sparkie' (mascot)
-  body: 'male',         // 'male' | 'female' – body shape and face
-  skin: '#c98d6b',
+  body: 'female',       // 'female' = the 3D model (models/buddy.glb) | 'male' = matching built-in character
+  // Defaults follow the uploaded model's outfit: grey crop/tank top, yellow joggers, chunky sneakers, red headphones, shades
+  skin: '#613d26',
   hairStyle: 'curls',
-  hairColor: '#24170f',
+  hairColor: '#25221e',
   hatColor: '#f2c14e',
-  top: 'hoodie',
-  topColor: '#e3000f',
-  bottom: 'cargo',
-  bottomColor: '#2a2a33',
+  top: 'tank',
+  topColor: '#746764',
+  bottom: 'joggers',
+  bottomColor: '#fbda53',
   shoeColor: '#f7f6f2',
   height: BASE_HEIGHT,
   glasses: false,
+  shades: true,
   headphones: true,
-  earring: true,
+  earring: false,
   chain: false,
 };
 
@@ -52,17 +54,20 @@ export const OPTIONS = {
     { id: 'beanie', label: L('Beanie', 'Beanie'), unlock: 50 },
   ],
   top: [
+    { id: 'tank', label: L('Tank', 'Tanktop') },
     { id: 'hoodie', label: L('Hoodie', 'Hoodie') },
     { id: 'jacket', label: L('Bomber', 'Bomber') },
     { id: 'tee', label: L('Tee', 'T-Shirt') },
   ],
   bottom: [
+    { id: 'joggers', label: L('Joggers', 'Jogger') },
     { id: 'cargo', label: L('Cargo', 'Cargo') },
     { id: 'jeans', label: L('Jeans', 'Jeans') },
     { id: 'shorts', label: L('Shorts', 'Shorts') },
     { id: 'skirt', label: L('Skirt', 'Rock') },
   ],
   extras: [
+    { id: 'shades', label: L('Shades', 'Sonnenbrille') },
     { id: 'glasses', label: L('Glasses', 'Brille') },
     { id: 'headphones', label: L('Headphones', 'Kopfhörer') },
     { id: 'earring', label: L('Earring', 'Ohrring') },
@@ -71,10 +76,10 @@ export const OPTIONS = {
 };
 
 export const PALETTES = {
-  skin: ['#f3d2b8', '#e8b896', '#c98d6b', '#a8714f', '#7d4f33', '#5a3826'],
-  hairColor: ['#24170f', '#5b3a1e', '#a0522d', '#d9b26f', '#e8e2d6', '#b48cf2', '#ff6f91', '#2fb8a6'],
-  topColor: ['#e3000f', '#15131a', '#f4f1ea', '#7cf5d0', '#b8a4ff', '#ffd23f', '#3d5a80', '#56704a'],
-  bottomColor: ['#2a2a33', '#3d5a80', '#c8b89a', '#56704a', '#f4f1ea', '#15131a'],
+  skin: ['#f3d2b8', '#e8b896', '#c98d6b', '#a8714f', '#7d4f33', '#613d26', '#4a2c1c'],
+  hairColor: ['#25221e', '#24170f', '#5b3a1e', '#a0522d', '#d9b26f', '#e8e2d6', '#b48cf2', '#ff6f91', '#2fb8a6'],
+  topColor: ['#746764', '#e3000f', '#15131a', '#f4f1ea', '#7cf5d0', '#b8a4ff', '#ffd23f', '#3d5a80', '#56704a'],
+  bottomColor: ['#fbda53', '#2a2a33', '#3d5a80', '#c8b89a', '#56704a', '#f4f1ea', '#15131a'],
   shoeColor: ['#f7f6f2', '#15131a', '#e3000f', '#7cf5d0', { color: GOLD, unlock: 80 }],
   hatColor: ['#f2c14e', '#e3000f', '#15131a', '#7cf5d0', '#b8a4ff', '#f4f1ea'],
 };
@@ -98,7 +103,7 @@ export function sanitizeLook(input = {}) {
   for (const k of ['character', 'body', 'hairStyle', 'top', 'bottom']) {
     if (OPTIONS[k].some((o) => o.id === input[k])) out[k] = input[k];
   }
-  for (const k of ['glasses', 'headphones', 'earring', 'chain']) {
+  for (const k of ['glasses', 'shades', 'headphones', 'earring', 'chain']) {
     if (typeof input[k] === 'boolean') out[k] = input[k];
   }
   if (typeof input.name === 'string' && cleanAvatarName(input.name)) out.name = cleanAvatarName(input.name);
@@ -133,7 +138,8 @@ export function randomLook(coins = 0) {
     bottomColor: pick(colors('bottomColor')),
     shoeColor: pick(colors('shoeColor')),
     height: 155 + Math.round(Math.random() * 40),
-    glasses: Math.random() < 0.35,
+    glasses: Math.random() < 0.25,
+    shades: Math.random() < 0.35,
     headphones: Math.random() < 0.5,
     earring: Math.random() < 0.5,
     chain: coins >= 30 && Math.random() < 0.3,

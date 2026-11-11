@@ -83,7 +83,10 @@ async function openAvatar(browser, base, query, ctxOpts = {}) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(`${base}/avatar/index.html${query}`);
+  // Most checks exercise the built-in character (body "male"); `glb=1` keeps the default 3D model.
+  const q = query.includes('look=') || query.includes('glb=1') || query.includes('model=') || query.includes('character=')
+    ? query : `${query}${query.includes('?') ? '&' : '?'}look=${encodeURIComponent('{"body":"male"}')}`;
+  await page.goto(`${base}/avatar/index.html${q}`);
   await page.waitForFunction(() => window.SparkasseAvatarApp, null, { timeout: 30000 });
   return { ctx, page, errors };
 }
@@ -219,16 +222,18 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
         if (look[key] !== value) allOk = false;
       }
       check('hair / top / bottom options apply', allOk);
-      const shoulderX = () => page.evaluate(() => window.SparkasseAvatarApp.avatar.joints.shoulderL.position.x);
-      const maleShoulder = await shoulderX();
+      const kind = () => page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name);
       await page.click('#panel-style [data-key="body"][data-value="female"]');
-      check('body option: female applies and reshapes the avatar',
-        (await page.evaluate(() => window.SparkasseAvatarApp.look.body)) === 'female' &&
-        (await page.evaluate(() => window.SparkasseAvatarApp.avatar.style.body)) === 'female' && (await shoulderX()) < maleShoulder);
-      check('body chip shows as selected', (await page.getAttribute('#panel-style [data-key="body"][data-value="female"]', 'aria-pressed')) === 'true');
+      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'RiggedAvatar', null, { timeout: 30000 }).catch(() => {});
+      check('body option: female switches to the 3D model', (await page.evaluate(() => window.SparkasseAvatarApp.look.body)) === 'female' && (await kind()) === 'RiggedAvatar');
+      check('3D model: Style panel offers only what the model supports',
+        (await page.locator('#panel-style [data-key="hairStyle"]').count()) === 0 && (await page.locator('#panel-style [data-key="topColor"]').count()) > 0 &&
+        (await page.locator('#panel-style .cz-note').count()) === 1);
       await page.click('#panel-style [data-key="body"][data-value="male"]');
-      check('body option: back to male', (await shoulderX()) === maleShoulder);
-      await page.click('#panel-style [data-key="body"][data-value="female"]');
+      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'PlaceholderAvatar', null, { timeout: 30000 }).catch(() => {});
+      check('body option: male = built-in character in the same outfit style', (await kind()) === 'PlaceholderAvatar' &&
+        (await page.evaluate(() => window.SparkasseAvatarApp.avatar.style.body)) === 'male');
+      check('body chip shows as selected', (await page.getAttribute('#panel-style [data-key="body"][data-value="male"]', 'aria-pressed')) === 'true');
       check('avatar geometry rebuilt', (await meshCount()) !== before);
       await page.click('#panel-style [data-key="topColor"][data-value="#7cf5d0"]');
       const color = await page.evaluate(() => {
@@ -258,6 +263,45 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.waitForFunction(() => window.SparkasseAvatarApp, null, { timeout: 30000 });
       const urlLook = await page.evaluate(() => window.SparkasseAvatarApp.look);
       check('look from URL param', urlLook.hairStyle === 'bun' && urlLook.height === 160);
+      check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
+    console.log('3D model (models/buddy.glb) – default avatar');
+    {
+      const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&persist=0&glb=1');
+      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar, null, { timeout: 30000 });
+      const A = (fn, arg) => page.evaluate(fn, arg);
+      check('default avatar is the rigged 3D model', (await A(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'RiggedAvatar');
+      check('model normalised to the stage', await A(() => { const a = window.SparkasseAvatarApp.avatar; const h = a.bones.Head.getWorldPosition(a.bones.Head.position.clone()).y; return h > 1.2 && h < 2.0; }));
+      const armQ = () => A(() => window.SparkasseAvatarApp.avatar.bones.RightArm.quaternion.toArray().map((v) => +v.toFixed(3)).join());
+      const restArm = await armQ();
+      await A(() => window.SparkasseAvatarApp.play('greet'));
+      await page.waitForTimeout(900);
+      check('reactions are retargeted onto the skeleton (arm moves on greet)', (await armQ()) !== restArm);
+      const moves = ['celebrate', 'nod', 'shrug', 'dance', 'coin', 'heart', 'flex', 'mindBlown', 'shuffle', 'bounce', 'point', 'handsUp', 'think', 'sad', 'giggle', 'samba'];
+      const missing = await A((ms) => ms.filter((m) => !window.SparkasseAvatarApp.avatar.reactions.includes(m)), moves);
+      check('all moves incl. the model\'s own samba clip are available', missing.length === 0, missing.join());
+      await A(() => window.SparkasseAvatarApp.perform('samba'));
+      await page.waitForTimeout(600);
+      check('samba clip plays', (await A(() => window.SparkasseAvatarApp.avatar.current?.name)) === 'samba');
+      const nan = await A(() => { let n = 0; window.SparkasseAvatarApp.avatar.model.traverse((o) => { if (o.isBone && (isNaN(o.quaternion.x) || isNaN(o.position.y))) n++; }); return n; });
+      check('skeleton stays valid while blending clip + procedural moves', nan === 0);
+      await A(() => window.SparkasseAvatarApp.setLook({ topColor: '#e3000f', bottomColor: '#3d5a80', skin: '#e8b896' }));
+      const u = await A(() => { const x = window.SparkasseAvatarApp.avatar.uniforms; return [x.uTopOn.value, x.uBottomOn.value, x.uSkinOn.value]; });
+      check('Style colours recolour the model (top, joggers, skin)', u.join() === '1,1,1');
+      await A(() => window.SparkasseAvatarApp.setLook({ height: 190 }));
+      check('height works on the model', Math.abs((await A(() => window.SparkasseAvatarApp.avatar.object3d.scale.y)) - 190 / 175) < 1e-3);
+      await A(() => window.SparkasseAvatarApp.setLook({ body: 'male' }));
+      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'PlaceholderAvatar', null, { timeout: 30000 }).catch(() => {});
+      check('male version uses the built-in character in the same outfit', await A(() => { const a = window.SparkasseAvatarApp.avatar; return a.constructor.name === 'PlaceholderAvatar' && a.style.top === 'tank' && a.style.bottom === 'joggers' && a.style.shades && a.style.headphones; }));
+      await A(() => window.SparkasseAvatarApp.setLook({ body: 'female' }));
+      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'RiggedAvatar', null, { timeout: 30000 }).catch(() => {});
+      check('switching back reuses the downloaded model', (await A(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'RiggedAvatar');
+      await page.click('#tab-feed');
+      await A(() => { const f = window.SparkasseAvatarApp.feed; const i = f.clips.findIndex((c) => c.id === 'samba'); while (f.clip.id !== 'samba') f.next(); return i; });
+      await page.waitForTimeout(400);
+      check('feed plays the samba clip on the model', (await A(() => window.SparkasseAvatarApp.avatar.current?.name)) === 'samba');
       check('no console errors', errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
@@ -416,9 +460,9 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.click('#tab-style');
       check('character picker shown', await page.locator('#panel-style [data-key="character"]').count() === 2);
       await page.click('#panel-style [data-key="character"][data-value="human"]');
-      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'PlaceholderAvatar', null, { timeout: 10000 }).catch(() => {});
-      check('switch to own avatar', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'PlaceholderAvatar');
-      check('outfit options appear for own avatar', await page.locator('#panel-style [data-key="top"]').count() > 0);
+      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'RiggedAvatar', null, { timeout: 30000 }).catch(() => {});
+      check('switch to own avatar (3D model)', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'RiggedAvatar');
+      check('outfit colour options appear for own avatar', await page.locator('#panel-style [data-key="topColor"]').count() > 0);
       check('own avatar also has "Save" (catches a coin)', (await page.locator('.avatar-btn[data-reaction="coin"]').count()) === 1);
       await page.click('#panel-style [data-key="character"][data-value="sparkie"]');
       await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'SparkieAvatar', null, { timeout: 10000 }).catch(() => {});

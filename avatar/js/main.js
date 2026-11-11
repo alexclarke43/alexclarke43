@@ -7,6 +7,7 @@ import { Confetti } from './effects/Confetti.js';
 import { createBridge } from './bridge.js';
 import { PlaceholderAvatar } from './avatars/PlaceholderAvatar.js';
 import { GltfAvatar } from './avatars/GltfAvatar.js';
+import { RiggedAvatar } from './avatars/RiggedAvatar.js';
 import { SparkieAvatar } from './avatars/SparkieAvatar.js';
 import { DEFAULT_LOOK, BASE_HEIGHT, OPTIONS, PALETTES, sanitizeLook, enforceUnlocks, loadSavedLook, saveLook } from './look.js';
 import { getCoins, addCoins, onCoins, setPersist } from './progress.js';
@@ -133,16 +134,28 @@ async function boot() {
   if (cfg.autoGreet) setTimeout(() => play('greet'), 700);
 }
 
+/** Which 3D model (if any) the current look uses. */
+function modelUrlFor(l = look) {
+  if (cfg.model) return cfg.model;
+  if (l.character === 'sparkie') return '';
+  return (l.body === 'male' ? cfg.maleModel : cfg.femaleModel) || '';
+}
+
 async function createAvatar() {
-  if (cfg.model) {
+  if (look.character === 'sparkie' && !cfg.model) return new SparkieAvatar();
+  const url = modelUrlFor();
+  if (url) {
     try {
-      return await GltfAvatar.load(cfg.model, { clips: cfg.clips });
+      // Humanoid rigs (Mixamo-style) get the full motion library; other models use their own clips
+      const gltf = await RiggedAvatar.loadGltf(url);
+      if (RiggedAvatar.isRigged(gltf)) return new RiggedAvatar(gltf, cfg, look);
+      return await GltfAvatar.load(url, { clips: cfg.clips });
     } catch (err) {
-      console.warn(`[avatar] Could not load "${cfg.model}", using placeholder.`, err);
-      bridge.emit('error', { message: `Model failed to load: ${cfg.model}` });
+      console.warn(`[avatar] Could not load "${url}", using the built-in character.`, err);
+      bridge.emit('error', { message: `Model failed to load: ${url}` });
     }
   }
-  return look.character === 'sparkie' ? new SparkieAvatar() : new PlaceholderAvatar(cfg, look);
+  return new PlaceholderAvatar(cfg, look);
 }
 
 /** Put the current avatar on stage and adapt camera, shadow, height and buttons to it. */
@@ -156,9 +169,13 @@ function attachAvatar() {
 }
 
 /** Switch between the customisable avatar and Sparkie at runtime. */
+let swapSeq = 0;
 async function swapAvatar() {
+  const seq = ++swapSeq;
+  const next = await createAvatar();
+  if (seq !== swapSeq) { next.dispose?.(); return; } // a newer switch won
   const old = avatar;
-  avatar = await createAvatar();
+  avatar = next;
   stage.turntable.remove(old.object3d);
   old.dispose?.();
   attachAvatar();
@@ -173,7 +190,9 @@ async function swapAvatar() {
 
 function initialLook() {
   const hex = (c) => `#${new THREE.Color(c).getHexString()}`;
-  const fromCfg = { topColor: hex(cfg.primary), skin: hex(cfg.skin), hairColor: hex(cfg.hair) };
+  const fromCfg = {};
+  if (cfg.skin) fromCfg.skin = hex(cfg.skin);
+  if (cfg.hair) fromCfg.hairColor = hex(cfg.hair);
   const forced = cfg.character ? { character: cfg.character } : {};
   const saved = cfg.persist ? loadSavedLook() : null;
   return enforceUnlocks(sanitizeLook({ ...DEFAULT_LOOK, ...fromCfg, ...saved, ...(cfg.look || {}), ...forced }), getCoins());
@@ -182,9 +201,10 @@ function initialLook() {
 let lookEventTimer;
 /** Change the avatar's look. `partial` may contain any key of DEFAULT_LOOK. */
 function setLook(partial, { reaction, heightOnly, fromPanel } = {}) {
-  const prevCharacter = look.character;
+  const prev = { ...look };
   look = enforceUnlocks(sanitizeLook({ ...look, ...partial }), getCoins());
-  if (avatar && look.character !== prevCharacter && !cfg.model) {
+  const needsSwap = look.character !== prev.character || modelUrlFor(look) !== modelUrlFor(prev);
+  if (avatar && needsSwap) {
     swapAvatar();
   } else if (avatar) {
     applyHeight();
@@ -241,7 +261,7 @@ function updateCoins(total, delta) {
 
 // Feed moves the current avatar may not have → closest move it does have
 const MOVE_FALLBACK = {
-  heart: 'giggle', flex: 'jump', mindBlown: 'celebrate', shuffle: 'dance', bounce: 'dance', point: 'nod',
+  samba: 'shuffle', heart: 'giggle', flex: 'jump', mindBlown: 'celebrate', shuffle: 'dance', bounce: 'dance', point: 'nod',
   handsUp: 'jump', think: 'shrug', sad: 'shrug', shake: 'shrug', giggle: 'nod', coin: 'nod', jump: 'celebrate', intro: 'greet',
 };
 /** Play any avatar move (no speech bubble). Returns its length in seconds. */
@@ -354,8 +374,10 @@ function buildDock() {
       setLook: (partial, opts = {}) => setLook(partial, { ...opts, fromPanel: true }),
       getCoins,
       supportsStyle: () => !!avatar?.supportsStyle,
+      styleKeys: () => avatar?.styleKeys || null,
       supportsHeight: () => avatar?.supportsHeight !== false,
       canSwitchCharacter: () => !cfg.model && !cfg.character, // a host that fixes the character hides the picker
+      canSwitchBody: () => look.character !== 'sparkie',
     });
   }
   if (cfg.tabs.includes('play')) {

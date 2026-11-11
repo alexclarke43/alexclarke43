@@ -289,6 +289,9 @@ export class PlaceholderAvatar {
       silver: std('#e8e8ee', 0.2, 1),
       gold: std(GOLD, 0.22, 1),
       shine: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+      phones: std('#ff4a1c', 0.32, 0.1),                       // red-orange headphones like the 3D model
+      lens: new THREE.MeshPhysicalMaterial({ color: '#ff5a2a', roughness: 0.08, metalness: 0.4, clearcoat: 1, emissive: '#5a0d00', emissiveIntensity: 0.4 }),
+      trim: std('#3fc6d6', 0.4),                              // teal trims (tank hem, jogger stripes)
     };
 
     const J = (name, parent, x, y, z, rx = 0, ry = 0, rz = 0) => {
@@ -322,7 +325,6 @@ export class PlaceholderAvatar {
 
     const spine = J('spine', hips, 0, 0.04, 0);
     this._buildTop(spine, K);
-    if (S.headphones) this._buildHeadphones(spine, K);
     if (S.chain) {
       add(spine, new THREE.TorusGeometry(0.12, 0.006, 8, 48), M.gold, [0, 0.505, 0.045], [1, 1, 1], [Math.PI / 2 + 0.6, 0, 0]);
       add(spine, cyl(0.018, 0.018, 0.005, 20), M.gold, [0, 0.425, 0.15], [1, 1, 1], [Math.PI / 2 - 0.3, 0, 0]);
@@ -361,7 +363,7 @@ export class PlaceholderAvatar {
     return new THREE.LatheGeometry(curve.getPoints(40), 40);
   }
 
-  _buildTop(spine, { M, add, cyl }) {
+  _buildTop(spine, { M, add, cyl, sph }) {
     const S = this.style;
     if (S.top === 'hoodie') {
       add(spine, this._torsoGeometry(1.04), M.top, [0, 0, 0], [1.08, 1, 0.74]);
@@ -381,6 +383,11 @@ export class PlaceholderAvatar {
       add(spine, new THREE.TorusGeometry(0.085, 0.026, 10, 28), M.rib, [0, 0.53, 0.0], [1.2, 1, 1], [Math.PI / 2 - 0.25, 0, 0]); // collar
       add(spine, cyl(0.065, 0.07, 0.05), M.white, [0, 0.52, 0.0]); // tee peeking out
       for (const sx of [-1, 1]) add(spine, new THREE.BoxGeometry(0.07, 0.008, 0.01), M.topDark, [sx * 0.095, 0.15, 0.146], [1, 1, 1], [0, sx * 0.45, 0]);
+    } else if (S.top === 'tank') { // fitted sleeveless top with teal trims
+      add(spine, this._torsoGeometry(0.97), M.top, [0, 0, 0], [1.05, 1, 0.7]);
+      add(spine, cyl(0.192, 0.196, 0.014, 32), M.trim, [0, -0.072, 0], [1.06, 1, 0.71]);
+      add(spine, new THREE.TorusGeometry(0.07, 0.008, 8, 28), M.trim, [0, 0.528, 0.012], [1.25, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
+      add(spine, sph(0.05), M.skin, [0, 0.49, 0.07], [1.3, 0.7, 0.6]); // neckline
     } else { // tee – fitted
       add(spine, this._torsoGeometry(0.97), M.top, [0, 0, 0], [1.05, 1, 0.7]);
       add(spine, new THREE.TorusGeometry(0.062, 0.01, 8, 28), M.topDark, [0, 0.535, 0.01], [1.15, 1, 1], [Math.PI / 2 - 0.25, 0, 0]);
@@ -389,27 +396,34 @@ export class PlaceholderAvatar {
     }
   }
 
-  _buildHeadphones(spine, { M, add, cyl }) {
+  /** Over-ear headphones worn on the head (band over the hair, cups on the ears). */
+  _buildHeadphones(head, { M, add, cyl }) {
+    const big = ['curls', 'bun', 'long', 'beanie'].includes(this.style.hairStyle);
+    const r = big ? 0.205 : 0.19;
     const phones = new THREE.Group();
-    phones.position.set(0, 0.57, 0.04);
-    phones.rotation.x = 0.5;
-    spine.add(phones);
-    add(phones, new THREE.TorusGeometry(0.125, 0.012, 10, 40, Math.PI), M.dark, [0, 0, 0], [1, 1, 1], [-Math.PI / 2, 0, 0]);
+    phones.position.set(0, 0.155, -0.005);
+    phones.rotation.x = -0.12;
+    head.add(phones);
+    add(phones, new THREE.TorusGeometry(r, 0.014, 10, 48, Math.PI), M.phones, [0, 0, 0], [1, 1.08, 1.3]);
     for (const sx of [-1, 1]) {
-      const cup = add(phones, cyl(0.05, 0.05, 0.035, 28), M.dark, [sx * 0.13, -0.01, 0.035], [1, 1, 1], [0, 0, Math.PI / 2]);
-      cup.rotation.y = sx * 0.5;
-      add(phones, cyl(0.039, 0.039, 0.01, 28), M.accent, [sx * 0.15, -0.01, 0.048], [1, 1, 1], [0, sx * 0.5, Math.PI / 2]);
+      add(phones, cyl(0.058, 0.058, 0.045, 28), M.phones, [sx * (r - 0.012), -0.01, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
+      add(phones, cyl(0.046, 0.046, 0.012, 28), M.dark, [sx * (r + 0.014), -0.01, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
+      add(phones, cyl(0.03, 0.03, 0.004, 24), M.trim, [sx * (r + 0.021), -0.01, 0], [1, 1, 1], [0, 0, Math.PI / 2]);
     }
   }
+
 
   _buildArms(spine, { M, J, add, cap, sph, cyl }) {
     const S = this.style;
     const tee = S.top === 'tee';
+    const bare = S.top === 'tank';
     for (const [side, sx] of [['L', 1], ['R', -1]]) {
       const fem = S.body === 'female';
       const sh = J(`shoulder${side}`, spine, sx * (fem ? 0.192 : 0.225), 0.45, 0, 0, 0, sx * 0.11);
-      add(sh, sph(tee ? 0.056 : 0.06), M.top, [0, -0.035, 0]);
-      if (tee) {
+      add(sh, sph(tee ? 0.054 : bare ? 0.058 : 0.06), bare ? M.skin : M.top, [0, -0.035, 0]);
+      if (bare) {
+        add(sh, cap(0.049, 0.21), M.skin, [0, -0.15, 0]);
+      } else if (tee) {
         add(sh, cap(0.062, 0.05), M.top, [0, -0.065, 0]); // short sleeve
         add(sh, cap(0.042, 0.22), M.skin, [0, -0.16, 0]);
       } else {
@@ -419,8 +433,8 @@ export class PlaceholderAvatar {
         }
       }
       const el = J(`elbow${side}`, sh, 0, -0.3, 0, -0.14, 0, 0);
-      if (tee) {
-        add(el, cap(0.037, 0.21), M.skin, [0, -0.14, 0]);
+      if (tee || bare) {
+        add(el, cap(bare ? 0.041 : 0.037, 0.21), M.skin, [0, -0.14, 0]);
       } else {
         add(el, cap(0.052, 0.18), M.top, [0, -0.125, 0]);
         add(el, cyl(0.046, 0.049, 0.045), S.top === 'jacket' ? M.rib : M.topDark, [0, -0.24, 0]);
@@ -449,7 +463,12 @@ export class PlaceholderAvatar {
     for (const [side, sx] of [['L', 1], ['R', -1]]) {
       const leg = J(`leg${side}`, hips, sx * 0.098, -0.03, 0, 0, 0, sx * 0.022);
       const knee = J(`knee${side}`, leg, 0, -0.47, 0);
-      if (b === 'cargo') {
+      if (b === 'joggers') { // baggy, knee stripes, tight dark cuffs
+        add(leg, cap(0.1, 0.36), M.bottom, [0, -0.235, 0]);
+        add(knee, cyl(0.096, 0.08, 0.36), M.bottom, [0, -0.17, 0]);
+        for (const y of [-0.055, -0.085]) add(knee, cyl(0.0965, 0.0955, 0.014, 28), M.trim, [0, y, 0]);
+        add(knee, cyl(0.062, 0.066, 0.07, 24), M.rib, [0, -0.38, 0]);
+      } else if (b === 'cargo') {
         add(leg, cap(0.092, 0.37), M.bottom, [0, -0.235, 0]);
         add(leg, new THREE.BoxGeometry(0.035, 0.1, 0.07), M.bottomDark, [sx * 0.09, -0.28, 0.0]);
         add(knee, cyl(0.082, 0.09, 0.42), M.bottom, [0, -0.2, 0]);
@@ -469,7 +488,8 @@ export class PlaceholderAvatar {
       }
       const foot = J(`foot${side}`, knee, 0, -0.45, 0, 0, sx * 0.1, 0);
       add(foot, cap(0.05, 0.14), M.shoe, [0, -0.01, 0.05], [1.02, 0.82, 1], [Math.PI / 2, 0, 0]);
-      add(foot, cap(0.056, 0.15), M.sole, [0, -0.05, 0.05], [1.06, 0.36, 1.02], [Math.PI / 2, 0, 0]);
+      add(foot, cap(0.058, 0.155), M.sole, [0, -0.052, 0.05], [1.1, 0.5, 1.04], [Math.PI / 2, 0, 0]); // chunky sole
+      add(foot, new THREE.BoxGeometry(0.06, 0.02, 0.03), M.phones, [0, -0.02, -0.04]); // heel tab
       for (const ss of [-1, 1]) {
         add(foot, new THREE.BoxGeometry(0.005, 0.02, 0.11), M.accent, [ss * 0.052, -0.015, 0.045], [1, 1, 1], [0.15, 0, 0]);
       }
@@ -529,6 +549,15 @@ export class PlaceholderAvatar {
       }
     }
     if (S.glasses) add(head, new THREE.CylinderGeometry(0.0035, 0.0035, 0.03, 8), M.dark, [0, 0.185, 0.176], [1, 1, 1], [0, 0, Math.PI / 2]);
+    if (S.shades && !S.glasses) {
+      // round mirrored shades like the 3D model's
+      for (const sx of [-1, 1]) {
+        add(head, new THREE.CylinderGeometry(0.037, 0.037, 0.008, 32), M.lens, [sx * 0.058, 0.182, 0.172], [1.05, 1, 0.92], [Math.PI / 2, 0, sx * 0.2]);
+        add(head, new THREE.TorusGeometry(0.037, 0.0042, 8, 32), M.dark, [sx * 0.058, 0.182, 0.176], [1.05, 0.92, 1], [0, sx * 0.2, 0]);
+        add(head, new THREE.BoxGeometry(0.004, 0.006, 0.15), M.dark, [sx * 0.146, 0.19, 0.092], [1, 1, 1], [0, sx * 0.08, 0]);
+      }
+      add(head, new THREE.CylinderGeometry(0.0035, 0.0035, 0.032, 8), M.dark, [0, 0.19, 0.18], [1, 1, 1], [0, 0, Math.PI / 2]);
+    }
 
     const mouth = new THREE.Group();
     mouth.position.set(0, 0.09, 0.149);
@@ -542,6 +571,7 @@ export class PlaceholderAvatar {
     P.mouthOpen = add(mouth, openGeo, M.mouth, [0, 0.012, 0]);
 
     this._buildHair(head, K);
+    if (S.headphones) this._buildHeadphones(head, K);
   }
 
   _buildHair(head, { M, add, sph, cap }) {

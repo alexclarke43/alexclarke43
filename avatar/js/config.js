@@ -7,7 +7,9 @@
  *   3. URL query parameters            (e.g. index.html?model=models/me.glb&ui=0)
  */
 export const DEFAULTS = {
-  model: '',                 // URL of a .glb/.gltf file. Empty → built-in placeholder character
+  model: '',                 // URL of a .glb/.gltf file used for everyone (overrides femaleModel/maleModel)
+  femaleModel: 'models/buddy.glb', // 3D model for body "female" (Mixamo-style rig → full animation support)
+  maleModel: '',             // optional 3D model for body "male"; empty → built-in character styled like the model
   clips: null,               // optional JSON map reaction → clip name, e.g. {"greet":"Wave"}
   ui: true,                  // show the reaction buttons
   bubble: true,              // show speech bubbles
@@ -17,10 +19,10 @@ export const DEFAULTS = {
   lookAtPointer: true,       // head follows the mouse / finger
   lang: 'en',                // 'en' | 'de'
   bg: 'gradient',            // 'gradient' | 'transparent' | any CSS colour
-  primary: '#e3000f',        // hoodie / brand colour
+  primary: '#e3000f',        // brand colour (UI, confetti)
   accent: '#7cf5d0',         // highlight colour (headphones, sneakers, UI)
-  skin: '#c98d6b',
-  hair: '#24170f',
+  skin: '',                  // optional starting skin tone, e.g. 7d4f33 (empty → model default)
+  hair: '',                  // optional starting hair colour
   reactions: 'greet,celebrate,coin,nod,shrug,dance', // buttons to show (order matters; unsupported ones are skipped)
   character: '',             // 'human' | 'sparkie' – overrides the saved choice
   tabs: 'react,chat,feed,style,play', // panels: react (buttons), chat, feed (For You clips), style (customiser), play (games)
