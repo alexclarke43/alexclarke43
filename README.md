@@ -208,6 +208,7 @@ Booleans accept `0/1`, `true/false`, `on/off`.
 * **Home**: a live avatar card (tap / spin; reacts to rewards, celebrates level-ups, dances on the daily drop) with **🎨 Style** and **▶ For You** buttons and the coin balance.
 * **Profile pictures**: wherever the SVG avatar was (header, "Your week" story, chat bubbles, level-up gift, share card), the page shows a **portrait snapshot** of the 3D avatar (`avatar.snapshot()`, transparent PNG), refreshed after every look change. The SVG stays as a fallback until the first snapshot.
 * **Snaps**: a "For You · starring you" card opens the avatar's TikTok-style clips full-screen inside the phone (`tabs=feed`).
+* **Games** (Home and Snaps): tiles for *Money Quiz* and *Need or Want?* (each showing the avatar's portrait and your best score) open the game full-screen with your avatar reacting to every answer (`tabs=play` + `startGame()`). Finishing a round also counts in Next: +15 XP and +2 Sparks per correct answer, the best score per game, and a perfect quiz earns the *Quiz whiz* badge. The coins from the games unlock accessories.
 * **Economy**: every ✦ Spark the user earns also gives the avatar the same number of coins, plus 1 coin per €5 topped up on a goal, so saving unlocks accessories and gold sneakers. A level-up puts a new top colour on the avatar.
 * The EN/DE switch also switches all avatar frames live. The nickname becomes the avatar's handle (`@lena`).
 

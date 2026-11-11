@@ -471,6 +471,23 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.click('.lang [data-lang="de"]');
       await hf.waitForFunction(() => window.SparkasseAvatarApp.config.lang === 'de', null, { timeout: 10000 }).catch(() => {});
       check('EN/DE switch reaches the avatar', (await hf.evaluate(() => window.SparkasseAvatarApp.config.lang)) === 'de');
+      await page.click('#gamesHome [data-game="sort"]');
+      const gf = await frameWith('tabs=play', () => !!document.querySelector('.gm-q, .gm-sort'));
+      check('Games section: Need or Want? opens with the avatar', !!gf && (await gf.evaluate(() => window.SparkasseAvatarApp.games.state.game?.id)) === 'sort');
+      const xp0 = await page.evaluate(() => window.next.S.xp);
+      for (let i = 0; i < 10; i++) {
+        const item = await gf.evaluate((i) => window.SparkasseAvatarApp.games.state.game.items[i], i);
+        await gf.click(`[data-sort="${item.need ? 'need' : 'want'}"]`).catch(() => {});
+        await gf.waitForTimeout(150);
+        await gf.click('.gm-next').catch(() => {});
+        await gf.waitForTimeout(150);
+      }
+      await page.waitForFunction((x) => window.next.S.xp > x, xp0, { timeout: 15000 }).catch(() => {});
+      check('finishing a game rewards XP + Sparks and stores the best score', (await page.evaluate(() => window.next.S.xp)) > xp0 && (await page.evaluate(() => window.next.S.best?.sort)) > 0);
+      await page.waitForTimeout(1300); // a level-up screen may follow the reward
+      if (await page.locator('#levelup.show').count()) await page.click('#luClose');
+      await page.click('#gameX');
+      check('closing the game removes its frame', (await page.locator('#gameMount iframe').count()) === 0);
       await page.click('#avFeed');
       const ff = await frameWith('tabs=feed', () => !!window.SparkasseAvatarApp?.feed?.active);
       check('For You clips open from the Home card', !!ff);

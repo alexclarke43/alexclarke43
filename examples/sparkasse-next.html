@@ -147,6 +147,20 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 .feedov.show{display:flex}
 .feedov #feedMount{flex:1;min-height:0}
 .feedov .fx{position:absolute;right:14px;top:50px;z-index:3;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:24px;line-height:1}
+.gameov{position:absolute;inset:0;z-index:92;display:none;flex-direction:column;padding-top:44px;background:radial-gradient(120% 70% at 50% 25%,#fff 0%,var(--red-tint) 70%)}
+.gameov.show{display:flex}
+.gameov #gameMount{flex:1;min-height:0}
+.gameov .gtop{display:flex;align-items:center;gap:10px;padding:4px 16px 4px}
+.gameov .gtop b{font:800 20px var(--display);flex:1}
+.gameov .gx{width:38px;height:38px;border-radius:50%;background:var(--ink);color:#fff;font-size:22px;line-height:1}
+.games{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.game{position:relative;overflow:hidden;text-align:left;border-radius:20px;padding:14px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between;color:#fff}
+.game .ge{font-size:34px;line-height:1}
+.game b{display:block;font:800 17px/1.1 var(--display)}
+.game small{display:block;font-size:12px;font-weight:700;opacity:.85;margin-top:4px}
+.game .best{display:inline-block;margin-top:6px;background:rgba(255,255,255,.22);border-radius:999px;padding:3px 8px;font:800 11px var(--body)}
+.game .gav{position:absolute;right:6px;top:6px;width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.18)}
+.game .gav .av3d{background:transparent}
 .yt{margin-top:14px;width:100%;border-radius:22px;padding:16px;display:flex;align-items:center;gap:14px;text-align:left;color:#fff;background:linear-gradient(135deg,#1d1d1f,#ff0000);position:relative;overflow:hidden}
 .yt .play{width:54px;height:54px;border-radius:16px;background:#fff;color:var(--red);display:grid;place-items:center;font-size:24px;flex-shrink:0;overflow:hidden}
 .yt .play .av3d{border-radius:16px;background:#fff}
@@ -387,7 +401,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
   <p>One Sparkasse, two experiences. Existing customers keep Classic. Gen Z switches to Next with one tap and makes it their own.</p>
   <div class="pillars">
     <button class="pillar" data-go="home"><b>1</b><div><strong>App: one place for everything</strong><span>Stories, 3D avatar, levels, goals, cards and spending</span></div></button>
-    <button class="pillar" data-go="learn"><b>2</b><div><strong>Social: learn the Gen Z way</strong><span>Snap-style lessons, quizzes and "For You" clips starring your avatar</span></div></button>
+    <button class="pillar" data-go="learn"><b>2</b><div><strong>Social: learn the Gen Z way</strong><span>Snap-style lessons, games with your avatar and "For You" clips starring it</span></div></button>
     <button class="pillar" data-go="perks"><b>3</b><div><strong>Lifestyle: perks and events</strong><span>Concerts, festivals, esports and partner offers paid with Sparks</span></div></button>
     <button class="pillar" data-go="coach"><b>AI</b><div><strong>Your own money buddy</strong><span>Name it yourself. Teaches and motivates. No investment advice.</span></div></button>
   </div>
@@ -427,6 +441,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
         <div class="avtop"><div><b id="avName"></b><small data-t="av_sub"></small></div><span class="coins">🪙 <span id="avCoins">0</span></span></div>
         <div class="avbtns"><button id="avStyle" data-t="av_style"></button><button class="r" id="avFeed" data-t="av_feed"></button></div>
       </div>
+      <div class="sec"><h3 data-t="games_h"></h3><span id="gamesSub"></span></div>
+      <div class="games" id="gamesHome"></div>
       <div class="card"><span class="sparks">✦ <span id="sparks"></span> Sparks</span><div class="lbl" data-t="main"></div><div class="amt" id="bal"></div><div class="foot"><span data-t="debit"></span><span id="saved"></span></div></div>
       <div class="sec"><h3 id="toolsH"></h3><span id="toolsS"></span></div>
       <div class="tools" id="tools"></div>
@@ -475,6 +491,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
   <div class="story" id="story"></div>
   <!-- 3D avatar: full-screen "For You" clips -->
   <div class="feedov" id="feedOv"><div id="feedMount"></div><button class="fx" id="feedX" aria-label="Close">×</button></div>
+  <!-- 3D avatar: games with your avatar -->
+  <div class="gameov" id="gameOv"><div class="gtop"><b id="gameTitle"></b><button class="gx" id="gameX" aria-label="Close">×</button></div><div id="gameMount"></div></div>
   <div class="toast" id="toast"></div>
   <div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
   <div class="levelup" id="levelup"><div class="lnum" id="luNum"></div><h3 id="luName"></h3><p data-t="lu_p"></p><div class="lugift" id="luGift"></div><div class="lubtns"><button id="luShare" class="lushare" data-t="lu_share"></button><button id="luClose" data-t="lu_btn"></button></div></div>
@@ -482,7 +500,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
  </div>
 </div>
 
-<script src="../embed/sparkasse-avatar-embed.js?v=4919287-mwbzsp0f"></script>
+<script src="../embed/sparkasse-avatar-embed.js?v=b0abd4d-mwc0na6a"></script>
 <script>
 (function(){
 /* ================= language ================= */
@@ -502,6 +520,7 @@ en:{c_acct:'Current account · DE•• •••• •••• 4821',c_bal:'B
  coach_mode:'Your money buddy · no investment advice',coach_ai:'AI money buddy · no investment advice',rename:'Rename',ask:'Ask about saving, budgets, your spending…',prompts:['Where does my money go?','How do I save for the festival?','Should I buy crypto?','What is an ETF?','I lost my card','Explain an emergency fund','Is trading better than saving?'],
  hi:'Hey {n}! I\'m {c}, your money buddy. I can look at your spending, help with goals and explain money stuff simply. I don\'t give investment advice, but I\'m happy to explain how things work. What\'s up?',
  learn_h:'Snaps',learn_p:'Money stuff in 30 seconds. Tap through, no lectures.',quiz_k:'Daily quiz · {x} of {y} · +50 XP each',quiz_done:'Quiz complete',quiz_done_h:'Quiz whiz unlocked 🎉',quiz_done_p:'You earned 150 XP and 30 Sparks. New quiz drops tomorrow.',right:'Correct.',wrong:'Not quite.',secs:'{x} sec',read:'Seen',
+ games_h:'Games',games_sub:'play with @{x}',g_quiz:'Money Quiz',g_quiz_s:'8 questions · +10 🪙 each',g_sort:'Need or Want?',g_sort_s:'Sort 10 items · +5 🪙 each',g_best:'Best {x}',t_game:'{x}/{y} in {z}',
  yt_t:'For You · starring you',yt_s:'Your avatar explains money & dances in 15-sec clips. +3 🪙 per lesson.',
  perks_h:'Perks',perks_p:'You have <b>✦ {x} Sparks</b>. Earn more with goals, quizzes, stories and streaks.',pcats:['All','Music','Gaming','Campus','Style'],showcode:'Show code',free:'Free · Level {x}+',code_p:'{x}. Show this code at the entrance or use it online.',yourcode:'Your code',valid:'Valid with your Sparkasse card · demo',ok:'Done',
  me_h:'Your profile',me_p:'Make it yours. Everything updates right away.',save:'Save',
@@ -523,6 +542,7 @@ de:{c_acct:'Girokonto · DE•• •••• •••• 4821',c_bal:'Kontost
  coach_mode:'Dein Money-Buddy · keine Anlageberatung',coach_ai:'KI-Money-Buddy · keine Anlageberatung',rename:'Umbenennen',ask:'Frag nach Sparen, Budget, deinen Ausgaben…',prompts:['Wo geht mein Geld hin?','Wie spare ich fürs Festival?','Soll ich Krypto kaufen?','Was ist ein ETF?','Ich hab meine Karte verloren','Was ist ein Notgroschen?','Ist Traden besser als Sparen?'],
  hi:'Hey {n}! Ich bin {c}, dein Money-Buddy. Ich schaue mir deine Ausgaben an, helfe bei Zielen und erkläre Geld-Themen einfach. Anlageberatung gebe ich nicht, aber ich erkläre gern, wie Dinge funktionieren. Was geht?',
  learn_h:'Snaps',learn_p:'Geld-Wissen in 30 Sekunden. Durchtippen, kein Vortrag.',quiz_k:'Tages-Quiz · {x} von {y} · je +50 XP',quiz_done:'Quiz geschafft',quiz_done_h:'Quiz-Profi freigeschaltet 🎉',quiz_done_p:'Du hast 150 XP und 30 Sparks verdient. Morgen kommt ein neues Quiz.',right:'Richtig.',wrong:'Nicht ganz.',secs:'{x} Sek.',read:'Gesehen',
+ games_h:'Games',games_sub:'spiel mit @{x}',g_quiz:'Money Quiz',g_quiz_s:'8 Fragen · je +10 🪙',g_sort:'Brauch ich’s oder will ich’s?',g_sort_s:'10 Dinge sortieren · je +5 🪙',g_best:'Rekord {x}',t_game:'{x}/{y} bei {z}',
  yt_t:'Für dich · mit dir in der Hauptrolle',yt_s:'Dein Avatar erklärt Geld & tanzt in 15-Sek.-Clips. +3 🪙 pro Lektion.',
  perks_h:'Perks',perks_p:'Du hast <b>✦ {x} Sparks</b>. Mehr gibt es für Ziele, Quizze, Stories und Streaks.',pcats:['Alle','Musik','Gaming','Campus','Style'],showcode:'Code zeigen',free:'Gratis · ab Level {x}',code_p:'{x}. Zeig diesen Code am Eingang oder nutze ihn online.',yourcode:'Dein Code',valid:'Gültig mit deiner Sparkasse-Karte · Demo',ok:'Fertig',
  me_h:'Dein Profil',me_p:'Mach es zu deinem. Alles ändert sich sofort.',save:'Speichern',
@@ -554,7 +574,7 @@ const bal=()=>1248.6-(S.saved-45);
 /* ================= 3D avatar ================= */
 // The customisable 3D avatar runs in ../avatar/ (embedded frames). Everything here talks to it
 // through SparkasseAvatar.mount() – see README "Integrate it into another website".
-const AVATAR_SRC='../avatar/index.html?v=4919287-mwbzsp0f';
+const AVATAR_SRC='../avatar/index.html?v=b0abd4d-mwc0na6a';
 const AV_THEME={bg:'transparent',theme:'next',primary:'ff0000',accent:'ffb400',character:'human'};
 let home3d=null, editor3d=null, feed3d=null, avSnap='', avLook=null, avCoins=0, snapTimer=0;
 function mountAvatar(el,params){return SparkasseAvatar.mount(el,{src:AVATAR_SRC,height:'100%',params:{...AV_THEME,lang:L,...params}});}
@@ -664,6 +684,32 @@ function openFeed(){
 }
 function closeFeed(){ feed3d?.destroy(); feed3d=null; $('#feedOv').classList.remove('show'); $('#screen').classList.remove('dark'); }
 $('#feedX').onclick=closeFeed;
+// games with your avatar (the avatar's own quiz + sorting game, themed for Next)
+let game3d=null, gameId='quiz';
+const GAMES=[{id:'quiz',e:'🧠',bg:'linear-gradient(150deg,#ff0000,#8a0000)'},{id:'sort',e:'🛒',bg:'linear-gradient(150deg,#1d1d1f,#ff0000)'}];
+function gameTiles(){
+  const nick=(S.nick||'you').toLowerCase().replace(/\s+/g,'');
+  return GAMES.map(g=>`<button class="game" data-game="${g.id}" style="background:${g.bg}"><span class="ge">${g.e}</span><div><b>${t('g_'+g.id)}</b><small>${t('g_'+g.id+'_s')}</small>${S.best?.[g.id]!=null?`<span class="best">${t('g_best',{x:S.best[g.id]})}</span>`:''}</div>${avSnap?`<span class="gav">${avatar(S.av)}</span>`:''}</button>`).join('');
+}
+function wireGames(box){ box.innerHTML=gameTiles(); box.querySelectorAll('[data-game]').forEach(b=>b.onclick=()=>openGame(b.dataset.game)); }
+function openGame(id){
+  closeGame(); gameId=id;
+  $('#gameTitle').textContent=t('g_'+id);
+  $('#gameOv').classList.add('show');
+  game3d=mountAvatar($('#gameMount'),{tabs:'play',tab:'play',hint:false,badge:true,autoGreet:false});
+  game3d.on('ready',()=>{game3d.setLook({name:S.nick});game3d.startGame(id);});
+  game3d.on('game',e=>{
+    if(e.phase==='start'){gameId=e.game;$('#gameTitle').textContent=t('g_'+e.game);}
+    if(e.phase!=='end')return;
+    S.best=S.best||{}; S.best[e.game]=Math.max(S.best[e.game]||0,e.score);
+    // game results also count in Next: XP + Sparks
+    reward(e.score*15,e.score*2,t('t_game',{x:e.score,y:e.total,z:t('g_'+e.game)}));
+    if(e.score===e.total){badge(3);confetti();}
+  });
+  game3d.on('coins',e=>{avCoins=e.coins;$('#avCoins').textContent=avCoins;});
+}
+function closeGame(){ game3d?.destroy(); game3d=null; $('#gameOv').classList.remove('show'); if(current==='home')renderHome(); if(current==='learn')renderLearn(); }
+$('#gameX').onclick=closeGame;
 $('#avStyle').onclick=()=>$('#meBtn').click();
 $('#avFeed').onclick=openFeed;
 
@@ -694,6 +740,7 @@ const rand=n=>Math.floor(Math.random()*n);
 const NEXT_VIEWS=['home','goals','coach','learn','perks'];
 function go(v){
   if(v!=='onboard')closeEditor();
+  if(game3d)closeGame();
   current=v;
   $$('.view').forEach(x=>x.classList.toggle('show',x.id===v));
   $('#nav').style.display=NEXT_VIEWS.includes(v)?'flex':'none';
@@ -712,13 +759,13 @@ document.addEventListener('click',e=>{
   const g=e.target.closest('[data-go]'); if(g){ if(!onboarded&&NEXT_VIEWS.includes(g.dataset.go)){startOnboard();return;} go(g.dataset.go); return; }
 });
 $$('.lang button').forEach(b=>b.onclick=()=>{L=b.dataset.lang;document.documentElement.lang=L;$$('.lang button').forEach(x=>x.classList.toggle('on',x===b));
-  [home3d,editor3d,feed3d].forEach(a=>a?.setLang(L)); // 3D avatar follows the language live
+  [home3d,editor3d,feed3d,game3d].forEach(a=>a?.setLang(L)); if(game3d)$('#gameTitle').textContent=t('g_'+gameId); // 3D avatar follows the language live
   if(current==='onboard'&&obAt===2&&$('#bld')){$$('[data-t]').forEach(el=>{const s=t(el.dataset.t);if(typeof s==='string')el.innerHTML=s;});$('#ob .step').textContent=t('ob2_k');$('#ob h2').textContent=t('ob2_h');$('#ob p').textContent=t('ob2_p');$('#ob .avnote').textContent=t('av_note');$('#ob3').textContent=t('cont');}
   else render(current);
   if($('#story').classList.contains('show'))showSlide();});
 $('#tryNext').onclick=startOnboard;
-$('#restart').onclick=()=>{S=fresh();onboarded=false;chat=[];coachInit=false;$('#msgs').innerHTML='';closeStory();closeSheet();closeFeed();go('classic');};
-$('#toClassic').onclick=()=>{closeStory();closeFeed();go('classic');};
+$('#restart').onclick=()=>{S=fresh();onboarded=false;chat=[];coachInit=false;$('#msgs').innerHTML='';closeStory();closeSheet();closeFeed();closeGame();go('classic');};
+$('#toClassic').onclick=()=>{closeStory();closeFeed();closeGame();go('classic');};
 
 function renderClassic(){
   $('#cBal').textContent=L==='de'?bal().toLocaleString('de-DE',{minimumFractionDigits:2})+' EUR':'EUR '+bal().toLocaleString('en-US',{minimumFractionDigits:2});
@@ -824,6 +871,8 @@ function renderHome(){
   $('#helloSub').textContent=t('status')[S.status]+' · '+t('status_city');
   $('#avName').textContent='@'+S.nick.toLowerCase().replace(/\s+/g,'');
   $('#avCoins').textContent=avCoins;
+  $('#gamesSub').textContent=t('games_sub',{x:(S.nick||'you').toLowerCase().replace(/\s+/g,'')});
+  wireGames($('#gamesHome'));
   $('#forWhy').textContent=t('basedon',{x:[...S.interests].slice(0,2).map(i=>t('interests')[i]).join(', ')+(S.interests.size>2?' +':'')});
   // stories
   $('#stories').innerHTML=stories().map((s,i)=>`<button class="st ${S.seen.has(s.id)?'seen':''}" data-st="${i}"><span class="rg"><span class="in" style="background:${s.ring}">${s.icon}</span></span>${s.label}</button>`).join('');
@@ -1042,10 +1091,12 @@ function renderLearn(){
   const Q=QUIZ(), qd=S.quizIdx<Q.length?Q[S.quizIdx]:null;
   // 3D avatar: "For You" clips starring the user's avatar, above the Snaps
   $('#learnList').innerHTML=`<button class="yt" id="ytOpen"><span class="play">${avSnap?avatar(S.av,'#fff'):'▶'}</span><div><b>▶ ${t('yt_t')}</b><span>${t('yt_s')}</span></div></button>
+   <div class="sec"><h3>${t('games_h')}</h3><span>${t('games_sub',{x:(S.nick||'you').toLowerCase().replace(/\s+/g,'')})}</span></div><div class="games" id="gamesLearn"></div>
    <div class="snaps">${lessons().map((l,i)=>`<button class="snap" data-l="${i}" style="background:${l.bg}">${S.seen.has(l.id)?`<span class="done">${t('read')} ✓</span>`:''}<span class="e">${l.e}</span><div><b>${l.b}</b><br><small>▶ ${t('secs',{x:l.s})} · +15 XP</small></div></button>`).join('')}</div>
    <div class="quiz">${S.quizDone?`<div class="prog">${t('quiz_done')}</div><div class="q">${t('quiz_done_h')}</div><p class="why">${t('quiz_done_p')}</p>`:
    `<div class="prog">${t('quiz_k',{x:S.quizIdx+1,y:Q.length})}</div><div class="q">${qd.q}</div><div class="opts">${qd.o.map((o,i)=>`<button data-o="${i}">${o}</button>`).join('')}</div><p class="why" id="why"></p>`}</div>`;
   $('#ytOpen').onclick=openFeed;
+  wireGames($('#gamesLearn'));
   $$('#learnList [data-l]').forEach(b=>b.onclick=()=>openLesson(+b.dataset.l));
   $$('#learnList [data-o]').forEach(b=>b.onclick=()=>{
     const i=+b.dataset.o, ok=i===qd.r;
@@ -1183,7 +1234,7 @@ if(window.claude&&window.claude.use){window.claude.use('sample').then(sm=>{sampl
 
 /* clock + start */
 const now=new Date();$('#clock').textContent=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
-window.next={get S(){return S;},go,get home3d(){return home3d;},get editor3d(){return editor3d;},get feed3d(){return feed3d;},get snap(){return avSnap;},openFeed,closeFeed,topUp};
+window.next={get S(){return S;},go,get home3d(){return home3d;},get editor3d(){return editor3d;},get feed3d(){return feed3d;},get snap(){return avSnap;},get game3d(){return game3d;},openFeed,closeFeed,openGame,closeGame,topUp};
 go('classic');
 })();
 </script>
