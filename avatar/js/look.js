@@ -8,6 +8,7 @@ export const GOLD = '#d4af37';
 
 export const DEFAULT_LOOK = {
   character: 'human',   // 'human' (customisable) | 'sparkie' (mascot)
+  body: 'male',         // 'male' | 'female' – body shape and face
   skin: '#c98d6b',
   hairStyle: 'curls',
   hairColor: '#24170f',
@@ -30,6 +31,10 @@ export const OPTIONS = {
   character: [
     { id: 'human', label: L('You', 'Du') },
     { id: 'sparkie', label: L('Sparkie', 'Sparkie') },
+  ],
+  body: [
+    { id: 'male', label: L('Male', 'Männlich') },
+    { id: 'female', label: L('Female', 'Weiblich') },
   ],
   hairStyle: [
     { id: 'curls', label: L('Curls', 'Locken') },
@@ -82,7 +87,7 @@ export function sanitizeLook(input = {}) {
   for (const k of ['skin', 'hairColor', 'hatColor', 'topColor', 'bottomColor', 'shoeColor']) {
     if (isColor(input[k])) out[k] = input[k];
   }
-  for (const k of ['character', 'hairStyle', 'top', 'bottom']) {
+  for (const k of ['character', 'body', 'hairStyle', 'top', 'bottom']) {
     if (OPTIONS[k].some((o) => o.id === input[k])) out[k] = input[k];
   }
   for (const k of ['glasses', 'headphones', 'earring', 'chain']) {
@@ -108,6 +113,7 @@ export function randomLook(coins = 0) {
   const opts = (k) => OPTIONS[k].filter((o) => (o.unlock || 0) <= coins).map((o) => o.id);
   return {
     character: 'human',
+    body: pick(opts('body')),
     skin: pick(PALETTES.skin),
     hairStyle: pick(opts('hairStyle')),
     hairColor: pick(colors('hairColor')),

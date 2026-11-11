@@ -12,6 +12,8 @@ var GOLD = "#d4af37";
 var DEFAULT_LOOK = {
   character: "human",
   // 'human' (customisable) | 'sparkie' (mascot)
+  body: "male",
+  // 'male' | 'female' – body shape and face
   skin: "#c98d6b",
   hairStyle: "curls",
   hairColor: "#24170f",
@@ -32,6 +34,10 @@ var OPTIONS = {
   character: [
     { id: "human", label: L("You", "Du") },
     { id: "sparkie", label: L("Sparkie", "Sparkie") }
+  ],
+  body: [
+    { id: "male", label: L("Male", "M\xE4nnlich") },
+    { id: "female", label: L("Female", "Weiblich") }
   ],
   hairStyle: [
     { id: "curls", label: L("Curls", "Locken") },
@@ -65,7 +71,7 @@ function sanitizeLook(input = {}) {
   for (const k of ["skin", "hairColor", "hatColor", "topColor", "bottomColor", "shoeColor"]) {
     if (isColor(input[k])) out[k] = input[k];
   }
-  for (const k of ["character", "hairStyle", "top", "bottom"]) {
+  for (const k of ["character", "body", "hairStyle", "top", "bottom"]) {
     if (OPTIONS[k].some((o) => o.id === input[k])) out[k] = input[k];
   }
   for (const k of ["glasses", "headphones", "earring", "chain"]) {
@@ -300,6 +306,7 @@ var PlaceholderAvatar = class {
       skin: new THREE.MeshPhysicalMaterial({ color: skinColor, roughness: 0.52, sheen: 0.35, sheenRoughness: 0.7, sheenColor: new THREE.Color("#ffd8c8") }),
       skinShade: std(skinColor.clone().multiplyScalar(0.9), 0.6),
       lips: std(skinColor.clone().lerp(new THREE.Color("#b0414b"), 0.42).multiplyScalar(0.92), 0.45),
+      lipsFem: std(skinColor.clone().lerp(new THREE.Color("#c0394f"), 0.6).multiplyScalar(0.92), 0.35),
       top: cloth(topColor),
       topDark: cloth(topColor.clone().multiplyScalar(0.72), 0.9),
       rib: cloth("#1d1c22", 0.9),
@@ -348,8 +355,9 @@ var PlaceholderAvatar = class {
     const cyl = (rt, rb, h, s = 24, open = false) => new THREE.CylinderGeometry(rt, rb, h, s, 1, open);
     const K = { M, J, add, cap, sph, cyl };
     const body = J("body", this.object3d, 0, 0, 0);
+    const fem = S.body === "female";
     const hips = J("hips", body, 0, 1.02, 0);
-    add(hips, sph(0.19), S.bottom === "skirt" ? M.skin : M.bottom, [0, 0, 0], [1, 0.6, 0.72]);
+    add(hips, sph(0.19), S.bottom === "skirt" ? M.skin : M.bottom, [0, 0, 0], fem ? [1.12, 0.64, 0.78] : [1, 0.6, 0.72]);
     const spine = J("spine", hips, 0, 0.04, 0);
     this._buildTop(spine, K);
     if (S.headphones) this._buildHeadphones(spine, K);
@@ -358,7 +366,7 @@ var PlaceholderAvatar = class {
       add(spine, cyl(0.018, 0.018, 5e-3, 20), M.gold, [0, 0.425, 0.15], [1, 1, 1], [Math.PI / 2 - 0.3, 0, 0]);
     }
     const neck = J("neck", spine, 0, 0.53, 0);
-    add(neck, cyl(0.047, 0.055, 0.17), M.skinShade, [0, 0.055, 0]);
+    add(neck, fem ? cyl(0.041, 0.049, 0.17) : cyl(0.047, 0.055, 0.17), M.skinShade, [0, 0.055, 0]);
     const head = J("head", neck, 0, 0.115, 0);
     head.scale.setScalar(0.86);
     this._buildHead(head, K);
@@ -377,7 +385,7 @@ var PlaceholderAvatar = class {
   }
   /** Shaped torso (chest → waist → hem) built as a lathe instead of a capsule. */
   _torsoGeometry(scale = 1) {
-    const pts = [[1e-3, -0.08], [0.188, -0.08], [0.198, -0.03], [0.19, 0.08], [0.186, 0.17], [0.2, 0.28], [0.212, 0.38], [0.205, 0.45], [0.17, 0.51], [0.105, 0.548], [1e-3, 0.56]];
+    const pts = this.style.body === "female" ? [[1e-3, -0.08], [0.208, -0.08], [0.214, -0.03], [0.186, 0.07], [0.156, 0.17], [0.17, 0.27], [0.186, 0.35], [0.176, 0.43], [0.146, 0.5], [0.095, 0.543], [1e-3, 0.56]] : [[1e-3, -0.08], [0.188, -0.08], [0.198, -0.03], [0.19, 0.08], [0.186, 0.17], [0.2, 0.28], [0.212, 0.38], [0.205, 0.45], [0.17, 0.51], [0.105, 0.548], [1e-3, 0.56]];
     const curve = new THREE.SplineCurve(pts.map(([r, y]) => new THREE.Vector2(r * scale, y)));
     return new THREE.LatheGeometry(curve.getPoints(40), 40);
   }
@@ -424,7 +432,8 @@ var PlaceholderAvatar = class {
     const S = this.style;
     const tee = S.top === "tee";
     for (const [side, sx] of [["L", 1], ["R", -1]]) {
-      const sh = J(`shoulder${side}`, spine, sx * 0.225, 0.45, 0, 0, 0, sx * 0.11);
+      const fem = S.body === "female";
+      const sh = J(`shoulder${side}`, spine, sx * (fem ? 0.192 : 0.225), 0.45, 0, 0, 0, sx * 0.11);
       add(sh, sph(tee ? 0.056 : 0.06), M.top, [0, -0.035, 0]);
       if (tee) {
         add(sh, cap(0.062, 0.05), M.top, [0, -0.065, 0]);
@@ -457,8 +466,9 @@ var PlaceholderAvatar = class {
     const S = this.style;
     const b = S.bottom;
     if (b === "skirt") {
-      add(hips, cyl(0.19, 0.29, 0.36, 18, true), M.skirt, [0, -0.14, 0], [1, 1, 0.82]);
-      add(hips, cyl(0.195, 0.195, 0.04, 28), M.bottomDark, [0, 0.03, 0], [1, 1, 0.82]);
+      const w = S.body === "female" ? 1.13 : 1;
+      add(hips, cyl(0.19, 0.29, 0.36, 18, true), M.skirt, [0, -0.14, 0], [w, 1, 0.82 * w]);
+      add(hips, cyl(0.195, 0.195, 0.04, 28), M.bottomDark, [0, 0.03, 0], [w, 1, 0.82 * w]);
     }
     for (const [side, sx] of [["L", 1], ["R", -1]]) {
       const leg = J(`leg${side}`, hips, sx * 0.098, -0.03, 0, 0, 0, sx * 0.022);
@@ -495,7 +505,8 @@ var PlaceholderAvatar = class {
     const S = this.style;
     const P = this.parts;
     add(head, sph(0.17, 48, 36), M.skin, [0, 0.16, 0], [0.92, 1.06, 0.97]);
-    add(head, sph(0.07), M.skin, [0, 0.072, 0.055], [1.12, 0.85, 1]);
+    const fem = S.body === "female";
+    add(head, sph(0.07), M.skin, fem ? [0, 0.078, 0.055] : [0, 0.072, 0.055], fem ? [0.98, 0.8, 0.96] : [1.12, 0.85, 1]);
     for (const sx of [-1, 1]) {
       add(head, sph(0.034), M.skin, [sx * 0.153, 0.15, -5e-3], [0.42, 1, 0.68], [0, 0, -sx * 0.1]);
       add(head, sph(0.017), M.skinShade, [sx * 0.158, 0.15, 0], [0.3, 1, 0.6]);
@@ -517,7 +528,8 @@ var PlaceholderAvatar = class {
       add(iris, new THREE.CircleGeometry(72e-4, 20), M.pupil, [0, 0, 5e-4]);
       add(iris, new THREE.CircleGeometry(34e-4, 12), M.shine, [4e-3, 5e-3, 1e-3]);
       add(eye, new THREE.SphereGeometry(0.0305, 24, 12, 0, TAU, 0, 0.8), M.skin, [0, 1e-3, 0], [1.22, 0.98, 0.62], [0.12, 0, 0]);
-      add(eye, new THREE.TorusGeometry(0.029, 28e-4, 6, 24, Math.PI * 0.92), M.dark, [0, 2e-3, 4e-3], [1.2, 0.92, 0.6], [0.1, 0, Math.PI * 0.04]);
+      add(eye, new THREE.TorusGeometry(0.029, fem ? 42e-4 : 28e-4, 6, 24, Math.PI * 0.92), M.dark, [0, 2e-3, 4e-3], [1.2, 0.92, 0.6], [0.1, 0, Math.PI * 0.04]);
+      if (fem) add(eye, cap(26e-4, 0.012), M.dark, [sx * 0.034, 8e-3, 4e-3], [1, 1, 1], [0, 0, sx * 1]);
       P[`eye${side}`] = eye;
       P[`iris${side}`] = iris;
       const brow = new THREE.Group();
@@ -525,7 +537,7 @@ var PlaceholderAvatar = class {
       brow.rotation.y = sx * 0.3;
       brow.userData.y = brow.position.y;
       head.add(brow);
-      add(brow, new THREE.TorusGeometry(0.042, 55e-4, 6, 16, 0.85), M.hair, [0, -0.04, 0], [1, 1, 0.6], [0, 0, Math.PI / 2 - 0.425]);
+      add(brow, new THREE.TorusGeometry(0.042, fem ? 42e-4 : 62e-4, 6, 16, 0.85), M.hair, [0, -0.04, 0], [1, 1, 0.6], [0, 0, Math.PI / 2 - 0.425]);
       P[`brow${side}`] = brow;
       if (S.glasses) {
         add(head, new THREE.TorusGeometry(0.034, 45e-4, 8, 32), M.dark, [sx * 0.057, 0.178, 0.17], [1.15, 0.88, 1], [0, sx * 0.2, 0]);
@@ -538,7 +550,7 @@ var PlaceholderAvatar = class {
     mouth.rotation.x = -0.25;
     head.add(mouth);
     P.mouth = mouth;
-    P.smile = add(mouth, new THREE.TorusGeometry(0.024, 68e-4, 10, 28, Math.PI), M.lips, [0, 0.01, 0], [1, 1, 0.8], [0, 0, Math.PI]);
+    P.smile = add(mouth, new THREE.TorusGeometry(0.024, fem ? 82e-4 : 68e-4, 10, 28, Math.PI), fem ? M.lipsFem : M.lips, [0, 0.01, 0], [1, 1, 0.8], [0, 0, Math.PI]);
     const openGeo = new THREE.SphereGeometry(0.023, 20, 14);
     openGeo.scale(1, 1, 0.35);
     openGeo.translate(0, -0.011, 0);

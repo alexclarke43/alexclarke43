@@ -252,6 +252,7 @@ All options are listed in `avatar/js/look.js`:
 
 | Key | Values |
 |---|---|
+| `body` | `male`, `female`: shoulders, waist, hips and face shape. Hair and outfit stay independent, so every combination works. |
 | `height` | 150–200 (cm). Scales the whole avatar. Works for GLB models too. |
 | `skin`, `hairColor`, `hatColor`, `topColor`, `bottomColor`, `shoeColor` | hex colours. The UI offers curated palettes, while the API accepts any `#rrggbb`. |
 | `hairStyle` | `curls`, `buzz`, `bun`, `long`, `beanie` 🔒50 |

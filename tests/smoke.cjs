@@ -218,6 +218,16 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
         if (look[key] !== value) allOk = false;
       }
       check('hair / top / bottom options apply', allOk);
+      const shoulderX = () => page.evaluate(() => window.SparkasseAvatarApp.avatar.joints.shoulderL.position.x);
+      const maleShoulder = await shoulderX();
+      await page.click('#panel-style [data-key="body"][data-value="female"]');
+      check('body option: female applies and reshapes the avatar',
+        (await page.evaluate(() => window.SparkasseAvatarApp.look.body)) === 'female' &&
+        (await page.evaluate(() => window.SparkasseAvatarApp.avatar.style.body)) === 'female' && (await shoulderX()) < maleShoulder);
+      check('body chip shows as selected', (await page.getAttribute('#panel-style [data-key="body"][data-value="female"]', 'aria-pressed')) === 'true');
+      await page.click('#panel-style [data-key="body"][data-value="male"]');
+      check('body option: back to male', (await shoulderX()) === maleShoulder);
+      await page.click('#panel-style [data-key="body"][data-value="female"]');
       check('avatar geometry rebuilt', (await meshCount()) !== before);
       await page.click('#panel-style [data-key="topColor"][data-value="#7cf5d0"]');
       const color = await page.evaluate(() => {

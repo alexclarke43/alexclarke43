@@ -3,6 +3,7 @@ import { OPTIONS, PALETTES, HEIGHT_RANGE, DEFAULT_LOOK, unlockCost, randomLook }
 const TXT = {
   height: { en: 'Height', de: 'Größe' },
   character: { en: 'Character', de: 'Figur' },
+  body: { en: 'Body', de: 'Körper' },
   sparkieNote: {
     en: 'Sparkie keeps its signature look. Pick “You” to style your own avatar.',
     de: 'Sparkie bleibt, wie er ist. Wähle „Du“, um deinen eigenen Avatar zu stylen.',
@@ -76,6 +77,7 @@ export function createCustomizer(root, { lang, getLook, setLook, getCoins, suppo
           <button type="button" class="cz-btn" data-act="random">${t('random')}</button>
           <button type="button" class="cz-btn cz-btn--ghost" data-act="reset">${t('reset')}</button>
         </div>
+        <section class="cz-sec cz-sec--body"><h3>${t('body')}</h3>${chips('body', OPTIONS.body, L.body)}</section>
         ${heightHtml}
         <section class="cz-sec"><h3>${t('skin')}</h3>${swatches('skin', L.skin)}</section>
         <section class="cz-sec"><h3>${t('hair')}</h3>${chips('hairStyle', OPTIONS.hairStyle, L.hairStyle)}${swatches('hairColor', L.hairColor)}
