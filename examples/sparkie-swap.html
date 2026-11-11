@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sparkie → avatar drop-in demo</title>
+  <!-- The platform already has an import map like this for Sparkie (three + three/addons). -->
+  <script type="importmap">
+    { "imports": { "three": "../avatar/vendor/three/build/three.module.js", "three/addons/": "../avatar/vendor/three/addons/" } }
+  </script>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #fff4f4; color: #15131a; }
+    header { padding: 14px 20px; font-weight: 800; }
+    main { display: grid; gap: 16px; padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
+    #buddy { height: min(70vh, 560px); border-radius: 24px; background: radial-gradient(circle at 50% 30%, #fff, #ffe3e3); }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    button { border: 0; border-radius: 999px; padding: 10px 14px; font: inherit; font-weight: 700; background: #15131a; color: #fff; cursor: pointer; }
+    button.ghost { background: #fff; color: #15131a; box-shadow: inset 0 0 0 1.5px #0002; }
+    code { background: #0001; padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <header>Drop-in demo: same calls as Sparkie, our avatar on screen
+    · <a id="toggle" href="?original=1">compare with original Sparkie</a></header>
+  <main>
+    <div id="buddy"></div>
+    <div class="row" id="moves"></div>
+    <div class="row">
+      <button class="ghost" id="queue">Queue: coin → celebrate</button>
+      <button class="ghost" id="spin">Toggle spinEnabled</button>
+      <button class="ghost" id="look">Change look (avatar only)</button>
+    </div>
+    <p>Platform code change: <code>import { Sparkie } from './sparkie.js'</code> → <code>import { Sparkie } from './avatar-buddy.js'</code></p>
+  </main>
+  <script type="module">
+    const original = new URLSearchParams(location.search).has('original');
+    const { Sparkie } = original
+      ? await import('../avatar/js/avatars/sparkie.js')
+      : await import('../dist/avatar-buddy.js');
+    if (original) { document.getElementById('toggle').textContent = 'back to avatar'; document.getElementById('toggle').href = '?'; }
+
+    // ↓↓ exactly how the platform uses Sparkie ↓↓
+    const sparkie = new Sparkie(document.getElementById('buddy'), { onTap: () => sparkie.play('giggle') });
+    sparkie.play('intro');
+    // ↑↑
+
+    for (const m of ['wave', 'celebrate', 'jump', 'coin', 'nod', 'shake', 'think', 'sad', 'dance', 'giggle', 'intro']) {
+      const b = document.createElement('button');
+      b.textContent = m; b.onclick = () => sparkie.play(m);
+      document.getElementById('moves').append(b);
+    }
+    document.getElementById('queue').onclick = () => { sparkie.play('coin'); sparkie.play('celebrate', { queue: true }); };
+    document.getElementById('spin').onclick = (e) => { sparkie.spinEnabled = !sparkie.spinEnabled; e.target.textContent = `spinEnabled: ${sparkie.spinEnabled}`; };
+    document.getElementById('look').onclick = () => sparkie.setLook?.({ hairStyle: 'bun', hairColor: '#ff6f91', top: 'jacket', topColor: '#15131a', bottom: 'skirt', glasses: true });
+    window.sparkie = sparkie;
+  </script>
+</body>
+</html>

@@ -102,9 +102,9 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       check('loader hidden after load', await page.locator('#avatar-loader').isHidden());
       check('canvas rendered', (await page.locator('canvas.avatar-canvas').count()) === 1);
       const buttons = await page.locator('.avatar-btn').allTextContents();
-      check('5 reaction buttons', buttons.length === 5, buttons.join(' | '));
+      check('6 reaction buttons', buttons.length === 6, buttons.join(' | '));
 
-      for (const name of ['greet', 'celebrate', 'nod', 'shrug', 'dance']) {
+      for (const name of ['greet', 'celebrate', 'coin', 'nod', 'shrug', 'dance']) {
         await page.click(`.avatar-btn[data-reaction="${name}"]`);
         await page.waitForTimeout(250);
         const st = await page.evaluate(() => ({
@@ -271,7 +271,7 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       check('quiz result screen', (await page.textContent('.gm-score')).replace(/\s/g, '') === `${total}/${total}`);
       const coins = await page.evaluate(() => window.SparkasseAvatarApp.coins);
       check('coins awarded incl. streak bonus', coins === total * 10 + Math.floor(total / 3) * 5, `${coins} coins`);
-      check('avatar reacts (nod on correct, celebrate on streak)', reactionsSeen.has('nod') && reactionsSeen.has('celebrate'), [...reactionsSeen].join(','));
+      check('avatar reacts (catches a coin when correct, celebrates streaks)', reactionsSeen.has('coin') && reactionsSeen.has('celebrate'), [...reactionsSeen].join(','));
       check('coins badge updates', (await page.textContent('#avatar-coins')).includes(String(coins)));
 
       // Need or Want: answer everything wrong
@@ -331,7 +331,7 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'PlaceholderAvatar', null, { timeout: 10000 }).catch(() => {});
       check('switch to own avatar', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'PlaceholderAvatar');
       check('outfit options appear for own avatar', await page.locator('#panel-style [data-key="top"]').count() > 0);
-      check('"Save" button hidden for own avatar', (await page.locator('.avatar-btn[data-reaction="coin"]').count()) === 0);
+      check('own avatar also has "Save" (catches a coin)', (await page.locator('.avatar-btn[data-reaction="coin"]').count()) === 1);
       await page.click('#panel-style [data-key="character"][data-value="sparkie"]');
       await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'SparkieAvatar', null, { timeout: 10000 }).catch(() => {});
       check('switch back to Sparkie', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'SparkieAvatar');
@@ -353,6 +353,73 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       });
       check('original standalone `new Sparkie(host)` API still works', standalone);
       check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
+    console.log('Drop-in Sparkie replacement (dist/avatar-buddy.js)');
+    {
+      const ctx = await browser.newContext({ viewport: { width: 900, height: 900 } });
+      const page = await ctx.newPage();
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+      await page.goto(`${base}/examples/sparkie-swap.html`);
+      await page.waitForFunction(() => window.sparkie, null, { timeout: 30000 });
+      const cur = () => page.evaluate(() => window.sparkie.avatar.current?.name);
+      check('`new Sparkie(host, { onTap })` creates our avatar', (await page.evaluate(() => window.sparkie.constructor.name)) === 'AvatarBuddy');
+      check('canvas keeps the .sparkie-canvas class', (await page.locator('#buddy canvas.sparkie-canvas').count()) === 1);
+      check('play("intro") on start', (await cur()) === 'intro');
+      const map = { wave: 'greet', celebrate: 'celebrate', jump: 'jump', coin: 'coin', nod: 'nod', shake: 'shake', think: 'think', sad: 'sad', dance: 'dance', giggle: 'giggle', intro: 'intro' };
+      let allMoves = true;
+      for (const [move, expected] of Object.entries(map)) {
+        await page.evaluate((m) => window.sparkie.play(m), move);
+        if ((await cur()) !== expected) { allMoves = false; console.log('    move failed:', move); }
+      }
+      check('all 11 Sparkie moves play on the avatar', allMoves);
+      await page.evaluate(() => window.sparkie.play('coin'));
+      const coinSeen = await page.waitForFunction(() => window.sparkie.avatar.parts.coin.visible, null, { timeout: 15000 }).then(() => true).catch(() => false);
+      check('coin move shows the falling € coin', coinSeen);
+      await page.evaluate(() => { window.sparkie.play('jump'); window.sparkie.play('celebrate', { queue: true }); });
+      check('play(name, { queue: true }) queues', (await page.evaluate(() => window.sparkie.queue.slice())).join() === 'celebrate');
+      const queued = await page.waitForFunction(() => window.sparkie.avatar.current?.name === 'celebrate', null, { timeout: 30000 }).then(() => true).catch(() => false);
+      check('queued move starts after the current one', queued);
+      await page.waitForFunction(() => window.sparkie.confetti.active > 0, null, { timeout: 15000 }).catch(() => {});
+      check('celebrate bursts confetti', await page.evaluate(() => window.sparkie.confetti.active > 0));
+
+      // tap → onTap (demo plays giggle)
+      await page.evaluate(() => window.sparkie.play('nod'));
+      const box = await page.locator('#buddy canvas').boundingBox();
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.45);
+      check('tap on avatar calls onTap', (await cur()) === 'giggle');
+      // drag spins, then springs back to the front like Sparkie
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2 + i * 20, box.y + box.height / 2);
+      const during = await page.evaluate(() => window.sparkie.yawTarget);
+      await page.mouse.up();
+      check('drag spins the avatar', Math.abs(during) > 1);
+      const back = await page.waitForFunction(() => Math.abs(window.sparkie.yaw) < 0.05, null, { timeout: 15000 }).then(() => true).catch(() => false);
+      check('springs back to face the user on release', back);
+      await page.evaluate(() => { window.sparkie.spinEnabled = false; });
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2 + i * 20, box.y + box.height / 2);
+      check('spinEnabled = false blocks spinning', (await page.evaluate(() => window.sparkie.yawTarget)) === 0);
+      await page.mouse.up();
+
+      const look = await page.evaluate(() => window.sparkie.setLook({ hairStyle: 'bun', top: 'tee', height: 160 }));
+      check('setLook() customises the drop-in avatar', look.hairStyle === 'bun' && look.top === 'tee' && Math.abs(await page.evaluate(() => window.sparkie.avatar.object3d.scale.y) - 160 / 175) < 1e-3);
+      const moved = await page.evaluate(() => {
+        const el = document.createElement('div'); el.style.cssText = 'width:200px;height:300px'; document.body.append(el);
+        window.sparkie.mount(el); return el.querySelector('canvas') !== null;
+      });
+      check('mount(el) moves it to another container', moved);
+      check('no console errors', errors.length === 0, errors.join(' / '));
+
+      await page.goto(`${base}/examples/sparkie-swap.html?original=1`);
+      await page.waitForFunction(() => window.sparkie, null, { timeout: 30000 });
+      check('same demo page still runs the original Sparkie', (await page.evaluate(() => window.sparkie.model.action?.name)) === 'intro');
+      check('no console errors (original)', errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
 

@@ -180,12 +180,37 @@ export class PlaceholderAvatar {
 
     const smile = f('face.smile');
     const mouthOpen = f('face.open');
-    P.smile.scale.set(0.75 + smile * 0.45, 0.25 + smile * 0.85, 1);
+    // negative smile = frown (the lip arc flips)
+    const frown = smile < 0;
+    const sm = Math.abs(smile);
+    P.smile.rotation.z = frown ? 0 : Math.PI;
+    P.smile.position.y = frown ? -0.008 : 0.01;
+    P.smile.scale.set(0.75 + sm * (frown ? 0.2 : 0.45), 0.25 + sm * (frown ? 0.45 : 0.85), 1);
     P.smile.visible = mouthOpen < 0.55;
-    P.mouthOpen.scale.set(0.8 + smile * 0.35, Math.max(0.02, mouthOpen), 1);
+    P.mouthOpen.scale.set(0.8 + Math.max(0, smile) * 0.35, Math.max(0.02, mouthOpen), 1);
     P.mouthOpen.visible = mouthOpen > 0.03;
     P.mouth.position.x = f('face.mouthX') * 0.02;
     P.mouth.rotation.z = f('face.mouthX') * 0.25;
+
+    this._applyCoin(p['prop.coin'] || 0);
+  }
+
+  /** Coin prop for the "coin" move: falls from above into the right hand, then gets pocketed. */
+  _applyCoin(c) {
+    const coin = this.parts.coin;
+    if (!coin) return;
+    coin.visible = c > 0.01 && c < 0.995;
+    if (!coin.visible) return;
+    this.object3d.updateMatrixWorld(true);
+    const palm = this.joints.handR.localToWorld(this._v1.set(0, -0.06, 0));
+    this.object3d.worldToLocal(palm);
+    palm.y += 0.045;
+    const fall = Math.min(1, c / 0.52);
+    coin.position.set(palm.x, palm.y + 1.5 * (1 - fall * fall), palm.z);
+    coin.rotation.set(Math.PI / 2 * (1 - fall) + 0.2, c * 30 * (1 - fall) + 0.3, 0);
+    const pop = Math.min(1, c / 0.06);
+    const pocket = 1 - Math.max(0, (c - 0.86) / 0.14);
+    coin.scale.setScalar(Math.max(0.001, pop * pocket));
   }
 
   // ---------------------------------------------------------------------------
@@ -309,6 +334,15 @@ export class PlaceholderAvatar {
 
     this._buildArms(spine, K);
     this._buildLegs(hips, K);
+
+    // € coin prop (hidden until the "coin" move)
+    const coinGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.012, 36);
+    coinGeo.rotateX(Math.PI / 2);
+    const coin = new THREE.Mesh(coinGeo, [M.gold, coinFaceMaterial(), coinFaceMaterial()]);
+    coin.visible = false;
+    this.object3d.add(coin);
+    this.parts.coin = coin;
+    this._v1 = new THREE.Vector3();
 
     this.headAnchor = new THREE.Object3D();
     this.headAnchor.position.set(0, 0.4, 0);
@@ -550,6 +584,23 @@ export class PlaceholderAvatar {
   }
 }
 
+let coinTex;
+function coinFaceMaterial() {
+  if (!coinTex) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(50, 45, 10, 64, 64, 64);
+    g.addColorStop(0, '#ffe58a'); g.addColorStop(0.6, '#ffc21a'); g.addColorStop(1, '#e09a00');
+    x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+    x.strokeStyle = 'rgba(160,100,0,.55)'; x.lineWidth = 6;
+    x.beginPath(); x.arc(64, 64, 52, 0, Math.PI * 2); x.stroke();
+    x.fillStyle = 'rgba(150,90,0,.85)'; x.font = '900 76px Arial, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('€', 64, 69);
+    coinTex = new THREE.CanvasTexture(c); coinTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  return new THREE.MeshStandardMaterial({ map: coinTex, metalness: 0.55, roughness: 0.3 });
+}
+
 // -----------------------------------------------------------------------------
 // Poses. Keys are "<joint>.<px|py|pz|rx|ry|rz>" (offsets from rest) or "face.<x>".
 
@@ -770,6 +821,146 @@ const MOTIONS = {
       p['face.open'] = (0.1 + 0.12 * Math.max(0, Math.sin(beat))) * on;
       p['face.brow'] = 0.3 * on;
       return p;
+    },
+  },
+
+  // ---- Moves that mirror Sparkie's library, so this avatar can replace Sparkie 1:1 ----
+
+  // Pop-in entrance: drop in with a spin, land, then wave.
+  intro: {
+    duration: 3.0,
+    look: 0.3,
+    idleBlend: 0.1,
+    pose(t, d) {
+      const f = clamp01(t / 0.9);
+      const land = env(t, 0.85, 0.95, 1.0, 1.35);
+      const p = t >= 1.05 ? MOTIONS.greet.pose(t - 1.05, d - 1.05) : {};
+      if (t < 0.92) {
+        p['body.py'] = 1.1 * (1 - f) * (1 - f);
+        p['body.ry'] = (1 - (f < 0.5 ? 4 * f * f * f : 1 - Math.pow(-2 * f + 2, 3) / 2)) * TAU * 2;
+        p['shoulderL.rz'] = 0.6 * (1 - f); p['shoulderR.rz'] = -0.6 * (1 - f);
+        p['legL.rx'] = -0.3 * (1 - f); p['kneeL.rx'] = 0.6 * (1 - f);
+        p['face.smile'] = 1; p['face.squint'] = 0.6; p['face.open'] = 0.3;
+      }
+      crouch(p, 0.3 * land);
+      return p;
+    },
+  },
+
+  // Quick happy hop.
+  jump: {
+    duration: 1.0,
+    look: 0.3,
+    idleBlend: 0.1,
+    pose(t) {
+      const p = {};
+      const pre = env(t, 0, 0.16, 0.18, 0.24);
+      const jt = (t - 0.22) / 0.42;
+      const land = env(t, 0.62, 0.68, 0.72, 0.92);
+      crouch(p, 0.32 * pre + 0.25 * land);
+      if (jt > 0 && jt < 1) {
+        p['body.py'] = 4 * 0.26 * jt * (1 - jt);
+        const tuck = Math.sin(jt * Math.PI);
+        for (const s of ['L', 'R']) { p[`leg${s}.rx`] = -0.35 * tuck; p[`knee${s}.rx`] = 0.7 * tuck; }
+      }
+      const up = env(t, 0.15, 0.3, 0.7, 0.95);
+      p['shoulderL.rz'] = 2.3 * up; p['shoulderR.rz'] = -2.3 * up;
+      p['elbowL.rz'] = 0.25 * up; p['elbowR.rz'] = -0.25 * up;
+      p['elbowL.rx'] = 0.14 * up; p['elbowR.rx'] = 0.14 * up;
+      p['face.smile'] = 1; p['face.squint'] = 0.55 * up; p['face.open'] = 0.5 * up; p['face.brow'] = 0.5 * up;
+      return p;
+    },
+  },
+
+  // Catch a falling € coin, smile, pocket it.
+  coin: {
+    duration: 2.0,
+    look: 0.1,
+    pose(t, d) {
+      const reach = env(t, 0.05, 0.35, 1.15, 1.45);
+      const lookUp = env(t, 0.05, 0.3, 0.8, 1.0);
+      const happy = smooth((t - 0.95) / 0.2) * (1 - smooth((t - (d - 0.35)) / 0.35));
+      const c = (t - 0.25) / 1.25;
+      return {
+        'shoulderR.rx': -0.85 * reach,
+        'shoulderR.rz': 0.12 * reach,
+        'elbowR.rx': -0.55 * reach,
+        'handR.ry': -1.5 * reach,
+        'fingersR.rz': 0.35 * reach,
+        'head.rx': -0.32 * lookUp + 0.1 * env(t, 0.95, 1.05, 1.3, 1.5),
+        'body.py': 0.05 * Math.sin(clamp01((t - 0.95) / 0.4) * Math.PI),
+        'face.eyeY': 0.8 * lookUp - 0.4 * env(t, 0.95, 1.05, 1.3, 1.5),
+        'face.open': 0.4 * env(t, 0.2, 0.4, 0.85, 1.0),
+        'face.smile': 0.6 + 0.4 * happy,
+        'face.squint': 0.8 * happy,
+        'face.brow': 0.5,
+        'prop.coin': c > 0 && c < 1 ? c : 0,
+      };
+    },
+  },
+
+  // Disappointed: head and shoulders drop, worried brows, frown.
+  sad: {
+    duration: 2.2,
+    look: 0.1,
+    pose(t, d) {
+      const e = env(t, 0, 0.4, d - 0.5, d);
+      return {
+        'head.rx': 0.3 * e, 'neck.rx': 0.08 * e, 'spine.rx': 0.12 * e,
+        'head.rz': 0.05 * Math.sin(t * Math.PI) * e,
+        'shoulderL.py': -0.02 * e, 'shoulderR.py': -0.02 * e,
+        'shoulderL.rz': -0.07 * e, 'shoulderR.rz': 0.07 * e,
+        'shoulderL.rx': 0.12 * e, 'shoulderR.rx': 0.12 * e,
+        'hips.py': -0.01 * e,
+        'face.smile': -0.75 * e, 'face.browTilt': 0.9 * e, 'face.eyeY': -0.6 * e, 'face.squint': 0.15 * e,
+      };
+    },
+  },
+
+  // "No" head shake.
+  shake: {
+    duration: 1.0,
+    look: 0,
+    pose(t, d) {
+      const e = env(t, 0, 0.1, d - 0.3, d);
+      const w = Math.sin(t * 18) * e;
+      return {
+        'head.ry': 0.33 * w, 'neck.ry': 0.1 * w,
+        'face.smile': 0.05, 'face.browTilt': -0.35 * e, 'face.brow': -0.2 * e, 'face.mouthX': 0.25 * e,
+      };
+    },
+  },
+
+  // Hand to chin, eyes up: thinking.
+  think: {
+    duration: 2.4,
+    look: 0.2,
+    pose(t, d) {
+      const e = env(t, 0, 0.45, d - 0.5, d);
+      return {
+        'shoulderR.rx': -0.9 * e, 'shoulderR.rz': 0.5 * e,
+        'elbowR.rx': -1.95 * e, 'elbowR.ry': -0.35 * e,
+        'handR.rx': 0.35 * e, 'fingersR.rz': 1.1 * e,
+        'shoulderL.rx': -0.08 * e,
+        'head.rz': 0.1 * e, 'head.rx': -0.06 * e, 'head.ry': -0.1 * e,
+        'face.eyeX': -0.5 * e, 'face.eyeY': 0.7 * e, 'face.browAsym': 0.5 * e, 'face.mouthX': 0.45 * e, 'face.smile': 0.15,
+      };
+    },
+  },
+
+  // Little laugh: shoulders bounce, eyes squeeze.
+  giggle: {
+    duration: 1.0,
+    look: 0.4,
+    pose(t, d) {
+      const e = env(t, 0, 0.12, d - 0.25, d);
+      const b = Math.abs(Math.sin(t * 16)) * e;
+      return {
+        'shoulderL.py': 0.02 * b, 'shoulderR.py': 0.02 * b,
+        'spine.rx': 0.06 * e + 0.03 * b, 'head.rx': 0.08 * e, 'head.rz': 0.06 * Math.sin(t * 8) * e,
+        'hips.py': -0.008 * b,
+        'face.smile': 1, 'face.squint': 0.9 * e, 'face.open': 0.35 * e + 0.15 * b, 'face.brow': 0.4 * e,
+      };
     },
   },
 };

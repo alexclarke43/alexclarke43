@@ -182,6 +182,40 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 
 Booleans accept `0/1`, `true/false`, `on/off`.
 
+## 4b. Replacing Sparkie in the platform (drop-in)
+
+If the platform already shows Sparkie with `sparkie.js`, you can swap in our avatar **without changing any other code**.
+
+1. Copy **`dist/avatar-buddy.js`** next to `sparkie.js`. It's a single file of about 50 KB and uses the platform's existing `three` / `three/addons/` imports.
+2. Change one import:
+
+```diff
+- import { Sparkie } from './sparkie.js';
++ import { Sparkie } from './avatar-buddy.js';
+```
+
+Everything else stays the same: `new Sparkie(host, { onTap })`, `.play(name, { queue })`, `.burst()`, `.mount(el)`, `.spinEnabled`, and the `.sparkie-canvas` CSS class. All 11 Sparkie moves are mapped to the avatar:
+
+| Sparkie move | Avatar does |
+|---|---|
+| `intro` | drops in with a spin, lands, waves |
+| `wave` | waves hello |
+| `celebrate` | jump-spin, arms up, confetti |
+| `jump` | happy hop, arms up |
+| `coin` | looks up, catches a falling € coin, smiles, pockets it |
+| `nod` | thumbs-up, nod and wink |
+| `shake` | "no" head shake |
+| `think` | hand to chin, eyes up |
+| `sad` | head and shoulders drop, worried brows, frown |
+| `dance` | 120 bpm groove |
+| `giggle` | shoulders bounce, eyes squeeze shut |
+
+Optional extras: pass a look with `new Sparkie(host, { onTap, look: { hairStyle: 'bun', top: 'tee', height: 168 } })`, or call `buddy.setLook({...})` / `buddy.getLook()` (keys as in `look.js`), and `buddy.dispose()`. The platform can store the user's look and pass it in on load.
+
+**Demo:** `examples/sparkie-swap.html` runs the same calls the platform makes. Add `?original=1` to compare with the original Sparkie.
+
+**Rebuilding the bundle** after editing the avatar code: `npm run build:buddy`. The source is `avatar/js/buddy/AvatarBuddy.js`.
+
 ## 5. Sparkie
 
 `avatar/js/avatars/sparkie.js` is the team's mascot code, split into two parts:
@@ -273,6 +307,7 @@ The test starts its own server and checks in Chromium:
 * idle motion, mouse drag, real touch drag, tap on the avatar, keyboard rotation and reset
 * the mobile layout and German labels
 * every hairstyle, top and bottom option; colours, glasses, the height slider, "Surprise me", locked items, saving across reloads, and the `look` URL parameter
+* the drop-in replacement: all 11 Sparkie moves, the coin prop, queueing, confetti, tap → `onTap`, drag spin with spring-back, `spinEnabled`, `setLook`, `mount`, and the original Sparkie on the same demo page
 * Sparkie: every button mapped to the right Sparkie move, its own confetti, drag, the coin reward in the quiz, switching characters both ways, and the original standalone `new Sparkie(host)` API
 * a full Money Quiz round (feedback, coins, streak bonus, avatar reactions), a full Need-or-Want round, and coins unlocking the beanie
 * GLB loading with clip mapping and fallbacks, and fallback to the placeholder when a model is missing
