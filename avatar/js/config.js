@@ -12,6 +12,7 @@ export const DEFAULTS = {
   ui: true,                  // show the reaction buttons
   bubble: true,              // show speech bubbles
   hint: true,                // show "drag to spin" hint
+  badge: true,               // show the coins badge (hide it if the host page shows coins itself)
   autoGreet: true,           // wave once on load
   lookAtPointer: true,       // head follows the mouse / finger
   lang: 'en',                // 'en' | 'de'
@@ -29,7 +30,7 @@ export const DEFAULTS = {
   parentOrigin: '*',         // restrict postMessage to this origin, e.g. https://bank.example
 };
 
-const BOOL_KEYS = ['ui', 'bubble', 'hint', 'autoGreet', 'lookAtPointer', 'persist'];
+const BOOL_KEYS = ['ui', 'bubble', 'hint', 'autoGreet', 'lookAtPointer', 'persist', 'badge'];
 const COLOR_KEYS = ['primary', 'accent', 'skin', 'hair'];
 
 function toBool(v) {

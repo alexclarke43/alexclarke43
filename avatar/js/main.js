@@ -196,7 +196,7 @@ const UNLOCKS = [
 ];
 
 function updateCoins(total, delta) {
-  coinsEl.hidden = !cfg.tabs.includes('play') && total === 0;
+  coinsEl.hidden = !cfg.badge || (!cfg.tabs.includes('play') && total === 0);
   coinsEl.textContent = `🪙 ${total}`;
   if (delta > 0) {
     coinsEl.classList.remove('is-bump');
@@ -310,7 +310,7 @@ function buildDock() {
       getCoins,
       supportsStyle: () => !!avatar?.supportsStyle,
       supportsHeight: () => avatar?.supportsHeight !== false,
-      canSwitchCharacter: () => !cfg.model,
+      canSwitchCharacter: () => !cfg.model && !cfg.character, // a host that fixes the character hides the picker
     });
   }
   if (cfg.tabs.includes('play')) {

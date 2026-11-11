@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Banking-App Prototyp mit Avatar</title>
+  <!--
+    PROTOTYPE / DESIGN MOCK-UP ONLY.
+    Shows how the avatar could sit inside a Sparkasse-style banking app for Gen Z.
+    Demo data only – no logins, no real transactions, no official logos.
+  -->
+  <style>
+    :root {
+      --red: #e60000;
+      --red-dark: #b80000;
+      --ink: #1b1b1f;
+      --muted: #6b6b76;
+      --bg: #f4f2f2;
+      --card: #ffffff;
+      --line: #ececef;
+      --mint: #7cf5d0;
+      --radius: 22px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: grid;
+      place-items: center;
+      background: radial-gradient(60% 50% at 20% 20%, #ffe1e1, transparent 70%), radial-gradient(50% 50% at 85% 80%, #dffaf1, transparent 70%), #f7f5f5;
+    }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    [hidden] { display: none !important; }
+
+    /* ---------- phone frame (desktop) / full screen (mobile) ---------- */
+    .device {
+      position: relative;
+      width: 390px;
+      height: min(844px, 100vh - 32px);
+      background: var(--bg);
+      border-radius: 46px;
+      overflow: hidden;
+      box-shadow: 0 0 0 10px #18181b, 0 0 0 11px #3a3a40, 0 40px 80px -20px rgba(30, 0, 0, .35);
+      display: flex;
+      flex-direction: column;
+    }
+    @media (max-width: 500px) {
+      body { display: block; }
+      .device { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+      .statusbar { display: none !important; }
+    }
+    .statusbar { display: flex; justify-content: space-between; padding: 14px 30px 0; font-weight: 700; font-size: 14px; color: #fff; background: var(--red); }
+    .proto {
+      background: var(--red); color: rgba(255,255,255,.85); font-size: 11px; font-weight: 700;
+      text-align: center; padding: 6px 12px 0; letter-spacing: .02em;
+    }
+    .proto span { background: rgba(0,0,0,.18); padding: 2px 8px; border-radius: 99px; }
+
+    /* ---------- header ---------- */
+    .top {
+      background: var(--red);
+      color: #fff;
+      padding: 12px 20px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 0 0 auto;
+    }
+    .top small { opacity: .85; font-weight: 600; }
+    .top h1 { margin: 2px 0 0; font-size: 22px; letter-spacing: -.02em; }
+    .coins {
+      background: rgba(255,255,255,.18); border: 0; color: #fff; border-radius: 99px;
+      padding: 8px 12px; font-weight: 800; display: flex; gap: 6px; align-items: center;
+    }
+
+    /* ---------- screens ---------- */
+    .screen { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #screen-home { padding: 0 14px 18px; }
+    .hero-bg { background: var(--red); margin: 0 -14px; height: 70px; border-radius: 0 0 28px 28px; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: 0 8px 24px -16px rgba(40, 0, 0, .35); padding: 16px; margin-top: 12px; }
+    .account { margin-top: -62px; }
+    .account .label { color: var(--muted); font-weight: 700; font-size: 13px; }
+    .account .balance { font-size: 32px; font-weight: 800; letter-spacing: -.03em; margin: 4px 0 2px; }
+    .account .iban { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+    .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+    .quick button {
+      border: 0; background: #fff3f3; border-radius: 16px; padding: 10px 4px; font-size: 12px; font-weight: 700;
+      display: grid; justify-items: center; gap: 4px; color: var(--red-dark);
+    }
+    .quick button span { font-size: 20px; }
+
+    .buddy-card { padding: 0; overflow: hidden; background: linear-gradient(180deg, #fff 0%, #fff5f5 100%); }
+    .buddy-card .head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 0; }
+    .buddy-card h2, .card h2 { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+    .buddy-card .sub { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .pill { border: 0; border-radius: 99px; background: var(--ink); color: #fff; padding: 8px 12px; font-weight: 700; font-size: 13px; }
+    .pill.light { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+    #avatar-home { height: 300px; }
+
+    .goal-top { display: flex; align-items: center; gap: 12px; }
+    .goal-emoji { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 24px; background: #fff0f0; }
+    .goal-top .meta { flex: 1; }
+    .goal-top .meta small { color: var(--muted); font-weight: 600; }
+    .bar { height: 10px; background: #f1eded; border-radius: 99px; overflow: hidden; margin: 12px 0; }
+    .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--red), #ff5a5a); border-radius: inherit; transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+    .goal-actions { display: flex; gap: 8px; }
+    .goal-actions .pill { flex: 1; min-height: 42px; }
+
+    .tx-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .tx-head small { color: var(--muted); font-weight: 600; }
+    .tx { list-style: none; margin: 8px 0 0; padding: 0; }
+    .tx li button {
+      width: 100%; border: 0; background: none; padding: 10px 0; display: flex; align-items: center; gap: 12px; text-align: left;
+      border-top: 1px solid var(--line);
+    }
+    .tx li:first-child button { border-top: 0; }
+    .tx .ico { width: 40px; height: 40px; border-radius: 12px; background: #f5f5f7; display: grid; place-items: center; font-size: 20px; flex: 0 0 40px; }
+    .tx .name { flex: 1; font-weight: 700; font-size: 14px; }
+    .tx .name small { display: block; color: var(--muted); font-weight: 600; font-size: 12px; }
+    .tx .amt { font-weight: 800; font-variant-numeric: tabular-nums; }
+    .tx .amt.plus { color: #0b8a55; }
+    .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+
+    .learn { display: flex; gap: 12px; align-items: center; background: linear-gradient(135deg, #1b1b1f, #3a2030); color: #fff; }
+    .learn .big { font-size: 34px; }
+    .learn p { margin: 2px 0 0; font-size: 13px; opacity: .8; }
+    .learn .pill { background: #fff; color: var(--ink); white-space: nowrap; }
+
+    #screen-buddy { display: flex; flex-direction: column; }
+    #avatar-full { flex: 1; min-height: 0; }
+
+    /* ---------- tab bar ---------- */
+    .tabbar {
+      flex: 0 0 auto; display: grid; grid-template-columns: repeat(4, 1fr);
+      background: #fff; border-top: 1px solid var(--line); padding: 6px 6px max(10px, env(safe-area-inset-bottom));
+    }
+    .tabbar button { border: 0; background: none; display: grid; justify-items: center; gap: 2px; padding: 6px 0; font-size: 11px; font-weight: 700; color: var(--muted); }
+    .tabbar button span { font-size: 20px; filter: grayscale(1); opacity: .7; }
+    .tabbar button[aria-current="page"] { color: var(--red); }
+    .tabbar button[aria-current="page"] span { filter: none; opacity: 1; }
+
+    .toast {
+      position: absolute; left: 50%; bottom: 86px; translate: -50% 0; background: var(--ink); color: #fff;
+      padding: 10px 16px; border-radius: 14px; font-size: 13px; font-weight: 600; max-width: 86%; text-align: center;
+      opacity: 0; transition: opacity .25s, translate .25s; pointer-events: none; z-index: 5;
+    }
+    .toast.show { opacity: 1; translate: -50% -6px; }
+  </style>
+</head>
+<body>
+  <div class="device">
+    <div class="statusbar" aria-hidden="true"><span>9:41</span><span>5G ▮▮▮ 🔋</span></div>
+    <div class="proto"><span>PROTOTYP · Demo-Daten · keine echte Banking-App</span></div>
+
+    <header class="top">
+      <div><small>Guten Abend</small><h1>Hey Lea 👋</h1></div>
+      <button class="coins" id="coins-btn" title="Coins aus den Money-Games">🪙 <b id="coins">0</b></button>
+    </header>
+
+    <!-- ===================== Start ===================== -->
+    <main class="screen" id="screen-home">
+      <div class="hero-bg"></div>
+
+      <section class="card account" aria-label="Girokonto">
+        <div class="label">Girokonto</div>
+        <div class="balance" id="balance">1.248,50 €</div>
+        <div class="iban">DE•• •••• •••• •••• 4821</div>
+        <div class="quick">
+          <button id="q-transfer"><span>↗️</span>Überweisen</button>
+          <button id="q-save"><span>🐷</span>Sparen</button>
+          <button id="q-learn"><span>🧠</span>Lernen</button>
+          <button id="q-style"><span>🎨</span>Stylen</button>
+        </div>
+      </section>
+
+      <section class="card buddy-card" aria-label="Dein Finanz-Buddy">
+        <div class="head">
+          <div><h2>Dein Finanz-Buddy</h2><div class="sub">Tippen, drehen, Tipps holen</div></div>
+          <button class="pill light" id="open-buddy">Öffnen</button>
+        </div>
+        <div id="avatar-home"></div>
+      </section>
+
+      <section class="card" aria-label="Sparziel">
+        <div class="goal-top">
+          <div class="goal-emoji">📱</div>
+          <div class="meta"><h2>Neues Handy</h2><small id="goal-text">210 € von 300 €</small></div>
+          <strong id="goal-pct">70 %</strong>
+        </div>
+        <div class="bar"><div id="goal-bar"></div></div>
+        <div class="goal-actions">
+          <button class="pill" data-add="10">+10 € sparen</button>
+          <button class="pill" data-add="50">+50 € sparen</button>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Umsätze">
+        <div class="tx-head"><h2>Umsätze</h2><small>Diese Woche</small></div>
+        <ul class="tx" id="tx"></ul>
+        <p class="hint">Tipp: Tippe auf einen Umsatz – dein Buddy sagt dir was dazu.</p>
+      </section>
+
+      <section class="card learn">
+        <div class="big">🧠</div>
+        <div style="flex:1"><strong>Money Quiz</strong><p>8 Fragen · Coins sammeln · Outfits freischalten</p></div>
+        <button class="pill" id="learn-start">Los</button>
+      </section>
+    </main>
+
+    <!-- ===================== Buddy (full avatar app) ===================== -->
+    <main class="screen" id="screen-buddy" hidden>
+      <div id="avatar-full"></div>
+    </main>
+
+    <nav class="tabbar" aria-label="Navigation">
+      <button data-screen="home" aria-current="page"><span>🏠</span>Start</button>
+      <button data-screen="buddy"><span>✨</span>Buddy</button>
+      <button data-screen="learn"><span>🧠</span>Lernen</button>
+      <button data-screen="more"><span>☰</span>Mehr</button>
+    </nav>
+
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+
+  <script src="../embed/sparkasse-avatar-embed.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const AVATAR_SRC = '../avatar/index.html';
+    const fmt = (n) => n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+
+    // ---------- Avatar on the Start screen (no own UI – the app drives it) ----------
+    const home = SparkasseAvatar.mount('#avatar-home', {
+      src: AVATAR_SRC, height: '100%',
+      params: { ui: false, bg: 'transparent', lang: 'de', hint: false, badge: false, character: 'human', autoGreet: false },
+    });
+    home.on('ready', (e) => {
+      setCoins(e.coins);
+      home.play('greet', { text: 'Hey Lea! Schön, dass du da bist 👋' });
+    });
+
+    // ---------- Full avatar (Buddy tab), created on first visit ----------
+    let full = null;
+    let fullReady = false;
+    const pending = [];
+    function getFull() {
+      if (full) return full;
+      full = SparkasseAvatar.mount('#avatar-full', {
+        src: AVATAR_SRC, height: '100%',
+        params: { lang: 'de', bg: 'transparent', badge: false, character: 'human', autoGreet: true, tabs: 'react,style,play' },
+      });
+      full.on('ready', (e) => { fullReady = true; setCoins(e.coins); pending.splice(0).forEach((fn) => fn()); });
+      full.on('coins', (e) => setCoins(e.coins));
+      full.on('look', (e) => home.setLook(e.look));           // keep the Start-screen avatar in sync
+      full.on('game', (e) => {
+        if (e.phase === 'end') toast(`Quiz: ${e.score}/${e.total} richtig · +${e.coinsEarned} Coins`);
+      });
+      return full;
+    }
+    const whenFull = (fn) => { getFull(); fullReady ? fn() : pending.push(fn); };
+
+    // ---------- Navigation ----------
+    function show(screen) {
+      if (screen === 'more') { toast('„Mehr“ ist im Prototyp nicht ausgebaut.'); return; }
+      if (screen === 'learn') { show('buddy'); whenFull(() => full.startGame('quiz')); setNav('learn'); return; }
+      $('screen-home').hidden = screen !== 'home';
+      $('screen-buddy').hidden = screen !== 'buddy';
+      if (screen === 'buddy') getFull();
+      setNav(screen);
+    }
+    function setNav(screen) {
+      document.querySelectorAll('.tabbar button').forEach((b) => b.setAttribute('aria-current', b.dataset.screen === screen ? 'page' : 'false'));
+    }
+    document.querySelectorAll('.tabbar button').forEach((b) => b.addEventListener('click', () => show(b.dataset.screen)));
+    $('open-buddy').onclick = () => show('buddy');
+    $('q-style').onclick = () => { show('buddy'); whenFull(() => full.openTab('style')); };
+    $('q-learn').onclick = $('learn-start').onclick = () => show('learn');
+    $('q-transfer').onclick = () => { toast('Überweisungen sind im Prototyp deaktiviert.'); home.play('nod', { text: 'Kommt bald – versprochen 😉' }); };
+    $('coins-btn').onclick = () => { show('buddy'); whenFull(() => full.openTab('play')); };
+
+    // ---------- Coins (earned in the games) ----------
+    function setCoins(n) { if (typeof n === 'number') $('coins').textContent = n; }
+
+    // ---------- Savings goal: the avatar catches a coin, celebrates at 100 % ----------
+    let saved = 210, goal = 300, balance = 1248.5;
+    function renderGoal() {
+      const pct = Math.min(100, Math.round((saved / goal) * 100));
+      $('goal-bar').style.width = pct + '%';
+      $('goal-pct').textContent = pct + ' %';
+      $('goal-text').textContent = `${saved} € von ${goal} €`;
+      $('balance').textContent = fmt(balance);
+    }
+    document.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => {
+      if (saved >= goal) { home.play('dance', { text: 'Ziel schon erreicht – neues Ziel? ✨' }); return; }
+      const add = Math.min(+b.dataset.add, goal - saved);
+      saved += add; balance -= add;
+      renderGoal();
+      if (saved >= goal) {
+        home.play('celebrate', { text: 'Sparziel erreicht! Das Handy gehört dir 🎉' });
+        toast('🎉 Sparziel „Neues Handy“ erreicht!');
+      } else {
+        home.play('coin', { text: `+${add} € fürs neue Handy! Noch ${goal - saved} € 🪙` });
+      }
+    }));
+    $('q-save').onclick = () => document.querySelector('[data-add="10"]').click();
+    renderGoal();
+
+    // ---------- Transactions: tap for a buddy tip ----------
+    const TX = [
+      { ico: '💶', name: 'Ausbildungsvergütung', sub: 'Mo · Gutschrift', amt: +850, react: 'dance', tip: 'Geld ist da! 💸 Direkt 10 % aufs Sparziel? „Pay yourself first“.' },
+      { ico: '🎧', name: 'Musik-Streaming', sub: 'Di · Abo', amt: -10.99, react: 'shrug', tip: 'Abo-Check: 10,99 € im Monat = 131,88 € im Jahr. Nutzt du es oft? 🤔' },
+      { ico: '🚆', name: 'Deutschlandticket', sub: 'Di · Abo', amt: -58, react: 'nod', tip: 'Fixkosten fürs Pendeln – clever geplant 👍' },
+      { ico: '🛒', name: 'Supermarkt', sub: 'Mi · Karte', amt: -32.40, react: 'nod', tip: 'Wocheneinkauf statt täglich spontan – spart oft am meisten 👍' },
+      { ico: '🍕', name: 'Essenslieferung', sub: 'Do · Karte', amt: -23.90, react: 'shrug', tip: 'Schon die 3. Lieferung diese Woche 🍕 Einmal selbst kochen spart ~15 €.' },
+      { ico: '🎮', name: 'Game-Store', sub: 'Fr · Karte', amt: -9.99, react: 'shrug', tip: 'Gönn dir – aber setz dir ein Monatslimit für In-Game-Käufe 🎮' },
+    ];
+    const ul = $('tx');
+    TX.forEach((t) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<button><span class="ico">${t.ico}</span><span class="name">${t.name}<small>${t.sub}</small></span><span class="amt ${t.amt > 0 ? 'plus' : ''}">${t.amt > 0 ? '+' : ''}${fmt(t.amt)}</span></button>`;
+      li.firstChild.onclick = () => {
+        home.play(t.react, { text: t.tip });
+        $('avatar-home').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+      ul.append(li);
+    });
+
+    // ---------- Toast ----------
+    let toastTimer;
+    function toast(msg) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+    }
+    window.demo = { home, getFull: () => full, show };
+  </script>
+</body>
+</html>

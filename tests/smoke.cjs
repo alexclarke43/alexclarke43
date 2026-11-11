@@ -297,8 +297,8 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
 
     console.log('Sparkie (teammate\'s mascot) inside the app');
     {
-      const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&persist=0&character=sparkie');
-      check('Sparkie loads via ?character=sparkie', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'SparkieAvatar');
+      const { ctx, page, errors } = await openAvatar(browser, base, `?autoGreet=0&persist=0&look=${encodeURIComponent('{"character":"sparkie"}')}`);
+      check('Sparkie loads via look.character', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'SparkieAvatar');
       const labels = await page.locator('.avatar-btn').allTextContents();
       check('Sparkie gets the extra "Save" (coin drop) button', labels.length === 6 && labels.some((l) => l.includes('Save')), labels.join(' | '));
       const action = () => page.evaluate(() => window.SparkasseAvatarApp.avatar.model.action?.name);
@@ -352,6 +352,9 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
         return ok;
       });
       check('original standalone `new Sparkie(host)` API still works', standalone);
+      await page.goto(`${base}/avatar/index.html?autoGreet=0&persist=0&character=human&tab=style`);
+      await page.waitForFunction(() => window.SparkasseAvatarApp, null, { timeout: 30000 });
+      check('?character= fixes the character and hides the picker', (await page.locator('#panel-style [data-key="character"]').count()) === 0);
       check('no console errors', errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
