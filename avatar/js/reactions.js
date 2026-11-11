@@ -24,6 +24,11 @@ export const REACTIONS = {
     label: { en: 'Hmm', de: 'Hmm' },
     say: { en: 'Hmm… good question 🤔', de: 'Hmm… gute Frage 🤔' },
   },
+  coin: {
+    emoji: '🪙',
+    label: { en: 'Save', de: 'Sparen' },
+    say: { en: 'Ka-ching! Future you says thanks 🪙', de: 'Klimper! Dein Zukunfts-Ich sagt danke 🪙' },
+  },
   dance: {
     emoji: '🎶',
     label: { en: 'Vibe', de: 'Vibe' },

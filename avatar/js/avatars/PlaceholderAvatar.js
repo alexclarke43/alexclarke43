@@ -193,6 +193,16 @@ export class PlaceholderAvatar {
   // is applied by simply rebuilding the meshes. Joint names stay the same, so
   // running animations continue seamlessly.
 
+  /** Free GPU memory when the avatar is removed (e.g. switching to Sparkie). */
+  dispose() {
+    this.object3d.traverse((o) => {
+      if (o.isMesh) {
+        o.geometry.dispose();
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+      }
+    });
+  }
+
   /** Rebuild the character with a new look (hair, clothes, colours, extras). */
   setStyle(style) {
     this.style = { ...this.style, ...style };

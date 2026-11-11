@@ -20,7 +20,8 @@ export const DEFAULTS = {
   accent: '#7cf5d0',         // highlight colour (headphones, sneakers, UI)
   skin: '#c98d6b',
   hair: '#24170f',
-  reactions: 'greet,celebrate,nod,shrug,dance', // buttons to show (order matters)
+  reactions: 'greet,celebrate,coin,nod,shrug,dance', // buttons to show (order matters; unsupported ones are skipped)
+  character: '',             // 'human' | 'sparkie' – overrides the saved choice
   tabs: 'react,style,play',  // which panels to offer: react (buttons), style (customiser), play (games)
   tab: 'react',              // panel open on load
   look: null,                // JSON look, e.g. {"hairStyle":"bun","top":"tee","height":168} (see look.js)

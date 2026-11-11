@@ -7,6 +7,7 @@ import { Confetti } from './effects/Confetti.js';
 import { createBridge } from './bridge.js';
 import { PlaceholderAvatar } from './avatars/PlaceholderAvatar.js';
 import { GltfAvatar } from './avatars/GltfAvatar.js';
+import { SparkieAvatar } from './avatars/SparkieAvatar.js';
 import { DEFAULT_LOOK, BASE_HEIGHT, OPTIONS, PALETTES, sanitizeLook, enforceUnlocks, loadSavedLook, saveLook } from './look.js';
 import { getCoins, addCoins, onCoins, setPersist } from './progress.js';
 import { createCustomizer } from './ui/customizer.js';
@@ -44,6 +45,7 @@ const bridge = createBridge({
 });
 
 let avatar;
+let stage;
 let controls;
 let customizer;
 let games;
@@ -61,10 +63,9 @@ boot().catch((err) => {
 
 async function boot() {
   loaderEl.querySelector('.avatar-loader__text').textContent = t(UI_TEXT.loading);
-  const stage = createStage(stageEl, cfg);
+  stage = createStage(stageEl, cfg);
   avatar = await createAvatar();
-  stage.turntable.add(avatar.object3d);
-  applyHeight();
+  attachAvatar();
 
   confetti = new Confetti(stage.scene, [cfg.primary, '#ffffff', cfg.accent, '#ffd23f', '#b8a4ff']);
 
@@ -109,7 +110,8 @@ async function boot() {
     reset: () => controls.reset(),
     get look() { return { ...look }; },
     get coins() { return getCoins(); },
-    config: cfg, avatar, games, customizer,
+    config: cfg, games, customizer,
+    get avatar() { return avatar; },
   };
   bridge.emit('ready', { reactions: avatar.reactions, model: cfg.model || 'placeholder', look, coins: getCoins() });
 
@@ -125,7 +127,31 @@ async function createAvatar() {
       bridge.emit('error', { message: `Model failed to load: ${cfg.model}` });
     }
   }
-  return new PlaceholderAvatar(cfg, look);
+  return look.character === 'sparkie' ? new SparkieAvatar() : new PlaceholderAvatar(cfg, look);
+}
+
+/** Put the current avatar on stage and adapt camera, shadow, height and buttons to it. */
+function attachAvatar() {
+  stage.turntable.add(avatar.object3d);
+  stage.setFrame(avatar.frame);
+  stage.setContactShadow(!avatar.ownShadow);
+  stage.setToneMapping(avatar.toneMapping);
+  applyHeight();
+  app.dataset.character = cfg.model ? 'model' : look.character;
+}
+
+/** Switch between the customisable avatar and Sparkie at runtime. */
+async function swapAvatar() {
+  const old = avatar;
+  avatar = await createAvatar();
+  stage.turntable.remove(old.object3d);
+  old.dispose?.();
+  attachAvatar();
+  controls?.reset();
+  buildButtons();
+  customizer?.render();
+  play('greet');
+  bridge.emit('character', { character: look.character });
 }
 
 // --------------------------------------------------------------------------- look
@@ -133,15 +159,19 @@ async function createAvatar() {
 function initialLook() {
   const hex = (c) => `#${new THREE.Color(c).getHexString()}`;
   const fromCfg = { topColor: hex(cfg.primary), skin: hex(cfg.skin), hairColor: hex(cfg.hair) };
+  const forced = cfg.character ? { character: cfg.character } : {};
   const saved = cfg.persist ? loadSavedLook() : null;
-  return enforceUnlocks(sanitizeLook({ ...DEFAULT_LOOK, ...fromCfg, ...saved, ...(cfg.look || {}) }), getCoins());
+  return enforceUnlocks(sanitizeLook({ ...DEFAULT_LOOK, ...fromCfg, ...saved, ...(cfg.look || {}), ...forced }), getCoins());
 }
 
 let lookEventTimer;
 /** Change the avatar's look. `partial` may contain any key of DEFAULT_LOOK. */
 function setLook(partial, { reaction, heightOnly, fromPanel } = {}) {
+  const prevCharacter = look.character;
   look = enforceUnlocks(sanitizeLook({ ...look, ...partial }), getCoins());
-  if (avatar) {
+  if (avatar && look.character !== prevCharacter && !cfg.model) {
+    swapAvatar();
+  } else if (avatar) {
     applyHeight();
     if (!heightOnly && avatar.supportsStyle) avatar.setStyle(look);
   }
@@ -154,7 +184,7 @@ function setLook(partial, { reaction, heightOnly, fromPanel } = {}) {
 }
 
 function applyHeight() {
-  avatar.object3d.scale.setScalar(look.height / BASE_HEIGHT);
+  avatar.object3d.scale.setScalar(avatar.supportsHeight === false ? 1 : look.height / BASE_HEIGHT);
 }
 
 // --------------------------------------------------------------------------- coins
@@ -185,13 +215,17 @@ function updateCoins(total, delta) {
 // --------------------------------------------------------------------------- reactions
 
 /** Trigger a reaction. Returns false if unknown. */
+// If the current avatar can't do a reaction, use the closest one it can.
+const FALLBACK = { coin: 'nod' };
+
 function play(name, { text } = {}) {
+  if (avatar && !avatar.reactions.includes(name) && FALLBACK[name]) name = FALLBACK[name];
   const meta = REACTIONS[name];
   if (!meta || !avatar) return false;
   const seconds = avatar.play(name);
   if (!seconds) return false;
   busyUntil = performance.now() + seconds * 1000;
-  if (meta.confettiAt != null) {
+  if (meta.confettiAt != null && !avatar.ownConfetti) {
     setTimeout(() => confetti.burst(new THREE.Vector3(0, (avatar.height || 1.9) * avatar.object3d.scale.y + 0.1, 0.1)), meta.confettiAt * 1000);
   }
   say(text || t(meta.say), Math.max(1800, seconds * 1000));
@@ -221,9 +255,10 @@ function onTap(e, stage) {
   const r = stage.canvas.getBoundingClientRect();
   const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(ndc, stage.camera);
-  if (!raycaster.intersectObject(avatar.object3d, true).length) return;
+  const hits = avatar.hitObjects ? raycaster.intersectObjects(avatar.hitObjects, false) : raycaster.intersectObject(avatar.object3d, true);
+  if (!hits.length) return;
   hideHint();
-  const list = ['greet', 'nod', 'dance', 'celebrate', 'shrug'];
+  const list = ['greet', 'nod', 'dance', 'coin', 'celebrate', 'shrug'].filter((r) => avatar.reactions.includes(r));
   const name = list[tapIndex++ % list.length];
   bridge.emit('tap', { reaction: name });
   play(name);
@@ -274,6 +309,8 @@ function buildDock() {
       setLook: (partial, opts = {}) => setLook(partial, { ...opts, fromPanel: true }),
       getCoins,
       supportsStyle: () => !!avatar?.supportsStyle,
+      supportsHeight: () => avatar?.supportsHeight !== false,
+      canSwitchCharacter: () => !cfg.model,
     });
   }
   if (cfg.tabs.includes('play')) {
@@ -306,6 +343,7 @@ function buildButtons() {
   actionsEl.setAttribute('aria-label', t(UI_TEXT.actionsLabel));
   actionsEl.innerHTML = '';
   for (const name of cfg.reactions) {
+    if (!avatar.reactions.includes(name)) continue; // e.g. "Save" (coin drop) is Sparkie-only
     const meta = REACTIONS[name];
     if (!meta) continue;
     const btn = document.createElement('button');

@@ -295,6 +295,67 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await ctx.close();
     }
 
+    console.log('Sparkie (teammate\'s mascot) inside the app');
+    {
+      const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&persist=0&character=sparkie');
+      check('Sparkie loads via ?character=sparkie', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'SparkieAvatar');
+      const labels = await page.locator('.avatar-btn').allTextContents();
+      check('Sparkie gets the extra "Save" (coin drop) button', labels.length === 6 && labels.some((l) => l.includes('Save')), labels.join(' | '));
+      const action = () => page.evaluate(() => window.SparkasseAvatarApp.avatar.model.action?.name);
+      for (const [btn, expected] of [['greet', 'intro'], ['coin', 'coin'], ['nod', 'nod'], ['shrug', 'think'], ['dance', 'dance'], ['greet', 'wave']]) {
+        await page.click(`.avatar-btn[data-reaction="${btn}"]`);
+        check(`button "${btn}" → Sparkie "${expected}"`, (await action()) === expected);
+      }
+      await page.click('.avatar-btn[data-reaction="celebrate"]');
+      check('celebrate uses Sparkie\'s own confetti', await page.evaluate(() => window.SparkasseAvatarApp.avatar.model.parts.some((q) => q.life > 0)));
+
+      const box = await page.locator('canvas').boundingBox();
+      const r0 = await rotY(page);
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2 + i * 20, box.y + box.height / 2);
+      await page.mouse.up();
+      check('drag rotates Sparkie', Math.abs((await rotY(page)) - r0) > 1);
+
+      // quiz reward = coin drop
+      await page.click('#tab-play');
+      await page.click('[data-start="quiz"]');
+      const correct = await page.evaluate(() => window.SparkasseAvatarApp.games.state.game.items[0].correct);
+      await page.click(`[data-answer="${correct}"]`);
+      check('right quiz answer → Sparkie drops a coin', (await action()) === 'coin');
+
+      // switch characters from the Style tab
+      await page.click('#tab-style');
+      check('character picker shown', await page.locator('#panel-style [data-key="character"]').count() === 2);
+      await page.click('#panel-style [data-key="character"][data-value="human"]');
+      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'PlaceholderAvatar', null, { timeout: 10000 }).catch(() => {});
+      check('switch to own avatar', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'PlaceholderAvatar');
+      check('outfit options appear for own avatar', await page.locator('#panel-style [data-key="top"]').count() > 0);
+      check('"Save" button hidden for own avatar', (await page.locator('.avatar-btn[data-reaction="coin"]').count()) === 0);
+      await page.click('#panel-style [data-key="character"][data-value="sparkie"]');
+      await page.waitForFunction(() => window.SparkasseAvatarApp.avatar.constructor.name === 'SparkieAvatar', null, { timeout: 10000 }).catch(() => {});
+      check('switch back to Sparkie', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.constructor.name)) === 'SparkieAvatar');
+      check('only one avatar on stage after switching', (await page.evaluate(() => window.SparkasseAvatarApp.avatar.object3d.parent.children.length)) === 1);
+
+      // teammate's original standalone API still works
+      const standalone = await page.evaluate(async () => {
+        const { Sparkie } = await import('./js/avatars/sparkie.js');
+        const host = document.createElement('div');
+        host.style.cssText = 'position:fixed;left:0;top:0;width:300px;height:300px';
+        document.body.append(host);
+        let tapped = false;
+        const s = new Sparkie(host, { onTap: () => { tapped = true; } });
+        s.play('celebrate'); s.play('coin', { queue: true });
+        await new Promise((r) => setTimeout(r, 300));
+        const ok = host.querySelector('canvas.sparkie-canvas') !== null && s.model.action?.name === 'celebrate' && s.model.queue[0] === 'coin';
+        s.renderer.setAnimationLoop(null); host.remove();
+        return ok;
+      });
+      check('original standalone `new Sparkie(host)` API still works', standalone);
+      check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
     console.log('GLB model support');
     {
       const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&model=/test-model.glb');

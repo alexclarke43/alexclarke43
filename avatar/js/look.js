@@ -7,6 +7,7 @@ export const HEIGHT_RANGE = [150, 200];
 export const GOLD = '#d4af37';
 
 export const DEFAULT_LOOK = {
+  character: 'human',   // 'human' (customisable) | 'sparkie' (mascot)
   skin: '#c98d6b',
   hairStyle: 'curls',
   hairColor: '#24170f',
@@ -26,6 +27,10 @@ export const DEFAULT_LOOK = {
 const L = (en, de) => ({ en, de });
 
 export const OPTIONS = {
+  character: [
+    { id: 'human', label: L('You', 'Du') },
+    { id: 'sparkie', label: L('Sparkie', 'Sparkie') },
+  ],
   hairStyle: [
     { id: 'curls', label: L('Curls', 'Locken') },
     { id: 'buzz', label: L('Buzz', 'Buzz Cut') },
@@ -77,7 +82,7 @@ export function sanitizeLook(input = {}) {
   for (const k of ['skin', 'hairColor', 'hatColor', 'topColor', 'bottomColor', 'shoeColor']) {
     if (isColor(input[k])) out[k] = input[k];
   }
-  for (const k of ['hairStyle', 'top', 'bottom']) {
+  for (const k of ['character', 'hairStyle', 'top', 'bottom']) {
     if (OPTIONS[k].some((o) => o.id === input[k])) out[k] = input[k];
   }
   for (const k of ['glasses', 'headphones', 'earring', 'chain']) {
@@ -102,6 +107,7 @@ export function randomLook(coins = 0) {
   const colors = (k) => PALETTES[k].filter((c) => typeof c === 'string' || c.unlock <= coins).map((c) => (typeof c === 'string' ? c : c.color));
   const opts = (k) => OPTIONS[k].filter((o) => (o.unlock || 0) <= coins).map((o) => o.id);
   return {
+    character: 'human',
     skin: pick(PALETTES.skin),
     hairStyle: pick(opts('hairStyle')),
     hairColor: pick(colors('hairColor')),

@@ -65,18 +65,20 @@ export function createStage(container, cfg) {
   turntable.name = 'turntable';
   scene.add(turntable);
 
-  // Framing: keep a box of FRAME_W × FRAME_H metres visible at any aspect ratio.
-  const FRAME_H = 2.65; // room for tall avatars + jumps
-  const FRAME_W = 2.0; // wide enough for arms spread during the celebration
-  const TARGET = new THREE.Vector3(0, 1.14, 0);
+  // Framing: keep a box of frame.w × frame.h metres visible at any aspect ratio.
+  // Avatars can supply their own (e.g. Sparkie is wider than a person).
+  const DEFAULT_FRAME = { w: 2.0, h: 2.65, cy: 1.14, up: 0.18 };
+  let frame = { ...DEFAULT_FRAME };
+  const TARGET = new THREE.Vector3();
   function resize() {
     const w = container.clientWidth || 1;
     const h = container.clientHeight || 1;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const dist = Math.max(FRAME_H / 2 / t, FRAME_W / 2 / (t * camera.aspect));
-    camera.position.set(0, TARGET.y + 0.18, dist);
+    const dist = Math.max(frame.h / 2 / t, frame.w / 2 / (t * camera.aspect));
+    TARGET.set(0, frame.cy, 0);
+    camera.position.set(0, TARGET.y + frame.up, dist);
     camera.lookAt(TARGET);
     camera.updateProjectionMatrix();
   }
@@ -103,6 +105,15 @@ export function createStage(container, cfg) {
     renderer, scene, camera, turntable,
     canvas: renderer.domElement,
     onFrame(cb) { frameCallbacks.push(cb); },
+    /** Re-frame the camera for a different avatar: { w, h, cy, up } (omit for the default). */
+    setFrame(f) {
+      frame = { ...DEFAULT_FRAME, ...(f || {}) };
+      resize();
+    },
+    /** Tone mapping per avatar (Sparkie was designed with Neutral; people look best with ACES). */
+    setToneMapping(mode = THREE.ACESFilmicToneMapping) { renderer.toneMapping = mode; },
+    /** Our soft contact shadow (hidden for avatars that bring their own). */
+    setContactShadow(visible) { blob.visible = visible; },
     /** World position → CSS pixels relative to the container. */
     project(v) {
       tmp.copy(v).project(camera);

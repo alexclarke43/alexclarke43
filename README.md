@@ -9,6 +9,7 @@ An interactive, customisable 3D avatar for a Gen Z (16–24) banking experience,
 | Natural idle | Breathing, weight shifts, glances, random blinks. The head and eyes follow the pointer. |
 | Reactions | 👋 greet (wave), 🎉 celebrate (jump + spin + confetti), 👍 nod (thumbs-up + wink), 🤷 shrug, 🎶 dance |
 | Buttons and tap | Reaction buttons, plus tapping the avatar itself |
+| **Sparkie mascot** | The team's savings buddy (`sparkie.js`) runs inside the app as a second character, with its drop-in intro, coin drop, confetti and mood eyes. Users switch between **Sparkie** and **You** in the Style tab, or the platform picks one with `?character=sparkie`. |
 | **Customisable** | **Style** tab: height (1.50–2.00 m), skin tone, 5 hairstyles + colours, 3 tops, 4 bottoms, sneakers, extras (glasses, headphones, earring, chain). The look is saved and can also be set by the platform. |
 | **Money games** | **Play** tab: *Money Quiz* (18 questions, 8 per round) and *Need or Want?*. The avatar reacts to every answer, explains the right answer, and coins unlock cosmetic items. |
 | Responsive | Fills whatever box it's given: phone portrait, desktop, landscape (buttons move to the side) and tiny embeds |
@@ -47,6 +48,8 @@ avatar/                      ← deploy this folder (self-contained)
   js/DragRotate.js           mouse/touch/keyboard rotation with inertia + tap
   js/bridge.js               postMessage API
   js/avatars/PlaceholderAvatar.js   procedural, customisable character + animations
+  js/avatars/sparkie.js             Sparkie (teammate's mascot): SparkieModel + standalone Sparkie class
+  js/avatars/SparkieAvatar.js       adapter that plugs Sparkie into the app
   js/avatars/GltfAvatar.js          GLB/GLTF loader, clip mapping, fallbacks
   js/effects/Confetti.js     celebration particles
   models/                    put your .glb files here
@@ -111,6 +114,7 @@ Useful events for the platform:
 avatar.on('game',  (e) => { /* phase: 'start' | 'answer' | 'end'; on end: score, total, coinsEarned */ });
 avatar.on('look',  (e) => saveToUserProfile(e.look));   // persist the look server-side if you like
 avatar.on('coins', (e) => console.log(e.coins, e.delta));
+avatar.on('character', (e) => console.log('now showing', e.character)); // 'human' | 'sparkie'
 ```
 | `destroy()` | Remove the iframe and listeners |
 
@@ -160,7 +164,8 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 | `clips` | – | JSON map from reaction to clip name, e.g. `{"greet":"Wave_01","celebrate":"Victory"}` |
 | `lang` | `en` | `en` or `de` (buttons, bubbles, hint) |
 | `ui` | `true` | Show the tab dock (buttons, Style, Play). Set `0` for a pure avatar. |
-| `reactions` | `greet,celebrate,nod,shrug,dance` | Which buttons to show, in order |
+| `character` | – | `human` or `sparkie`. Overrides the user's saved choice. |
+| `reactions` | `greet,celebrate,coin,nod,shrug,dance` | Which buttons to show, in order. Reactions the current character can't do are skipped (🪙 `coin` is Sparkie-only). |
 | `tabs` | `react,style,play` | Which panels to offer. For example, `tabs=play` gives a games-only widget. |
 | `tab` | `react` | Panel that is open on load |
 | `look` | – | JSON look, e.g. `{"hairStyle":"long","top":"jacket","height":170}` (overrides the saved look) |
@@ -177,7 +182,27 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 
 Booleans accept `0/1`, `true/false`, `on/off`.
 
-## 5. Customisation
+## 5. Sparkie
+
+`avatar/js/avatars/sparkie.js` is the team's mascot code, split into two parts:
+
+* **`SparkieModel`**: the character and its animation library (intro, wave, celebrate, coin, nod, think, dance, sad, shake, giggle, jump), with no renderer. The app adds `model.group` to its own scene.
+* **`Sparkie`**: the original standalone class with the **same API as before** (`new Sparkie(host, { onTap })`, `.play(name, { queue })`, `.burst()`, `.mount(el)`, `.spinEnabled`). Existing code that used the file keeps working.
+
+The helpers and the animation library are unchanged from the original file. `SparkieAvatar.js` maps the app's reactions onto Sparkie's moves:
+
+| App reaction | Sparkie |
+|---|---|
+| greet | `intro` the first time (drop-in, spin, land, wave), then `wave` |
+| celebrate | `celebrate` (jump spin + its own confetti) |
+| coin (🪙 Save) | `coin`: the coin drops into Sparkie's head |
+| nod / shrug / dance | `nod` / `think` / `dance` |
+
+In the games, Sparkie **drops a coin for every right answer**. The human avatar gives a thumbs-up instead. Sparkie keeps its own red look, shadow and Neutral tone mapping. Height and outfit options apply only to the human avatar.
+
+To make Sparkie the default for everyone, set `character: 'sparkie'` in `DEFAULTS` in `config.js`, or pass `?character=sparkie` / `params: { character: 'sparkie' }` from the platform.
+
+## 5b. Customisation
 
 All options are listed in `avatar/js/look.js`:
 
@@ -248,6 +273,7 @@ The test starts its own server and checks in Chromium:
 * idle motion, mouse drag, real touch drag, tap on the avatar, keyboard rotation and reset
 * the mobile layout and German labels
 * every hairstyle, top and bottom option; colours, glasses, the height slider, "Surprise me", locked items, saving across reloads, and the `look` URL parameter
+* Sparkie: every button mapped to the right Sparkie move, its own confetti, drag, the coin reward in the quiz, switching characters both ways, and the original standalone `new Sparkie(host)` API
 * a full Money Quiz round (feedback, coins, streak bonus, avatar reactions), a full Need-or-Want round, and coins unlocking the beanie
 * GLB loading with clip mapping and fallbacks, and fallback to the placeholder when a model is missing
 * both iframe integration options, including the postMessage round-trip, `setLook`, `startGame` and game events

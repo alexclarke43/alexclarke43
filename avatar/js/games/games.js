@@ -158,7 +158,7 @@ export function createGames(root, { lang, react, onEvent, getCoins, addCoins }) 
         addCoins(COINS.streakBonus);
         react('celebrate', t('sayStreak', { s: g.streak, n: COINS.streakBonus }));
       } else {
-        react('nod', t('sayRight', { n: per }));
+        react('coin', t('sayRight', { n: per })); // Sparkie drops a coin; the human avatar falls back to a thumbs-up
       }
     } else {
       g.streak = 0;

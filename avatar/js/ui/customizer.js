@@ -2,6 +2,11 @@ import { OPTIONS, PALETTES, HEIGHT_RANGE, DEFAULT_LOOK, unlockCost, randomLook }
 
 const TXT = {
   height: { en: 'Height', de: 'Größe' },
+  character: { en: 'Character', de: 'Figur' },
+  sparkieNote: {
+    en: 'Sparkie keeps its signature look. Pick “You” to style your own avatar.',
+    de: 'Sparkie bleibt, wie er ist. Wähle „Du“, um deinen eigenen Avatar zu stylen.',
+  },
   skin: { en: 'Skin tone', de: 'Hautton' },
   hair: { en: 'Hair', de: 'Haare' },
   hatColor: { en: 'Beanie colour', de: 'Mützenfarbe' },
@@ -22,7 +27,7 @@ const TXT = {
  * Renders the "Style" panel. All changes go through setLook(partial) → the app
  * rebuilds the avatar, saves the look and notifies the host page.
  */
-export function createCustomizer(root, { lang, getLook, setLook, getCoins, supportsStyle }) {
+export function createCustomizer(root, { lang, getLook, setLook, getCoins, supportsStyle, supportsHeight = () => true, canSwitchCharacter = () => false }) {
   const t = (k, n) => (TXT[k][lang] ?? TXT[k].en).replace('{n}', n);
   const label = (o) => o.label[lang] ?? o.label.en;
 
@@ -54,12 +59,17 @@ export function createCustomizer(root, { lang, getLook, setLook, getCoins, suppo
         <h3>${t('height')} <output class="cz-height-out">${(L.height / 100).toFixed(2)} m</output></h3>
         <input class="cz-range" type="range" min="${HEIGHT_RANGE[0]}" max="${HEIGHT_RANGE[1]}" step="1" value="${L.height}" aria-label="${t('height')}">
       </section>`;
+    const characterHtml = canSwitchCharacter()
+      ? `<section class="cz-sec cz-sec--character"><h3>${t('character')}</h3>${chips('character', OPTIONS.character, L.character)}</section>`
+      : '';
     if (!supportsStyle()) {
-      root.innerHTML = `<div class="cz">${heightHtml}<p class="cz-note">${t('glbNote')}</p></div>`;
+      const note = L.character === 'sparkie' && canSwitchCharacter() ? t('sparkieNote') : t('glbNote');
+      root.innerHTML = `<div class="cz">${characterHtml}${supportsHeight() ? heightHtml : ''}<p class="cz-note">${note}</p></div>`;
       return;
     }
     root.innerHTML = `
       <div class="cz">
+        ${characterHtml}
         <div class="cz-actions">
           <button type="button" class="cz-btn" data-act="random">${t('random')}</button>
           <button type="button" class="cz-btn cz-btn--ghost" data-act="reset">${t('reset')}</button>
