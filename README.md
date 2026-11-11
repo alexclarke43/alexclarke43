@@ -4,7 +4,7 @@ An interactive, customisable 3D avatar for a Gen Z (16–24) banking experience,
 
 | Feature | Details |
 |---|---|
-| Stylised 3D character | Built-in placeholder: oversized brand-red hoodie, cargo pants, chunky sneakers, curly top, headphones, earring. No 3D asset needed. |
+| Semi-realistic 3D character | Built-in placeholder with young-adult proportions, shaped torso, five-finger hands, eyelids, fabric shading. Default: brand-red hoodie, cargo pants, sneakers, curly hair, headphones. No 3D asset needed. For production-level realism, swap in an artist-made GLB (see section 7). |
 | Rotate with mouse and touch | Drag to spin, with inertia. Vertical page scrolling still works on phones. Arrow keys also rotate. |
 | Natural idle | Breathing, weight shifts, glances, random blinks. The head and eyes follow the pointer. |
 | Reactions | 👋 greet (wave), 🎉 celebrate (jump + spin + confetti), 👍 nod (thumbs-up + wink), 🤷 shrug, 🎶 dance |
