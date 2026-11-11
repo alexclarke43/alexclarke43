@@ -408,3 +408,41 @@ body {
 .gm-msg { margin: 0; font-weight: 800; font-size: 17px; }
 .gm-earned-total { margin: 0; font-weight: 700; }
 .gm-row { display: flex; gap: 8px; width: 100%; }
+
+/* ===================================================================== Chat */
+.dock-panel--chat { display: flex; flex-direction: column; height: 46vh; overflow: hidden !important; padding: 10px 10px 10px !important; }
+.ch { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
+.ch-head { display: flex; align-items: center; gap: 10px; padding: 0 4px 6px; border-bottom: 1px solid rgba(21, 19, 26, .07); }
+.ch-dot { width: 10px; height: 10px; border-radius: 50%; background: #2bd17e; box-shadow: 0 0 0 3px color-mix(in srgb, #2bd17e 25%, transparent); flex: 0 0 auto; }
+.ch-who { flex: 1; display: grid; line-height: 1.2; min-width: 0; }
+.ch-who b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-who small { font-size: 11px; font-weight: 600; color: color-mix(in srgb, var(--sp-ink) 60%, transparent); }
+.ch-clear { border: 0; background: rgba(21, 19, 26, .06); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 14px; }
+.ch-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; padding: 2px 2px 4px; }
+.ch-msg { max-width: 84%; padding: 9px 13px; border-radius: 18px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; animation: ch-in .22s ease-out; }
+.ch-msg--bot { align-self: flex-start; background: #fff; border-bottom-left-radius: 6px; box-shadow: 0 2px 8px -4px rgba(30, 10, 40, .25), inset 0 0 0 1px rgba(21, 19, 26, .05); }
+.ch-msg--user { align-self: flex-end; background: var(--sp-primary); color: #fff; border-bottom-right-radius: 6px; }
+.ch-msg--typing { align-self: flex-start; background: #fff; border-bottom-left-radius: 6px; display: flex; gap: 4px; padding: 12px 14px; }
+.ch-msg--typing span { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--sp-ink) 45%, transparent); animation: ch-dot 1s infinite ease-in-out; }
+.ch-msg--typing span:nth-child(2) { animation-delay: .15s; }
+.ch-msg--typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes ch-dot { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes ch-in { from { opacity: 0; transform: translateY(6px); } }
+.ch-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 0 0 auto; padding: 1px; }
+.ch-chips::-webkit-scrollbar { display: none; }
+.ch-chip { flex: 0 0 auto; border: 0; border-radius: var(--sp-radius); padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 700; background: #fff; color: var(--sp-ink); box-shadow: inset 0 0 0 1.5px rgba(21, 19, 26, .12); cursor: pointer; white-space: nowrap; }
+.ch-chip:hover { box-shadow: inset 0 0 0 1.5px var(--sp-ink); }
+.ch-form { display: flex; gap: 6px; flex: 0 0 auto; }
+.ch-input { flex: 1; min-width: 0; min-height: 44px; border: 0; border-radius: var(--sp-radius); padding: 0 16px; font: inherit; font-size: 16px; background: #fff; box-shadow: inset 0 0 0 1.5px rgba(21, 19, 26, .14); }
+.ch-input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--sp-primary); }
+.ch-send { flex: 0 0 44px; height: 44px; border: 0; border-radius: 50%; background: var(--sp-primary); color: #fff; font-size: 18px; cursor: pointer; }
+.ch-chip:focus-visible, .ch-send:focus-visible, .ch-clear:focus-visible { outline: 3px solid var(--sp-accent); outline-offset: 2px; }
+@media (min-width: 760px) and (min-height: 420px) { .dock-panel--chat { height: auto; } }
+@media (max-height: 419px) and (min-aspect-ratio: 4/3) { .dock-panel--chat { height: auto; } }
+@media (max-width: 420px) { .dock-tab { font-size: 13px; } }
+.dock-tab { white-space: nowrap; }
+@media (max-width: 380px) { .dock-tab { font-size: 12px; } }
+
+/* Name field in the Style panel */
+.cz-name { width: 100%; min-height: 44px; border: 0; border-radius: 14px; padding: 0 14px; font: inherit; font-size: 16px; font-weight: 700; background: #fff; box-shadow: inset 0 0 0 1.5px rgba(21, 19, 26, .14); }
+.cz-name:focus { outline: none; box-shadow: inset 0 0 0 2px var(--sp-primary); }

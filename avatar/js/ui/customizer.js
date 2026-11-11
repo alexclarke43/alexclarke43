@@ -1,7 +1,9 @@
-import { OPTIONS, PALETTES, HEIGHT_RANGE, DEFAULT_LOOK, unlockCost, randomLook } from '../look.js';
+import { OPTIONS, PALETTES, HEIGHT_RANGE, DEFAULT_LOOK, NAME_MAX, unlockCost, randomLook } from '../look.js';
 
 const TXT = {
   height: { en: 'Height', de: 'Größe' },
+  name: { en: 'Name', de: 'Name' },
+  nameHint: { en: 'What should your buddy be called?', de: 'Wie soll dein Buddy heißen?' },
   character: { en: 'Character', de: 'Figur' },
   body: { en: 'Body', de: 'Körper' },
   sparkieNote: {
@@ -62,16 +64,23 @@ export function createCustomizer(root, { lang, getLook, setLook, getCoins, suppo
         <h3>${t('height')} <output class="cz-height-out">${(L.height / 100).toFixed(2)} m</output></h3>
         <input class="cz-range" type="range" min="${HEIGHT_RANGE[0]}" max="${HEIGHT_RANGE[1]}" step="1" value="${L.height}" aria-label="${t('height')}">
       </section>`;
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    const nameHtml = `
+      <section class="cz-sec cz-sec--name">
+        <h3><label for="cz-name">${t('name')}</label></h3>
+        <input id="cz-name" class="cz-name" type="text" maxlength="${NAME_MAX}" value="${esc(L.name)}" placeholder="${t('nameHint')}" autocomplete="off" enterkeyhint="done">
+      </section>`;
     const characterHtml = canSwitchCharacter()
       ? `<section class="cz-sec cz-sec--character"><h3>${t('character')}</h3>${chips('character', OPTIONS.character, L.character)}</section>`
       : '';
     if (!supportsStyle()) {
       const note = L.character === 'sparkie' && canSwitchCharacter() ? t('sparkieNote') : t('glbNote');
-      root.innerHTML = `<div class="cz">${characterHtml}${supportsHeight() ? heightHtml : ''}<p class="cz-note">${note}</p></div>`;
+      root.innerHTML = `<div class="cz">${nameHtml}${characterHtml}${supportsHeight() ? heightHtml : ''}<p class="cz-note">${note}</p></div>`;
       return;
     }
     root.innerHTML = `
       <div class="cz">
+        ${nameHtml}
         ${characterHtml}
         <div class="cz-actions">
           <button type="button" class="cz-btn" data-act="random">${t('random')}</button>
@@ -93,7 +102,7 @@ export function createCustomizer(root, { lang, getLook, setLook, getCoins, suppo
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
     if (btn.dataset.act === 'random') { setLook({ ...randomLook(getCoins()) }, { reaction: 'dance' }); render(); return; }
-    if (btn.dataset.act === 'reset') { setLook({ ...DEFAULT_LOOK }, { reaction: 'greet' }); render(); return; }
+    if (btn.dataset.act === 'reset') { setLook({ ...DEFAULT_LOOK, name: getLook().name }, { reaction: 'greet' }); render(); return; } // keep the name
     const { type, key, value } = btn.dataset;
     if (!type) return;
     if (unlockCost(type === 'toggle' ? 'extras' : key, value) > getCoins()) return;
@@ -105,12 +114,27 @@ export function createCustomizer(root, { lang, getLook, setLook, getCoins, suppo
     root.querySelector(`[data-key="${key}"][data-value="${CSS.escape(value)}"]`)?.focus({ preventScroll: true });
   });
 
+  let nameTimer;
   root.addEventListener('input', (e) => {
+    if (e.target.classList.contains('cz-name')) {
+      clearTimeout(nameTimer);
+      const v = e.target.value;
+      if (v.trim()) nameTimer = setTimeout(() => setLook({ name: v }, { heightOnly: true }), 300);
+      return;
+    }
     if (!e.target.classList.contains('cz-range')) return;
     const h = Number(e.target.value);
     root.querySelector('.cz-height-out').textContent = `${(h / 100).toFixed(2)} m`;
     setLook({ height: h }, { heightOnly: true });
   });
+
+  root.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('cz-name')) return;
+    clearTimeout(nameTimer);
+    if (e.target.value.trim()) setLook({ name: e.target.value }, { reaction: 'greet' });
+    e.target.value = getLook().name; // show the cleaned name (or restore if emptied)
+  });
+  root.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('cz-name')) e.target.blur(); });
 
   render();
   return { render };

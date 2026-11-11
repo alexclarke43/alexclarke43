@@ -5,10 +5,12 @@
  *                 { target: 'sparkasse-avatar', type: 'say',  text: '…', duration?: ms }
  *                 { target: 'sparkasse-avatar', type: 'reset' }
  *                 { target: 'sparkasse-avatar', type: 'setLook', look: { hairStyle: 'bun', height: 168, … } }
- *                 { target: 'sparkasse-avatar', type: 'openTab', tab: 'react' | 'style' | 'play' }
+ *                 { target: 'sparkasse-avatar', type: 'openTab', tab: 'react' | 'chat' | 'style' | 'play' }
  *                 { target: 'sparkasse-avatar', type: 'startGame', game: 'quiz' | 'sort' }
  *                 { target: 'sparkasse-avatar', type: 'setLang', lang: 'en' | 'de' }
- * Avatar → host:  { source: 'sparkasse-avatar', type: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'error', … }
+ *                 { target: 'sparkasse-avatar', type: 'chat', text: 'How do I save?' }
+ * Avatar → host:  { source: 'sparkasse-avatar', type: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'lang' | 'character' | 'chat' | 'error', … }
+ *                 chat events: { type: 'chat', from: 'user' | 'avatar', text }
  *
  * The same events are also dispatched on window as `sparkasse-avatar:<type>` CustomEvents.
  */

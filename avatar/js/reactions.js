@@ -6,7 +6,7 @@ export const REACTIONS = {
   greet: {
     emoji: '👋',
     label: { en: 'Hi', de: 'Hi' },
-    say: { en: 'Hey! Good to see you 👋', de: 'Hey! Schön, dass du da bist 👋' },
+    say: { en: 'Hey! It’s me, {name} 👋', de: 'Hey! Ich bin’s, {name} 👋' }, // {name} = the avatar's name
   },
   celebrate: {
     emoji: '🎉',

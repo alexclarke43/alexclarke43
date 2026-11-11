@@ -5,8 +5,16 @@
 export const BASE_HEIGHT = 175; // cm that maps to scale 1.0
 export const HEIGHT_RANGE = [150, 200];
 export const GOLD = '#d4af37';
+export const DEFAULT_NAME = 'Nova';
+export const NAME_MAX = 16;
+
+/** Letters, digits, space, - and ' only; max 16 chars. */
+export function cleanAvatarName(raw) {
+  return String(raw ?? '').replace(/[^\p{L}\p{N} '\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX).trim();
+}
 
 export const DEFAULT_LOOK = {
+  name: DEFAULT_NAME,   // the avatar's name (user can rename it)
   character: 'human',   // 'human' (customisable) | 'sparkie' (mascot)
   body: 'male',         // 'male' | 'female' – body shape and face
   skin: '#c98d6b',
@@ -93,6 +101,7 @@ export function sanitizeLook(input = {}) {
   for (const k of ['glasses', 'headphones', 'earring', 'chain']) {
     if (typeof input[k] === 'boolean') out[k] = input[k];
   }
+  if (typeof input.name === 'string' && cleanAvatarName(input.name)) out.name = cleanAvatarName(input.name);
   const h = Number(input.height);
   if (Number.isFinite(h)) out.height = Math.round(Math.min(HEIGHT_RANGE[1], Math.max(HEIGHT_RANGE[0], h)));
   return out;

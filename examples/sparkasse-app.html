@@ -216,7 +216,7 @@
 
       <section class="card buddy-card">
         <div class="head">
-          <div><h2 data-i18n="buddyTitle"></h2><div class="sub" data-i18n="buddySub"></div></div>
+          <div><h2 id="buddy-name">Nova</h2><div class="sub" data-i18n="buddySub"></div></div>
           <button class="pill light" id="open-buddy" data-i18n="open"></button>
         </div>
         <div id="avatar-home"></div>
@@ -291,12 +291,12 @@
         proto: 'PROTOTYP · Demo-Daten · keine echte Banking-App',
         greeting: 'Guten Abend', coinsTitle: 'Coins aus den Money-Games',
         account: 'Girokonto', transfer: 'Überweisen', save: 'Sparen', learn: 'Lernen', style: 'Stylen',
-        buddyTitle: 'Dein Finanz-Buddy', buddySub: 'Tippen, drehen, Tipps holen', open: 'Öffnen',
+        buddySub: 'Dein Money-Bestie · tippen, drehen, chatten', open: '💬 Chat',
         goalName: 'Neues Handy', goalText: (a, b) => `${a} von ${b}`, add: (n) => `+${n} sparen`,
         tx: 'Umsätze', thisWeek: 'Diese Woche', txHint: 'Tipp: Tippe auf einen Umsatz – dein Buddy sagt dir was dazu.',
         quizSub: '8 Fragen · Coins sammeln · Outfits freischalten', go: 'Los',
         navHome: 'Start', navBuddy: 'Buddy', navMore: 'Mehr',
-        hello: 'Hey Lea! Schön, dass du da bist 👋',
+        hello: (n) => `Hey Lea! Ich bin’s, ${n} 👋`,
         saved: (n, left) => `+${n} fürs neue Handy! Noch ${left} 🪙`,
         goalReached: 'Sparziel erreicht! Das Handy gehört dir 🎉', goalToast: '🎉 Sparziel „Neues Handy“ erreicht!',
         goalDone: 'Ziel schon erreicht – neues Ziel? ✨',
@@ -321,12 +321,12 @@
         proto: 'PROTOTYPE · demo data · not a real banking app',
         greeting: 'Good evening', coinsTitle: 'Coins from the money games',
         account: 'Current account', transfer: 'Transfer', save: 'Save', learn: 'Learn', style: 'Style',
-        buddyTitle: 'Your money buddy', buddySub: 'Tap, spin, get tips', open: 'Open',
+        buddySub: 'Your money bestie · tap, spin, chat', open: '💬 Chat',
         goalName: 'New phone', goalText: (a, b) => `${a} of ${b}`, add: (n) => `Save +${n}`,
         tx: 'Transactions', thisWeek: 'This week', txHint: 'Tip: tap a transaction – your buddy will comment on it.',
         quizSub: '8 questions · earn coins · unlock outfits', go: 'Go',
         navHome: 'Home', navBuddy: 'Buddy', navMore: 'More',
-        hello: 'Hey Lea! Good to see you 👋',
+        hello: (n) => `Hey Lea! It’s me, ${n} 👋`,
         saved: (n, left) => `+${n} for the new phone! ${left} to go 🪙`,
         goalReached: 'Goal reached! The phone is yours 🎉', goalToast: '🎉 Savings goal “New phone” reached!',
         goalDone: 'Goal already reached – new goal? ✨',
@@ -360,9 +360,12 @@
       src: AVATAR_SRC, height: '100%',
       params: { ui: false, bg: 'transparent', lang, hint: false, badge: false, character: 'human', autoGreet: false },
     });
+    let buddyName = 'Nova';
+    function setBuddyName(n) { if (n) { buddyName = n; $('buddy-name').textContent = n; } }
     home.on('ready', (e) => {
       setCoins(e.coins);
-      home.play('greet', { text: T().hello });
+      setBuddyName(e.look?.name);
+      home.play('greet', { text: T().hello(buddyName) });
     });
 
     // ---------- Full avatar (Buddy tab), created on first visit ----------
@@ -373,11 +376,11 @@
       if (full) return full;
       full = SparkasseAvatar.mount('#avatar-full', {
         src: AVATAR_SRC, height: '100%',
-        params: { lang, bg: 'transparent', badge: false, character: 'human', autoGreet: true, tabs: 'react,style,play' },
+        params: { lang, bg: 'transparent', badge: false, character: 'human', autoGreet: false, tabs: 'chat,react,style,play', tab: 'chat' },
       });
       full.on('ready', (e) => { fullReady = true; setCoins(e.coins); full.setLang(lang); pending.splice(0).forEach((fn) => fn()); });
       full.on('coins', (e) => setCoins(e.coins));
-      full.on('look', (e) => home.setLook(e.look));           // keep the Start-screen avatar in sync
+      full.on('look', (e) => { home.setLook(e.look); setBuddyName(e.look.name); }); // keep the Start screen in sync (outfit + name)
       full.on('game', (e) => {
         if (e.phase === 'end') toast(T().quizDone(e.score, e.total, e.coinsEarned));
       });
@@ -398,7 +401,7 @@
       document.querySelectorAll('.tabbar button').forEach((b) => b.setAttribute('aria-current', b.dataset.screen === screen ? 'page' : 'false'));
     }
     document.querySelectorAll('.tabbar button').forEach((b) => b.addEventListener('click', () => show(b.dataset.screen)));
-    $('open-buddy').onclick = () => show('buddy');
+    $('open-buddy').onclick = () => { show('buddy'); whenFull(() => full.openTab('chat')); };
     $('q-style').onclick = () => { show('buddy'); whenFull(() => full.openTab('style')); };
     $('q-learn').onclick = $('learn-start').onclick = () => show('learn');
     $('q-transfer').onclick = () => { toast(T().transferOff); home.play('nod', { text: T().transferSay }); };

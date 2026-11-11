@@ -12,6 +12,7 @@ import { DEFAULT_LOOK, BASE_HEIGHT, OPTIONS, PALETTES, sanitizeLook, enforceUnlo
 import { getCoins, addCoins, onCoins, setPersist } from './progress.js';
 import { createCustomizer } from './ui/customizer.js';
 import { createGames } from './games/games.js';
+import { createChat } from './chat/chat.js';
 
 const cfg = loadConfig();
 const $ = (id) => document.getElementById(id);
@@ -26,6 +27,7 @@ const t = (entry) => entry[cfg.lang] ?? entry.en;
 
 const TABS = {
   react: { emoji: '✨', label: { en: 'React', de: 'Reagieren' } },
+  chat: { emoji: '💬', label: { en: 'Chat', de: 'Chat' } },
   style: { emoji: '🎨', label: { en: 'Style', de: 'Style' } },
   play: { emoji: '🎮', label: { en: 'Play', de: 'Spielen' } },
 };
@@ -42,6 +44,7 @@ const bridge = createBridge({
     openTab: (d) => openTab(d.tab),
     setLang: (d) => setLang(d.lang),
     startGame: (d) => { if (openTab('play')) games?.startGame(d.game); },
+    chat: (d) => { if (openTab('chat')) chat?.send(String(d.text ?? '')); },
   },
 });
 
@@ -50,6 +53,7 @@ let stage;
 let controls;
 let customizer;
 let games;
+let chat;
 let confetti;
 let busyUntil = 0;
 let bubbleTimer;
@@ -111,7 +115,7 @@ async function boot() {
     reset: () => controls.reset(),
     get look() { return { ...look }; },
     get coins() { return getCoins(); },
-    config: cfg, games, customizer,
+    config: cfg, games, customizer, chat,
     get avatar() { return avatar; },
   };
   bridge.emit('ready', { reactions: avatar.reactions, model: cfg.model || 'placeholder', look, coins: getCoins() });
@@ -177,6 +181,7 @@ function setLook(partial, { reaction, heightOnly, fromPanel } = {}) {
     if (!heightOnly && avatar.supportsStyle) avatar.setStyle(look);
   }
   if (!fromPanel) customizer?.render(); // keep the Style panel in sync with API/host changes
+  chat?.relabel();
   if (cfg.persist) saveLook(look);
   clearTimeout(lookEventTimer);
   lookEventTimer = setTimeout(() => bridge.emit('look', { look }), 250);
@@ -229,7 +234,7 @@ function play(name, { text } = {}) {
   if (meta.confettiAt != null && !avatar.ownConfetti) {
     setTimeout(() => confetti.burst(new THREE.Vector3(0, (avatar.height || 1.9) * avatar.object3d.scale.y + 0.1, 0.1)), meta.confettiAt * 1000);
   }
-  say(text || t(meta.say), Math.max(1800, seconds * 1000));
+  say((text || t(meta.say)).replaceAll('{name}', look.name), Math.max(1800, seconds * 1000));
   setActiveButton(name);
   bridge.emit('reaction', { reaction: name, phase: 'start', duration: seconds });
   setTimeout(() => {
@@ -323,12 +328,25 @@ function buildDock() {
       addCoins,
     });
   }
+  if (cfg.tabs.includes('chat')) {
+    chat = createChat($('panel-chat'), {
+      lang: () => cfg.lang,
+      getName: () => look.name,
+      setName: (name) => setLook({ name }, { heightOnly: true }),
+      getCoins,
+      react: (reaction, text) => { if (!reaction || !play(reaction, { text })) say(text, 4000); },
+      openTab: (id) => openTab(id),
+      onEvent: (type, payload) => bridge.emit(type, payload),
+      endpoint: cfg.chatEndpoint,
+      persist: cfg.persist,
+    });
+  }
   openTab(cfg.tab, { silent: true });
 }
 
 function openTab(id, { silent } = {}) {
   if (!cfg.ui || !cfg.tabs.includes(id)) return false;
-  for (const tid of ['react', 'style', 'play']) {
+  for (const tid of Object.keys(TABS)) {
     $(`panel-${tid}`).hidden = tid !== id;
     const btn = $(`tab-${tid}`);
     if (btn) btn.setAttribute('aria-selected', String(tid === id));
@@ -336,6 +354,7 @@ function openTab(id, { silent } = {}) {
   app.dataset.tab = id;
   if (id === 'play') games?.refresh();
   if (id === 'style') customizer?.render();
+  if (id === 'chat') chat?.onShow();
   if (!silent) { hideHint(); bridge.emit('tab', { tab: id }); }
   return true;
 }
@@ -373,6 +392,7 @@ function setLang(lang) {
   if (cfg.ui) buildButtons();
   customizer?.render();
   games?.relabel();
+  chat?.relabel();
   bridge.emit('lang', { lang: l });
   return true;
 }

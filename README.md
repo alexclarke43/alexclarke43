@@ -103,11 +103,12 @@ Commands sent before the iframe is ready are queued automatically.
 | `play(reaction, { text? })` | `greet`, `celebrate`, `nod`, `shrug` or `dance`. `text` overrides the speech bubble. |
 | `say(text, durationMs?)` | Show a speech bubble without moving |
 | `reset()` | Spin the avatar back to face the user |
-| `setLook(partialLook)` | Change the outfit, e.g. `{ hairStyle: 'bun', top: 'tee', topColor: '#7cf5d0', height: 168 }` |
-| `openTab(tab)` | `react`, `style` or `play` |
+| `setLook(partialLook)` | Change the outfit or name, e.g. `{ name: 'Kai', body: 'female', hairStyle: 'bun', top: 'tee', height: 168 }` |
+| `openTab(tab)` | `react`, `chat`, `style` or `play` |
+| `chat(text)` | Send a chat message as the user. Opens the Chat tab and the avatar replies. |
 | `setLang(lang)` | `en` or `de`. Switches all avatar texts **live**: tabs, buttons, Style panel, games (even mid-quiz). The look, coins and a running game are kept. |
 | `startGame(game)` | `quiz` or `sort` (Need or Want?) |
-| `on(type, fn)` | Events: `ready`, `reaction`, `tap`, `look`, `game`, `coins`, `tab`, `error`, `*`. Returns an unsubscribe function. |
+| `on(type, fn)` | Events: `ready`, `reaction`, `tap`, `look`, `game`, `coins`, `tab`, `lang`, `character`, `chat`, `error`, `*`. Returns an unsubscribe function. |
 
 Useful events for the platform:
 
@@ -116,6 +117,7 @@ avatar.on('game',  (e) => { /* phase: 'start' | 'answer' | 'end'; on end: score,
 avatar.on('look',  (e) => saveToUserProfile(e.look));   // persist the look server-side if you like
 avatar.on('coins', (e) => console.log(e.coins, e.delta));
 avatar.on('character', (e) => console.log('now showing', e.character)); // 'human' | 'sparkie'
+avatar.on('chat',  (e) => console.log(e.from, e.text));   // from: 'user' | 'avatar'
 ```
 | `destroy()` | Remove the iframe and listeners |
 
@@ -167,7 +169,7 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 | `ui` | `true` | Show the tab dock (buttons, Style, Play). Set `0` for a pure avatar. |
 | `character` | – | `human` or `sparkie`. Overrides the user's saved choice. |
 | `reactions` | `greet,celebrate,coin,nod,shrug,dance` | Which buttons to show, in order. Reactions the current character can't do are skipped (🪙 `coin` is Sparkie-only). |
-| `tabs` | `react,style,play` | Which panels to offer. For example, `tabs=play` gives a games-only widget. |
+| `tabs` | `react,chat,style,play` | Which panels to offer. For example, `tabs=play` gives a games-only widget, `tabs=chat` a chat-only buddy. |
 | `tab` | `react` | Panel that is open on load |
 | `look` | – | JSON look, e.g. `{"hairStyle":"long","top":"jacket","height":170}` (overrides the saved look) |
 | `persist` | `true` | Remember the look and coins in `localStorage` |
@@ -179,6 +181,7 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 | `primary` | `#e3000f` | Brand colour for the UI and the default top colour (`e3000f` without `#` also works in URLs) |
 | `accent` | `#7cf5d0` | Highlights: headphones, sneakers, focus rings |
 | `skin`, `hair` | – | Placeholder character colours |
+| `chatEndpoint` | – | Optional AI backend for the chat (see 5c). Only settable via `window.SPARKASSE_AVATAR_CONFIG`, never via URL. |
 | `parentOrigin` | `*` | Only accept messages from (and send to) this origin. The helper sets it automatically. |
 
 Booleans accept `0/1`, `true/false`, `on/off`.
@@ -188,7 +191,7 @@ Booleans accept `0/1`, `true/false`, `on/off`.
 `examples/sparkasse-app.html` is a phone-style prototype of a banking app with the avatar built in (demo data, no logins, no official logos). It shows:
 
 * the avatar on the Start screen reacting to the app: saving catches a coin, reaching the goal celebrates, tapping a transaction gives a tip
-* the full avatar (React / Style / Play) in a Buddy tab, kept in sync with the Start screen
+* the full avatar (Chat / React / Style / Play) in a Buddy tab that opens on the chat. The name and outfit stay in sync with the Start screen, whose card shows the buddy's name.
 * a **Rewards** section: saving earns 2 points per €1 and card payments earn 1 point per €1 (try *Pay by card (demo)*). Points unlock perks for concerts, events and shopping, filterable by category. Unlocking shows a voucher code and the avatar celebrates. All partners and codes are made up; the data lives in `REWARDS` in the page script.
 * an **EN / DE switch** in the header. On first visit it uses `?lang=`, then the saved choice, then the browser language. Switching updates texts and number formats (`1.248,50 €` ↔ `€1,248.50`) and both avatars live through `setLang()`.
 
@@ -263,6 +266,30 @@ All options are listed in `avatar/js/look.js`:
 🔒 = unlocked with coins earned in the games. Gold sneakers cost 80. To add or rename options, edit `OPTIONS`/`PALETTES` in `look.js`. To add new geometry, edit the matching `_build…` method in `PlaceholderAvatar.js`. Changing the look rebuilds the meshes, so running animations keep playing.
 
 The look is saved in the iframe's `localStorage`, and the platform receives a `look` event whenever it changes. To store it per user account, save it from that event and pass it back with `params.look` or `setLook()`.
+
+## 5c. Chat and avatar name
+
+The **Chat** tab lets the user talk to the avatar. It answers like a best friend, using Gen Z slang in English and German (“no cap”, “bestie”, “lowkey”, “läuft bei dir”, “safe”, …), and knows money basics. It acts on what you say:
+
+* **Money topics:** saving, budgeting (50/30/20), being broke, debt and “buy now pay later”, investing and ETFs, subscriptions, payday, taxes, interest and inflation.
+* **Safety:** asking about PIN/TAN/phishing gets a clear scam warning. Messages about self-harm get a caring reply with the Telefonseelsorge numbers (0800 111 0 111 / 0800 111 0 222) and 112.
+* **Feelings and small talk:** greetings, “how are you”, bad days, good news (it celebrates), jokes, compliments, goodbyes.
+* **Actions:** the avatar plays a matching reaction and shows a short version of the reply in its speech bubble. “Let's play” opens the games, and “change your outfit” opens Style.
+* **Names:** “I'll call you Kai” / “Ich nenn dich Kai” renames the avatar. “My name is Lea” / “Ich heiße Lea” makes it remember the user's name.
+* **Suggestions:** chips under the chat offer starter questions.
+
+The avatar's **name** is part of the look (`look.name`, default `Nova`, at most 16 letters, digits, spaces, `-` or `'`). It can be changed in the chat, in the **Name** field at the top of the Style tab, or by the host with `setLook({ name: 'Kai' })`. Reset keeps the name. Chat history (last 40 messages) and the user's name are saved in localStorage when `persist` is on.
+
+The replies come from a built-in, offline “brain” (`avatar/js/chat/brain.js`): keyword intents plus several reply variants each. Add topics by adding an entry to `INTENTS`. No data leaves the device.
+
+**Plugging in a real AI (optional).** Set `chatEndpoint` in `window.SPARKASSE_AVATAR_CONFIG`. Each message is then POSTed as JSON:
+
+```json
+{ "message": "How do I save?", "history": [{ "role": "user", "content": "…" }, { "role": "assistant", "content": "…" }],
+  "name": "Nova", "userName": "Lea", "lang": "en" }
+```
+
+The endpoint should answer `{ "reply": "…", "reaction": "nod" }` (`reaction` is optional: `greet`, `celebrate`, `coin`, `nod`, `shrug` or `dance`). If the request fails or times out (12 s), the built-in brain answers instead. Renaming and opening tabs still work. Keep API keys on that server (for example a Cloudflare Worker), never in the page.
 
 ## 6. Money games
 

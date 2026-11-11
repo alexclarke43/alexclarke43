@@ -205,7 +205,7 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
     console.log('Customisation (Style tab)');
     {
       const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0');
-      check('3 tabs shown', (await page.locator('.dock-tab').count()) === 3);
+      check('4 tabs shown', (await page.locator('.dock-tab').count()) === 4);
       await page.click('#tab-style');
       check('style panel opens', await page.locator('#panel-style').isVisible());
       const meshCount = () => page.evaluate(() => { let n = 0; window.SparkasseAvatarApp.avatar.object3d.traverse((o) => { if (o.isMesh) n++; }); return n; });
@@ -257,6 +257,40 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.waitForFunction(() => window.SparkasseAvatarApp, null, { timeout: 30000 });
       const urlLook = await page.evaluate(() => window.SparkasseAvatarApp.look);
       check('look from URL param', urlLook.hairStyle === 'bun' && urlLook.height === 160);
+      check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
+    console.log('Chat + avatar name');
+    {
+      const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&persist=0&lang=en&chatEndpoint=https://evil.example/x');
+      check('chatEndpoint cannot be set from the URL', (await page.evaluate(() => window.SparkasseAvatarApp.config.chatEndpoint)) === '');
+      await page.click('#tab-chat');
+      check('chat opens with a greeting using the default name', (await page.textContent('.ch-msg--bot')).includes('Nova'));
+      const waitReply = () => page.waitForFunction(() => !document.querySelector('.ch-msg--typing'), null, { timeout: 10000 });
+      const send = async (text) => { await page.fill('.ch-input', text); await page.press('.ch-input', 'Enter'); await page.waitForTimeout(50); await waitReply(); };
+      await send('How do I save?');
+      const last = () => page.locator('.ch-msg--bot').last().textContent();
+      check('avatar answers money questions', /save|€|emergency|round up/i.test(await last()));
+      check('reply also shows in the speech bubble', (await page.textContent('#avatar-bubble')).length > 10);
+      await send("I'll call you Kai");
+      check('renaming via chat', (await page.evaluate(() => window.SparkasseAvatarApp.look.name)) === 'Kai' && (await page.textContent('.ch-name')) === 'Kai');
+      check('input placeholder uses the new name', (await page.getAttribute('.ch-input', 'placeholder')).includes('Kai'));
+      await send('<img src=x onerror="window.__xss=1">');
+      check('user text is rendered as text (no HTML injection)', !(await page.evaluate(() => window.__xss)) && (await page.locator('.ch-log img').count()) === 0);
+      await page.evaluate(() => window.SparkasseAvatarApp.setLang('de'));
+      await send('bin pleite');
+      check('chat replies in German after switching', /pleite|Pleite|Budget|Geld/.test(await last()));
+      await page.click('#tab-style');
+      check('Style panel shows the name', (await page.inputValue('#cz-name')) === 'Kai');
+      await page.fill('#cz-name', 'Luna<script>');
+      await page.press('#cz-name', 'Enter');
+      check('renaming in Style panel (cleaned)', (await page.evaluate(() => window.SparkasseAvatarApp.look.name)) === 'Lunascript');
+      await page.click('#tab-chat');
+      check('chat header follows the Style name', (await page.textContent('.ch-name')) === 'Lunascript');
+      await send('lass uns ein Quiz spielen');
+      await page.waitForFunction(() => document.getElementById('tab-play').getAttribute('aria-selected') === 'true', null, { timeout: 5000 }).catch(() => {});
+      check('chat can open the games', (await page.getAttribute('#tab-play', 'aria-selected')) === 'true');
       check('no console errors', errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
@@ -499,11 +533,17 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await page.click('[data-screen="buddy"]');
       let ff;
       for (let i = 0; i < 150 && !ff; i++) {
-        const f = page.frames().find((fr) => fr.url().includes('tabs=react'));
+        const f = page.frames().find((fr) => fr.url().includes('tabs=chat'));
         if (f && await f.evaluate(() => !!window.SparkasseAvatarApp).catch(() => false)) ff = f; else await page.waitForTimeout(200);
       }
       await ff.waitForFunction(() => document.getElementById('tab-play')?.textContent.includes('Play'), null, { timeout: 15000 }).catch(() => {});
       check('Buddy tab opens in English', (await ff.textContent('#tab-play')).includes('Play'));
+      check('Buddy screen opens on the chat', (await ff.getAttribute('#tab-chat', 'aria-selected')) === 'true');
+      await page.evaluate(() => demo.getFull().chat("I'll call you Zoe"));
+      await ff.waitForFunction(() => window.SparkasseAvatarApp.look.name === 'Zoe', null, { timeout: 15000 }).catch(() => {});
+      await page.waitForFunction(() => document.getElementById('buddy-name').textContent === 'Zoe', null, { timeout: 15000 }).catch(() => {});
+      check('host chat() → avatar renames itself, home card follows', (await page.textContent('#buddy-name')) === 'Zoe');
+      check('home avatar gets the new name too', (await hf.evaluate(() => window.SparkasseAvatarApp.look.name)) === 'Zoe');
       await page.click('.lang [data-lang="de"]');
       await ff.waitForFunction(() => document.getElementById('tab-play').textContent.includes('Spielen'), null, { timeout: 15000 }).catch(() => {});
       check('DE switch reaches the Buddy tab live', (await ff.textContent('#tab-play')).includes('Spielen'));

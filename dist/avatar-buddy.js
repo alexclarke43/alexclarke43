@@ -9,7 +9,14 @@ import * as THREE from "three";
 var BASE_HEIGHT = 175;
 var HEIGHT_RANGE = [150, 200];
 var GOLD = "#d4af37";
+var DEFAULT_NAME = "Nova";
+var NAME_MAX = 16;
+function cleanAvatarName(raw) {
+  return String(raw ?? "").replace(/[^\p{L}\p{N} '\-]/gu, "").replace(/\s+/g, " ").trim().slice(0, NAME_MAX).trim();
+}
 var DEFAULT_LOOK = {
+  name: DEFAULT_NAME,
+  // the avatar's name (user can rename it)
   character: "human",
   // 'human' (customisable) | 'sparkie' (mascot)
   body: "male",
@@ -77,6 +84,7 @@ function sanitizeLook(input = {}) {
   for (const k of ["glasses", "headphones", "earring", "chain"]) {
     if (typeof input[k] === "boolean") out[k] = input[k];
   }
+  if (typeof input.name === "string" && cleanAvatarName(input.name)) out.name = cleanAvatarName(input.name);
   const h = Number(input.height);
   if (Number.isFinite(h)) out.height = Math.round(Math.min(HEIGHT_RANGE[1], Math.max(HEIGHT_RANGE[0], h)));
   return out;
