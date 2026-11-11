@@ -104,16 +104,17 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       const buttons = await page.locator('.avatar-btn').allTextContents();
       check('6 reaction buttons', buttons.length === 6, buttons.join(' | '));
 
+      await page.waitForTimeout(1500); // let the software renderer finish compiling shaders (can block the page for seconds)
       for (const name of ['greet', 'celebrate', 'coin', 'nod', 'shrug', 'dance']) {
         await page.click(`.avatar-btn[data-reaction="${name}"]`);
-        await page.waitForTimeout(250);
+        await page.waitForFunction((n) => window.SparkasseAvatarApp.avatar.current?.name === n && document.querySelector('.avatar-btn.is-active')?.dataset.reaction === n && document.querySelector('#avatar-bubble').classList.contains('is-visible'), name, { timeout: 3000 }).catch(() => {});
         const st = await page.evaluate(() => ({
           current: window.SparkasseAvatarApp.avatar.current?.name,
           active: document.querySelector('.avatar-btn.is-active')?.dataset.reaction,
           bubble: document.querySelector('#avatar-bubble').classList.contains('is-visible'),
           text: document.querySelector('#avatar-bubble').textContent,
         }));
-        check(`button "${name}" plays reaction + bubble`, st.current === name && st.active === name && st.bubble, st.text);
+        check(`button "${name}" plays reaction + bubble`, st.current === name && st.active === name && st.bubble, JSON.stringify(st));
       }
       // Celebration spawns confetti
       await page.click('.avatar-btn[data-reaction="celebrate"]');
@@ -205,7 +206,7 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
     console.log('Customisation (Style tab)');
     {
       const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0');
-      check('4 tabs shown', (await page.locator('.dock-tab').count()) === 4);
+      check('5 tabs shown', (await page.locator('.dock-tab').count()) === 5);
       await page.click('#tab-style');
       check('style panel opens', await page.locator('#panel-style').isVisible());
       const meshCount = () => page.evaluate(() => { let n = 0; window.SparkasseAvatarApp.avatar.object3d.traverse((o) => { if (o.isMesh) n++; }); return n; });
@@ -291,6 +292,49 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await send('lass uns ein Quiz spielen');
       await page.waitForFunction(() => document.getElementById('tab-play').getAttribute('aria-selected') === 'true', null, { timeout: 5000 }).catch(() => {});
       check('chat can open the games', (await page.getAttribute('#tab-play', 'aria-selected')) === 'true');
+      check('no console errors', errors.length === 0, errors.join(' / '));
+      await ctx.close();
+    }
+
+    console.log('For You feed');
+    {
+      const { ctx, page, errors } = await openAvatar(browser, base, '?autoGreet=0&persist=0&lang=en', { viewport: { width: 400, height: 820 } });
+      await page.click('#tab-feed');
+      const F = () => page.evaluate(() => { const f = window.SparkasseAvatarApp.feed; return { id: f.clip.id, active: f.active, paused: f.paused, cur: window.SparkasseAvatarApp.avatar.current?.name }; });
+      check('feed opens and plays the first clip', (await F()).active && (await page.locator('.fd-caption').isVisible()) && !!(await F()).cur);
+      check('avatar handle uses the avatar name', (await page.textContent('.fd-handle b')) === '@nova');
+      check('reaction buttons/bubble hidden in feed', !(await page.locator('.avatar-bubble').isVisible()));
+      const first = (await F()).id;
+      await page.click('.fd-next');
+      check('next button → next clip', (await F()).id !== first);
+      await page.keyboard.press('ArrowUp');
+      check('arrow key → previous clip', (await F()).id === first);
+      // swipe up on the stage
+      const box = await page.locator('#avatar-stage').boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.7);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.3, { steps: 6 });
+      await page.mouse.up();
+      check('swipe up → next clip', (await F()).id !== first);
+      await page.click('.fd-prev');
+      await page.click('.fd-like');
+      check('like toggles + counts up', (await page.getAttribute('.fd-like', 'aria-pressed')) === 'true');
+      await page.evaluate(() => window.SparkasseAvatarApp.feed.togglePause());
+      check('pause shows play button and freezes', (await F()).paused && await page.locator('.fd-paused').isVisible());
+      await page.click('.fd-paused');
+      check('tap play resumes', !(await F()).paused);
+      // finish a learn clip quickly → coins reward once
+      const coins0 = await page.evaluate(() => window.SparkasseAvatarApp.coins);
+      await page.evaluate(() => { const f = window.SparkasseAvatarApp.feed; for (let i = 0; i < f.clip.steps.length; i++) f.update(30); });
+      check('watching a learn clip to the end earns 3 coins', (await page.evaluate(() => window.SparkasseAvatarApp.coins)) === coins0 + 3);
+      await page.evaluate(() => window.SparkasseAvatarApp.setLang('de'));
+      check('feed relabels live (DE)', (await page.textContent('.fd-tabname')) === 'Für dich');
+      await page.evaluate(() => window.SparkasseAvatarApp.setLook({ name: 'Kai' }));
+      check('handle follows renaming', (await page.textContent('.fd-handle b')) === '@kai');
+      const moves = await page.evaluate(() => ['heart', 'flex', 'mindBlown', 'shuffle', 'bounce', 'point', 'handsUp'].every((m) => window.SparkasseAvatarApp.avatar.reactions.includes(m)));
+      check('new emotes/dances available on the avatar', moves);
+      await page.click('#tab-chat');
+      check('leaving the feed stops it', !(await F()).active && !(await page.locator('#feed-layer').isVisible()));
       check('no console errors', errors.length === 0, errors.join(' / '));
       await ctx.close();
     }
@@ -539,6 +583,14 @@ const rotY = (page) => page.evaluate(() => window.SparkasseAvatarApp.avatar.obje
       await ff.waitForFunction(() => document.getElementById('tab-play')?.textContent.includes('Play'), null, { timeout: 15000 }).catch(() => {});
       check('Buddy tab opens in English', (await ff.textContent('#tab-play')).includes('Play'));
       check('Buddy screen opens on the chat', (await ff.getAttribute('#tab-chat', 'aria-selected')) === 'true');
+      await page.click('[data-screen="feed"]');
+      await ff.waitForFunction(() => window.SparkasseAvatarApp.feed.active, null, { timeout: 15000 }).catch(() => {});
+      check('"For You" nav opens the feed', await ff.evaluate(() => window.SparkasseAvatarApp.feed.active));
+      await page.click('[data-screen="home"]');
+      await ff.waitForFunction(() => window.SparkasseAvatarApp.feed.paused, null, { timeout: 15000 }).catch(() => {});
+      check('leaving the Buddy screen pauses the clip', await ff.evaluate(() => window.SparkasseAvatarApp.feed.paused));
+      await page.click('[data-screen="buddy"]');
+      await ff.evaluate(() => window.SparkasseAvatarApp.openTab('chat'));
       await page.evaluate(() => demo.getFull().chat("I'll call you Zoe"));
       await ff.waitForFunction(() => window.SparkasseAvatarApp.look.name === 'Zoe', null, { timeout: 15000 }).catch(() => {});
       await page.waitForFunction(() => document.getElementById('buddy-name').textContent === 'Zoe', null, { timeout: 15000 }).catch(() => {});

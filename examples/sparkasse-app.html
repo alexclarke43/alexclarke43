@@ -274,7 +274,7 @@
       <button data-screen="home" aria-current="page"><span>🏠</span><b data-i18n="navHome"></b></button>
       <button data-screen="buddy"><span>✨</span><b data-i18n="navBuddy"></b></button>
       <button data-screen="learn"><span>🧠</span><b data-i18n="learn"></b></button>
-      <button data-screen="more"><span>☰</span><b data-i18n="navMore"></b></button>
+      <button data-screen="feed"><span>▶️</span><b data-i18n="navFeed"></b></button>
     </nav>
 
     <div class="toast" id="toast" role="status"></div>
@@ -295,13 +295,12 @@
         goalName: 'Neues Handy', goalText: (a, b) => `${a} von ${b}`, add: (n) => `+${n} sparen`,
         tx: 'Umsätze', thisWeek: 'Diese Woche', txHint: 'Tipp: Tippe auf einen Umsatz – dein Buddy sagt dir was dazu.',
         quizSub: '8 Fragen · Coins sammeln · Outfits freischalten', go: 'Los',
-        navHome: 'Start', navBuddy: 'Buddy', navMore: 'Mehr',
+        navHome: 'Start', navBuddy: 'Buddy', navFeed: 'Für dich',
         hello: (n) => `Hey Lea! Ich bin’s, ${n} 👋`,
         saved: (n, left) => `+${n} fürs neue Handy! Noch ${left} 🪙`,
         goalReached: 'Sparziel erreicht! Das Handy gehört dir 🎉', goalToast: '🎉 Sparziel „Neues Handy“ erreicht!',
         goalDone: 'Ziel schon erreicht – neues Ziel? ✨',
         transferOff: 'Überweisungen sind im Prototyp deaktiviert.', transferSay: 'Kommt bald – versprochen 😉',
-        moreOff: '„Mehr“ ist im Prototyp nicht ausgebaut.',
         quizDone: (s, t, c) => `Quiz: ${s}/${t} richtig · +${c} Coins`,
         rwTitle: 'Rewards', rwSub: 'Sparen & mit Karte zahlen = Punkte',
         pts: (n) => `⭐ ${n}`, ptsLong: (n) => `${n} Punkte`,
@@ -325,13 +324,12 @@
         goalName: 'New phone', goalText: (a, b) => `${a} of ${b}`, add: (n) => `Save +${n}`,
         tx: 'Transactions', thisWeek: 'This week', txHint: 'Tip: tap a transaction – your buddy will comment on it.',
         quizSub: '8 questions · earn coins · unlock outfits', go: 'Go',
-        navHome: 'Home', navBuddy: 'Buddy', navMore: 'More',
+        navHome: 'Home', navBuddy: 'Buddy', navFeed: 'For You',
         hello: (n) => `Hey Lea! It’s me, ${n} 👋`,
         saved: (n, left) => `+${n} for the new phone! ${left} to go 🪙`,
         goalReached: 'Goal reached! The phone is yours 🎉', goalToast: '🎉 Savings goal “New phone” reached!',
         goalDone: 'Goal already reached – new goal? ✨',
         transferOff: 'Transfers are disabled in this prototype.', transferSay: 'Coming soon – promise 😉',
-        moreOff: '“More” isn’t built in this prototype.',
         quizDone: (s, t, c) => `Quiz: ${s}/${t} correct · +${c} coins`,
         rwTitle: 'Rewards', rwSub: 'Save & pay by card = points',
         pts: (n) => `⭐ ${n}`, ptsLong: (n) => `${n} points`,
@@ -376,10 +374,11 @@
       if (full) return full;
       full = SparkasseAvatar.mount('#avatar-full', {
         src: AVATAR_SRC, height: '100%',
-        params: { lang, bg: 'transparent', badge: false, character: 'human', autoGreet: false, tabs: 'chat,react,style,play', tab: 'chat' },
+        params: { lang, bg: 'transparent', badge: false, character: 'human', autoGreet: false, tabs: 'chat,feed,react,style,play', tab: 'chat' },
       });
       full.on('ready', (e) => { fullReady = true; setCoins(e.coins); full.setLang(lang); pending.splice(0).forEach((fn) => fn()); });
       full.on('coins', (e) => setCoins(e.coins));
+      full.on('tab', (e) => { if (!$('screen-buddy').hidden) setNav(e.tab === 'feed' ? 'feed' : e.tab === 'play' ? 'learn' : 'buddy'); });
       full.on('look', (e) => { home.setLook(e.look); setBuddyName(e.look.name); }); // keep the Start screen in sync (outfit + name)
       full.on('game', (e) => {
         if (e.phase === 'end') toast(T().quizDone(e.score, e.total, e.coinsEarned));
@@ -390,8 +389,9 @@
 
     // ---------- Navigation ----------
     function show(screen) {
-      if (screen === 'more') { toast(T().moreOff); return; }
+      if (screen === 'feed') { show('buddy'); whenFull(() => full.openTab('feed')); setNav('feed'); return; }
       if (screen === 'learn') { show('buddy'); whenFull(() => full.startGame('quiz')); setNav('learn'); return; }
+      if (screen !== 'buddy' && full) full.feed('pause'); // leaving the Buddy screen pauses a running clip
       $('screen-home').hidden = screen !== 'home';
       $('screen-buddy').hidden = screen !== 'buddy';
       if (screen === 'buddy') getFull();

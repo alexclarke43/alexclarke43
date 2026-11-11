@@ -13,6 +13,7 @@ import { getCoins, addCoins, onCoins, setPersist } from './progress.js';
 import { createCustomizer } from './ui/customizer.js';
 import { createGames } from './games/games.js';
 import { createChat } from './chat/chat.js';
+import { createFeed } from './feed/feed.js';
 
 const cfg = loadConfig();
 const $ = (id) => document.getElementById(id);
@@ -28,6 +29,7 @@ const t = (entry) => entry[cfg.lang] ?? entry.en;
 const TABS = {
   react: { emoji: '✨', label: { en: 'React', de: 'Reagieren' } },
   chat: { emoji: '💬', label: { en: 'Chat', de: 'Chat' } },
+  feed: { emoji: '▶️', label: { en: 'For You', de: 'Für dich' } },
   style: { emoji: '🎨', label: { en: 'Style', de: 'Style' } },
   play: { emoji: '🎮', label: { en: 'Play', de: 'Spielen' } },
 };
@@ -45,6 +47,11 @@ const bridge = createBridge({
     setLang: (d) => setLang(d.lang),
     startGame: (d) => { if (openTab('play')) games?.startGame(d.game); },
     chat: (d) => { if (openTab('chat')) chat?.send(String(d.text ?? '')); },
+    feed: (d) => {
+      if (d.action === 'pause') return feed?.pause();
+      if (d.action === 'play') return feed?.active ? feed.resume() : openTab('feed');
+      if ((d.action === 'next' || d.action === 'prev') && (feed?.active || openTab('feed'))) feed[d.action]();
+    },
   },
 });
 
@@ -54,6 +61,8 @@ let controls;
 let customizer;
 let games;
 let chat;
+let feed;
+let feedPaused = false;
 let confetti;
 let busyUntil = 0;
 let bubbleTimer;
@@ -97,7 +106,8 @@ async function boot() {
 
   stage.onFrame((dt) => {
     controls.update(dt);
-    avatar.update(dt);
+    if (!feedPaused) avatar.update(dt); // a paused feed clip freezes the avatar like a paused video
+    feed?.update(dt);
     confetti.update(dt);
     positionBubble(stage);
   });
@@ -115,7 +125,7 @@ async function boot() {
     reset: () => controls.reset(),
     get look() { return { ...look }; },
     get coins() { return getCoins(); },
-    config: cfg, games, customizer, chat,
+    config: cfg, games, customizer, chat, feed, perform,
     get avatar() { return avatar; },
   };
   bridge.emit('ready', { reactions: avatar.reactions, model: cfg.model || 'placeholder', look, coins: getCoins() });
@@ -138,7 +148,7 @@ async function createAvatar() {
 /** Put the current avatar on stage and adapt camera, shadow, height and buttons to it. */
 function attachAvatar() {
   stage.turntable.add(avatar.object3d);
-  stage.setFrame(avatar.frame);
+  applyFrame();
   stage.setContactShadow(!avatar.ownShadow);
   stage.setToneMapping(avatar.toneMapping);
   applyHeight();
@@ -182,11 +192,20 @@ function setLook(partial, { reaction, heightOnly, fromPanel } = {}) {
   }
   if (!fromPanel) customizer?.render(); // keep the Style panel in sync with API/host changes
   chat?.relabel();
+  if (feed?.active) feed.relabel();
   if (cfg.persist) saveLook(look);
   clearTimeout(lookEventTimer);
   lookEventTimer = setTimeout(() => bridge.emit('look', { look }), 250);
   if (reaction) play(reaction);
   return { ...look };
+}
+
+const DEFAULT_FRAME = { w: 2.0, h: 2.65, cy: 1.14, up: 0.18 };
+/** Camera framing: zoom out a bit in the feed so captions fit above and below the avatar. */
+function applyFrame() {
+  if (app.dataset.tab !== 'feed') { stage.setFrame(avatar.frame); return; }
+  const f = { ...DEFAULT_FRAME, ...(avatar.frame || {}) };
+  stage.setFrame({ ...f, w: f.w * 1.1, h: f.h * 1.5, cy: f.cy + f.h * 0.04 });
 }
 
 function applyHeight() {
@@ -219,6 +238,24 @@ function updateCoins(total, delta) {
 }
 
 // --------------------------------------------------------------------------- reactions
+
+// Feed moves the current avatar may not have → closest move it does have
+const MOVE_FALLBACK = {
+  heart: 'giggle', flex: 'jump', mindBlown: 'celebrate', shuffle: 'dance', bounce: 'dance', point: 'nod',
+  handsUp: 'jump', think: 'shrug', sad: 'shrug', shake: 'shrug', giggle: 'nod', coin: 'nod', jump: 'celebrate', intro: 'greet',
+};
+/** Play any avatar move (no speech bubble). Returns its length in seconds. */
+function perform(move) {
+  let m = move;
+  for (let i = 0; i < 4 && m && !avatar.reactions.includes(m); i++) m = MOVE_FALLBACK[m];
+  if (!m || !avatar.reactions.includes(m)) m = avatar.reactions.includes('nod') ? 'nod' : avatar.reactions[0];
+  const seconds = avatar.play(m) || 2;
+  busyUntil = performance.now() + seconds * 1000;
+  if (m === 'celebrate' && !avatar.ownConfetti) {
+    setTimeout(() => confetti.burst(new THREE.Vector3(0, (avatar.height || 1.9) * avatar.object3d.scale.y + 0.1, 0.1)), 450);
+  }
+  return seconds;
+}
 
 /** Trigger a reaction. Returns false if unknown. */
 // If the current avatar can't do a reaction, use the closest one it can.
@@ -258,6 +295,7 @@ function say(text, ms = 3000) {
 const raycaster = new THREE.Raycaster();
 let tapIndex = 0;
 function onTap(e, stage) {
+  if (feed?.active) { feed.tap(); return; } // feed: tap = pause, double tap = like
   const r = stage.canvas.getBoundingClientRect();
   const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(ndc, stage.camera);
@@ -306,6 +344,7 @@ function buildDock() {
     tabsEl.append(b);
   }
   tabsEl.hidden = cfg.tabs.length < 2;
+  tabsEl.dataset.count = cfg.tabs.length; // 5+ tabs → compact labels on phones
 
   buildButtons();
   if (cfg.tabs.includes('style')) {
@@ -326,6 +365,20 @@ function buildDock() {
       onEvent: (type, payload) => bridge.emit(type, payload),
       getCoins,
       addCoins,
+    });
+  }
+  if (cfg.tabs.includes('feed')) {
+    feed = createFeed($('feed-layer'), {
+      bgEl: $('feed-bg'),
+      listEl: $('panel-feed'),
+      lang: () => cfg.lang,
+      getName: () => look.name,
+      perform,
+      addCoins,
+      onEvent: (type, payload) => bridge.emit(type, payload),
+      onPauseChange: (v) => { feedPaused = v; },
+      persist: cfg.persist,
+      swipeTarget: stageEl,
     });
   }
   if (cfg.tabs.includes('chat')) {
@@ -351,7 +404,9 @@ function openTab(id, { silent } = {}) {
     const btn = $(`tab-${tid}`);
     if (btn) btn.setAttribute('aria-selected', String(tid === id));
   }
+  const wasFeed = app.dataset.tab === 'feed';
   app.dataset.tab = id;
+  if (id === 'feed') { feed?.show(); applyFrame(); controls?.reset(); } else if (wasFeed) { feed?.hide(); applyFrame(); }
   if (id === 'play') games?.refresh();
   if (id === 'style') customizer?.render();
   if (id === 'chat') chat?.onShow();
@@ -393,6 +448,7 @@ function setLang(lang) {
   customizer?.render();
   games?.relabel();
   chat?.relabel();
+  feed?.relabel();
   bridge.emit('lang', { lang: l });
   return true;
 }

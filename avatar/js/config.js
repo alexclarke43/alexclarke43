@@ -23,7 +23,7 @@ export const DEFAULTS = {
   hair: '#24170f',
   reactions: 'greet,celebrate,coin,nod,shrug,dance', // buttons to show (order matters; unsupported ones are skipped)
   character: '',             // 'human' | 'sparkie' – overrides the saved choice
-  tabs: 'react,chat,style,play', // which panels to offer: react (buttons), chat, style (customiser), play (games)
+  tabs: 'react,chat,feed,style,play', // panels: react (buttons), chat, feed (For You clips), style (customiser), play (games)
   tab: 'react',              // panel open on load
   look: null,                // JSON look, e.g. {"hairStyle":"bun","top":"tee","height":168} (see look.js)
   persist: true,             // remember look + coins in localStorage
@@ -67,7 +67,7 @@ export function loadConfig(search = window.location.search) {
     try { cfg.look = JSON.parse(cfg.look); } catch { cfg.look = null; }
   }
   if (typeof cfg.tabs === 'string') {
-    cfg.tabs = cfg.tabs.split(',').map((s) => s.trim()).filter((s) => ['react', 'chat', 'style', 'play'].includes(s));
+    cfg.tabs = cfg.tabs.split(',').map((s) => s.trim()).filter((s) => ['react', 'chat', 'feed', 'style', 'play'].includes(s));
   }
   if (!cfg.tabs.length) cfg.tabs = ['react'];
   if (!cfg.tabs.includes(cfg.tab)) cfg.tab = cfg.tabs[0];

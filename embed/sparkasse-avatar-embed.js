@@ -72,15 +72,17 @@
       reset: function () { post({ type: 'reset' }); },
       /** look: partial object, e.g. { name: 'Kai', body: 'female', hairStyle: 'bun', top: 'tee', height: 168 } */
       setLook: function (look) { post({ type: 'setLook', look: look }); },
-      /** tab: 'react' | 'chat' | 'style' | 'play' */
+      /** tab: 'react' | 'chat' | 'feed' | 'style' | 'play' */
       openTab: function (tab) { post({ type: 'openTab', tab: tab }); },
       /** lang: 'en' | 'de' – switches the avatar's UI language live */
       setLang: function (lang) { post({ type: 'setLang', lang: lang }); },
       /** Send a chat message as the user (opens the Chat tab); the avatar replies */
       chat: function (text) { post({ type: 'chat', text: text }); },
+      /** For You feed: 'play' (opens it) | 'pause' | 'next' | 'prev' */
+      feed: function (action) { post({ type: 'feed', action: action }); },
       /** game: 'quiz' | 'sort' */
       startGame: function (game) { post({ type: 'startGame', game: game }); },
-      /** events: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'lang' | 'character' | 'chat' | 'error' | '*' – returns an unsubscribe function */
+      /** events: 'ready' | 'reaction' | 'tap' | 'look' | 'game' | 'coins' | 'tab' | 'lang' | 'character' | 'chat' | 'feed' | 'error' | '*' – returns an unsubscribe function */
       on: function (type, fn) {
         (listeners[type] = listeners[type] || []).push(fn);
         return function () { listeners[type] = listeners[type].filter(function (f) { return f !== fn; }); };

@@ -1005,6 +1005,206 @@ var MOTIONS = {
       };
     }
   },
+  // ---- Emotes & dances for the "For You" feed (original moves) ----
+  // Heart hands in front of the chest.
+  heart: {
+    duration: 2.4,
+    look: 0.6,
+    pose(t, d) {
+      const e = env(t, 0, 0.45, d - 0.45, d);
+      const pulse = 1 + 0.06 * Math.sin(t * 9) * e;
+      const p = {
+        "spine.rx": -0.03 * e,
+        "head.rz": 0.12 * e * Math.sin(t * 2.2),
+        "face.smile": 1,
+        "face.squint": 0.7 * e,
+        "face.brow": 0.5 * e,
+        "face.open": 0.15 * e
+      };
+      for (const [s, sx] of [["L", 1], ["R", -1]]) {
+        p[`shoulder${s}.rx`] = -0.75 * e * pulse;
+        p[`shoulder${s}.rz`] = -sx * 0.42 * e;
+        p[`elbow${s}.rx`] = -2.05 * e;
+        p[`hand${s}.ry`] = -sx * 1.1 * e;
+        p[`hand${s}.rx`] = 0.4 * e;
+        p[`fingers${s}.rz`] = -sx * 0.9 * e;
+      }
+      return p;
+    }
+  },
+  // Double biceps flex with a confident smirk.
+  flex: {
+    duration: 2.4,
+    look: 0.5,
+    pose(t, d) {
+      const e = env(t, 0, 0.35, d - 0.4, d);
+      const pump = 0.5 + 0.5 * Math.sin((t - 0.35) * 10);
+      const p = {
+        "spine.rx": -0.08 * e,
+        "head.rx": -0.08 * e,
+        "head.rz": -0.08 * e,
+        "face.smile": 0.8,
+        "face.mouthX": 0.45 * e,
+        "face.browAsym": 0.6 * e,
+        "face.squint": 0.3 * e
+      };
+      crouch(p, 0.12 * e);
+      for (const [s, sx] of [["L", 1], ["R", -1]]) {
+        p[`shoulder${s}.rz`] = sx * 1.5 * e;
+        p[`shoulder${s}.rx`] = -0.15 * e;
+        p[`elbow${s}.rz`] = sx * (1.55 + 0.25 * pump) * e;
+        p[`fingers${s}.rz`] = sx * 1.5 * e;
+        p[`shoulder${s}.py`] = 0.015 * pump * e;
+      }
+      return p;
+    }
+  },
+  // Hands to the head… then "boom": mind blown.
+  mindBlown: {
+    duration: 2.6,
+    look: 0.3,
+    idleBlend: 0.1,
+    pose(t, d) {
+      const toHead = env(t, 0, 0.4, 0.8, 1);
+      const boom = env(t, 0.85, 1.05, d - 0.45, d);
+      const p = {
+        "face.open": 0.3 * toHead + 0.9 * boom,
+        "face.brow": 0.4 * toHead + 1 * boom,
+        "face.smile": 0.5,
+        "face.eyeY": 0.3 * boom,
+        "spine.rx": -0.1 * boom,
+        "head.rx": -0.12 * boom + 0.05 * toHead,
+        "head.rz": 0.05 * Math.sin(t * 30) * toHead
+      };
+      crouch(p, 0.15 * toHead);
+      for (const [s, sx] of [["L", 1], ["R", -1]]) {
+        p[`shoulder${s}.rz`] = sx * (2.3 * toHead + 2.3 * boom);
+        p[`shoulder${s}.rx`] = -0.75 * toHead;
+        p[`elbow${s}.rz`] = sx * 2.25 * toHead + sx * 0.2 * boom;
+        p[`hand${s}.rz`] = sx * 0.5 * boom;
+      }
+      return p;
+    }
+  },
+  // Side-to-side shuffle with arm pumps (120 bpm).
+  shuffle: {
+    duration: 4,
+    look: 0.2,
+    idleBlend: 0,
+    pose(t, d) {
+      const on = env(t, 0, 0.3, d - 0.35, d);
+      const beat = t * TAU * 2;
+      const side = Math.sin(beat / 2);
+      const p = {};
+      crouch(p, (0.16 + 0.08 * Math.abs(Math.sin(beat))) * on);
+      p["hips.px"] = 0.08 * side * on;
+      p["hips.rz"] = 0.05 * side * on;
+      p["spine.rz"] = -0.08 * side * on;
+      plantFeet(p);
+      const kickL = Math.max(0, Math.sin(beat)) * on;
+      const kickR = Math.max(0, -Math.sin(beat)) * on;
+      p["legL.rz"] += 0.22 * kickL;
+      p["footL.ry"] = 0.5 * kickL;
+      p["legR.rz"] -= 0.22 * kickR;
+      p["footR.ry"] = -0.5 * kickR;
+      for (const [s, sx] of [["L", 1], ["R", -1]]) {
+        const ph = s === "L" ? Math.sin(beat) : -Math.sin(beat);
+        p[`shoulder${s}.rx`] = (-0.3 - 0.45 * ph) * on;
+        p[`shoulder${s}.rz`] = sx * 0.25 * on;
+        p[`elbow${s}.rx`] = -1.5 * on;
+        p[`fingers${s}.rz`] = sx * 1.4 * on;
+      }
+      p["head.rx"] = 0.08 * Math.cos(beat) * on;
+      p["face.smile"] = 1;
+      p["face.squint"] = 0.6 * on;
+      p["face.open"] = 0.15 * on;
+      return p;
+    }
+  },
+  // Shoulder bounce + head bop to the beat.
+  bounce: {
+    duration: 4,
+    look: 0.3,
+    idleBlend: 0,
+    pose(t, d) {
+      const on = env(t, 0, 0.25, d - 0.35, d);
+      const beat = t * TAU * 2;
+      const b = Math.abs(Math.sin(beat)) * on;
+      const alt = Math.sin(beat);
+      const p = {};
+      crouch(p, 0.08 + 0.1 * b);
+      p["shoulderL.py"] = 0.03 * Math.max(0, alt) * on;
+      p["shoulderR.py"] = 0.03 * Math.max(0, -alt) * on;
+      p["spine.rz"] = 0.06 * alt * on;
+      p["body.ry"] = 0.25 * Math.sin(beat / 4) * on;
+      for (const [s, sx] of [["L", 1], ["R", -1]]) {
+        p[`shoulder${s}.rz`] = sx * 0.2 * on;
+        p[`shoulder${s}.rx`] = -0.25 * on;
+        p[`elbow${s}.rx`] = -1.1 * on;
+        p[`elbow${s}.ry`] = sx * 0.3 * on;
+        p[`hand${s}.rz`] = sx * 0.3 * Math.sin(beat) * on;
+      }
+      p["head.rx"] = 0.12 * b - 0.03;
+      p["head.rz"] = 0.08 * alt * on;
+      p["face.smile"] = 0.9;
+      p["face.squint"] = 0.7 * on;
+      p["face.mouthX"] = 0.2 * alt * on;
+      return p;
+    }
+  },
+  // Point at the viewer: "you!"
+  point: {
+    duration: 2,
+    look: 0.7,
+    pose(t, d) {
+      const e = env(t, 0, 0.3, d - 0.4, d);
+      const jab = 0.08 * Math.max(0, Math.sin((t - 0.3) * 9)) * env(t, 0.3, 0.4, 1, 1.2);
+      return {
+        "shoulderR.rx": (-1.3 - jab) * e,
+        "shoulderR.rz": -0.3 * e,
+        "elbowR.rx": -0.12 * e,
+        "handR.ry": -1.5 * e,
+        "fingersR.rz": 0.15 * e,
+        "thumbR.rx": -0.4 * e,
+        "spine.ry": -0.12 * e,
+        "spine.rx": 0.05 * e,
+        "head.rz": 0.08 * e,
+        "head.rx": 0.04 * e,
+        "shoulderL.rz": 0.12 * e,
+        "face.smile": 0.85,
+        "face.wink": env(t, 0.5, 0.6, 1.2, 1.35),
+        "face.brow": 0.4 * e
+      };
+    }
+  },
+  // Hands up, sway side to side: hype.
+  handsUp: {
+    duration: 3.2,
+    look: 0.2,
+    idleBlend: 0,
+    pose(t, d) {
+      const on = env(t, 0, 0.35, d - 0.4, d);
+      const sway = Math.sin(t * TAU * 1);
+      const p = {};
+      crouch(p, (0.08 + 0.08 * Math.abs(Math.sin(t * TAU * 2))) * on);
+      p["hips.px"] = 0.04 * sway * on;
+      p["spine.rz"] = -0.12 * sway * on;
+      plantFeet(p);
+      p["shoulderL.rz"] = (2.5 - 0.2 * sway) * on;
+      p["shoulderR.rz"] = -(2.5 + 0.2 * sway) * on;
+      p["elbowL.rz"] = 0.2 * on;
+      p["elbowR.rz"] = -0.2 * on;
+      p["handL.rz"] = 0.4 * sway * on;
+      p["handR.rz"] = 0.4 * sway * on;
+      p["head.rz"] = 0.1 * sway * on;
+      p["head.rx"] = -0.1 * on;
+      p["face.smile"] = 1;
+      p["face.open"] = 0.5 * on;
+      p["face.squint"] = 0.7 * on;
+      p["face.brow"] = 0.6 * on;
+      return p;
+    }
+  },
   // Little laugh: shoulders bounce, eyes squeeze.
   giggle: {
     duration: 1,

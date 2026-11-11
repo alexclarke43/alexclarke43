@@ -104,11 +104,12 @@ Commands sent before the iframe is ready are queued automatically.
 | `say(text, durationMs?)` | Show a speech bubble without moving |
 | `reset()` | Spin the avatar back to face the user |
 | `setLook(partialLook)` | Change the outfit or name, e.g. `{ name: 'Kai', body: 'female', hairStyle: 'bun', top: 'tee', height: 168 }` |
-| `openTab(tab)` | `react`, `chat`, `style` or `play` |
+| `openTab(tab)` | `react`, `chat`, `feed`, `style` or `play` |
+| `feed(action)` | For You feed: `play` (opens it), `pause`, `next` or `prev`. Pause it when the user leaves the screen. |
 | `chat(text)` | Send a chat message as the user. Opens the Chat tab and the avatar replies. |
 | `setLang(lang)` | `en` or `de`. Switches all avatar texts **live**: tabs, buttons, Style panel, games (even mid-quiz). The look, coins and a running game are kept. |
 | `startGame(game)` | `quiz` or `sort` (Need or Want?) |
-| `on(type, fn)` | Events: `ready`, `reaction`, `tap`, `look`, `game`, `coins`, `tab`, `lang`, `character`, `chat`, `error`, `*`. Returns an unsubscribe function. |
+| `on(type, fn)` | Events: `ready`, `reaction`, `tap`, `look`, `game`, `coins`, `tab`, `lang`, `character`, `chat`, `feed`, `error`, `*`. Returns an unsubscribe function. |
 
 Useful events for the platform:
 
@@ -118,6 +119,7 @@ avatar.on('look',  (e) => saveToUserProfile(e.look));   // persist the look serv
 avatar.on('coins', (e) => console.log(e.coins, e.delta));
 avatar.on('character', (e) => console.log('now showing', e.character)); // 'human' | 'sparkie'
 avatar.on('chat',  (e) => console.log(e.from, e.text));   // from: 'user' | 'avatar'
+avatar.on('feed',  (e) => console.log(e.phase, e.clip));  // phase: 'start' | 'end' | 'like' | 'save' | 'share'
 ```
 | `destroy()` | Remove the iframe and listeners |
 
@@ -169,7 +171,7 @@ Pass options as URL params (`index.html?lang=de&ui=0`), via the helper's `params
 | `ui` | `true` | Show the tab dock (buttons, Style, Play). Set `0` for a pure avatar. |
 | `character` | – | `human` or `sparkie`. Overrides the user's saved choice. |
 | `reactions` | `greet,celebrate,coin,nod,shrug,dance` | Which buttons to show, in order. Reactions the current character can't do are skipped (🪙 `coin` is Sparkie-only). |
-| `tabs` | `react,chat,style,play` | Which panels to offer. For example, `tabs=play` gives a games-only widget, `tabs=chat` a chat-only buddy. |
+| `tabs` | `react,chat,feed,style,play` | Which panels to offer. For example, `tabs=play` gives a games-only widget, `tabs=chat` a chat-only buddy, `tabs=feed` a clips-only widget. With 5 tabs on a phone, only the selected tab shows its label. |
 | `tab` | `react` | Panel that is open on load |
 | `look` | – | JSON look, e.g. `{"hairStyle":"long","top":"jacket","height":170}` (overrides the saved look) |
 | `persist` | `true` | Remember the look and coins in `localStorage` |
@@ -191,7 +193,7 @@ Booleans accept `0/1`, `true/false`, `on/off`.
 `examples/sparkasse-app.html` is a phone-style prototype of a banking app with the avatar built in (demo data, no logins, no official logos). It shows:
 
 * the avatar on the Start screen reacting to the app: saving catches a coin, reaching the goal celebrates, tapping a transaction gives a tip
-* the full avatar (Chat / React / Style / Play) in a Buddy tab that opens on the chat. The name and outfit stay in sync with the Start screen, whose card shows the buddy's name.
+* the full avatar (Chat / For You / React / Style / Play) in a Buddy tab that opens on the chat. The **For You** item in the bottom bar jumps straight into the clips feed, and leaving the screen pauses it. The name and outfit stay in sync with the Start screen, whose card shows the buddy's name.
 * a **Rewards** section: saving earns 2 points per €1 and card payments earn 1 point per €1 (try *Pay by card (demo)*). Points unlock perks for concerts, events and shopping, filterable by category. Unlocking shows a voucher code and the avatar celebrates. All partners and codes are made up; the data lives in `REWARDS` in the page script.
 * an **EN / DE switch** in the header. On first visit it uses `?lang=`, then the saved choice, then the browser language. Switching updates texts and number formats (`1.248,50 €` ↔ `€1,248.50`) and both avatars live through `setLang()`.
 
@@ -290,6 +292,27 @@ The replies come from a built-in, offline “brain” (`avatar/js/chat/brain.js`
 ```
 
 The endpoint should answer `{ "reply": "…", "reaction": "nod" }` (`reaction` is optional: `greet`, `celebrate`, `coin`, `nod`, `shrug` or `dance`). If the request fails or times out (12 s), the built-in brain answers instead. Renaming and opening tabs still work. Keep API keys on that server (for example a Cloudflare Worker), never in the page.
+
+## 5d. “For You” feed
+
+The **For You** tab (`▶️`) is a TikTok-style vertical feed in which the user's own customised avatar performs short clips:
+
+* **Learn clips** explain a money concept in 4–5 captioned steps: compound interest, 50/30/20, buy now pay later, emergency fund, spotting scams, inflation and ETFs. Watching one to the end earns **3 coins** (once per clip).
+* **Dance clips:** payday shuffle, hype hands, Friday bounce.
+* **Emote clips:** heart hands, flex, sad, giggle and more, with relatable money captions.
+
+The avatar has seven new original moves for this: `heart`, `flex`, `mindBlown`, `shuffle`, `bounce`, `point` and `handsUp`. Avatars without them (Sparkie, GLB models) fall back to the closest move they have.
+
+Controls:
+
+* swipe up/down, the ▲▼ buttons, the mouse wheel or ↑/↓ move between clips;
+* tap pauses (the avatar freezes like a paused video), double-tap likes with a heart burst, and Space toggles pause;
+* the side buttons like, save, share (native share sheet or copy) and toggle sound;
+* clips auto-advance.
+
+The background colour changes per clip. The handle is `@` plus the avatar's name, and the music line reads “original sound – {name}”. Sound is an optional beat generated with Web Audio (no audio files), off until the user taps 🔇. On wide screens the side panel lists all clips and shows which learn rewards were earned. Likes, saves and rewards are kept in localStorage.
+
+Clips are plain data in `avatar/js/feed/clips.js`: each has a `kind` (`learn` / `dance` / `emote`), a background, a title, hashtags and `steps` of `{ move, text: { en, de } }`. Add an entry to publish a new clip.
 
 ## 6. Money games
 
